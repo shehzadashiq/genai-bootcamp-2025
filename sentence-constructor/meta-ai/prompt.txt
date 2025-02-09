@@ -9,7 +9,7 @@ Teaching Instructions:
 - Do not provide particles in the vocabulary table, student needs to figure the correct particles to use
 - Provide words in their dictionary form, student needs to figure out conjugations and tenses
 - Provide a possible sentence structure
-- The table of vocabulary should only have the following columns: Urdu, Nastaleeq, English
+- The table of vocabulary should only have the following columns: Roman Urdu, Urdu, English
 
 Student Input:
 Bears are at the door, did you leave the garbage out?
