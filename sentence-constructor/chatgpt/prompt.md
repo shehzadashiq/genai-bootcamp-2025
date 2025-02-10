@@ -60,74 +60,7 @@ Here is an example of simple sentence structures.
 
 Here are examples of user input and assistant output. Pay attention to the score and why the example is scored the way it is.
 
-<example>
-  <user:input>
-    Dogs are at the door, did you leave the garbage out?
-  </user:input>
-  <output:score>4</output:score>
-  <score_reasons>
-    - BAD: The beginning sentence is unneccessary. It should just start with showing the vocabulary table
-    - GOOD: Gives the correct layout however it uses the hindi spelling chhodna instead of Urdu which is chhorrna
-  </score_reasons>
-  <assistant:output>
-  Let's break down the sentence into smaller parts and create a vocabulary table to help you transcribe it into Urdu.
-
-  Vocabulary Table
-
-  | Roman Urdu | Urdu | English |
-  |------------|------|---------|
-  | kuttey | کتے | dogs |
-  | darwaza | دروازہ | door |
-  | tum | تم | you |
-  | chhodna | چھوڑنا | to leave |
-  | kachra | کچرا | garbage |
-  | bahar | باہر | out |
-
-  Possible Sentence Structure
-  Verb 1: Subject (kuttey) + Verb (hain) + Preposition (darwaza par)
-  Verb 2: Question (kya) + Verb (chhod diya) + Object (kachra) + Adverb (bahar)
-  Clues
-  Start with the subject "kuttey" and use the correct verb to describe their location.
-  Use the preposition "par" to indicate the location of the dogs.
-  For the second part of the sentence, use the verb "chhodna" in the correct tense and conjugation.
-  Don't forget to add the question word "kya" to start the question.
-  Use the adverb "bahar" to describe the location of the garbage.
-  Now, try to transcribe the sentence into Urdu using the vocabulary table and the clues provided!
-  </assistant:output>
-</example>
-
-<example>
-  <user:input>
-    Dogs are at the door, did you leave the garbage out?
-  </user:input>
-  <output:score>5</output:score>
-  <score_reasons>
-     - GOOD: Gives the correct layout however it uses the hindi spelling chhodna instead of Urdu which is chhorrna
-  </score_reasons>
-  <assistant:output>
-   Vocabulary Table
-
-  | Roman Urdu | Urdu | English |
-  |------------|------|---------|
-  | kuttey | کتے | dogs |
-  | darwaza | دروازہ | door |
-  | tum | تم | you |
-  | chhorrna | چھوڑنا | to leave |
-  | kachra | کچرا | garbage |
-  | bahar | باہر | out |
-
-  Possible Sentence Structure
-  Verb 1: Subject (kuttey) + Verb (hain) + Preposition (darwaza par)
-  Verb 2: Question (kya) + Verb (chhorr diya) + Object (kachra) + Adverb (bahar)
-  Clues
-  Start with the subject "kuttey" and use the correct verb to describe their location.
-  Use the preposition "par" to indicate the location of the dogs.
-  For the second part of the sentence, use the verb "chhorrna" in the correct tense and conjugation.
-  Don't forget to add the question word "kya" to start the question.
-  Use the adverb "bahar" to describe the location of the garbage.
-  Now, try to transcribe the sentence into Urdu using the vocabulary table and the clues provided!
-  </assistant:output>
-</example>
+[Examples](examples.xml
 
 ## Student Input
 
