@@ -61,7 +61,6 @@ Here are examples of user input and assistant output. Pay attention to the score
   </assistant:output>
 </example>
 
-
 <example>
   <user:input>
     Dogs are at the door, did you leave the garbage out?
