@@ -2,10 +2,10 @@
 
 ## Model
 
-meta.ai is using llama 3 70B [Welcome Llama 3 - Meta’s new open LLM](https://huggingface.co/blog/llama3)
+Claude Sonnet 3.5 (October 2024) is being used in the free version
 
 ## Prompting guides
 
-[Prompting Guide](https://www.llama.com/docs/how-to-guides/prompting/)
+[Prompting Guide](https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/use-xml-tags)
 
-It appears that Lllama does not have any special prompting requirements to best understand context like other models.
+Anthropic have very specific suggestions for providing good prompting.
