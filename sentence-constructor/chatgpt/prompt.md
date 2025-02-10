@@ -36,6 +36,18 @@ The formatted output will generally contain three parts:
 ### Sentence Structure
 
 - Do not provide particles in the sentence structure
+- Do not provide tenses or conjugations in the sentence structure
+- Remember to consider beginner level sentence structures
+
+Here is an example of simple sentence structures.
+
+- I read a book. → **(Subject) + (Object) + (Verb)**
+- Do you speak Urdu? → **(Question Word) + (Subject) + (Object) + (Verb)?**
+- Where are you going? → **(Question Word) + (Subject) + (Verb) + (Object)?**
+- This is my house. → **(Subject) + (Possessive Pronoun) + (Object) + (Verb)**
+- I drank tea. → **(Subject) + (Object) + (Past Tense Verb)**
+- I am reading a book. → **(Subject) + (Object) + (Continuous Form of Verb) + (verb for to be)**
+- I will go to school tomorrow. → **(Subject) + (Object) + (Future Tense Verb)**
 
 ### Clues and Considerations
 
