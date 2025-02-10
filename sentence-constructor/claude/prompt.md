@@ -41,6 +41,7 @@ The formatted output will generally contain three parts:
 - Do not provide particles in the sentence structure
 - Do not provide tenses or conjugations in the sentence structure
 - Remember to consider beginner level sentence structures
+- Reference the <file>sentence-structure-examples.xml</file> for good sentence structure.
 
 Here is an example of simple sentence structures.
 
