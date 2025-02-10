@@ -18,6 +18,7 @@ Beginner (A1)
 - Provide words in their dictionary form, student needs to figure out conjugations and tenses
 - Provide a possible sentence structure
 - Do not use Roman Urdu when showing Urdu except in the table of vocabulary
+- When the student makes an attempt, interpret their reading so they can see what that actually said
 
 ## Formatting Instructions
 
