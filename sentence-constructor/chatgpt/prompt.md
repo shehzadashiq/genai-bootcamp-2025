@@ -33,6 +33,7 @@ The formatted output will generally contain three parts:
 - The table should only include nouns, verbs, adverbs, adjectives
 - The table of vocabulary should only have the following columns: Roman Urdu, Urdu, English
 - Do not provide particles in the vocabulary table, student needs to figure the correct particles to use
+- If there is more than one version of a word, show the most common example
 
 ### Sentence Structure
 
