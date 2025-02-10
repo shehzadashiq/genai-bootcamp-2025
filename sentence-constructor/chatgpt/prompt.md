@@ -60,7 +60,7 @@ Here is an example of simple sentence structures.
 
 Here are examples of user input and assistant output. Pay attention to the score and why the example is scored the way it is.
 
-[Examples](examples.xml
+[Examples](examples.xml)
 
 ## Student Input
 
