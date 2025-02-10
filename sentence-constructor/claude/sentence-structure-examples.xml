@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sentencePatterns>
+    <metadata>
+        <title>Basic Urdu Sentence Structures</title>
+        <language>English to Urdu</language>
+        <level>Beginner (A1)</level>
+    </metadata>
+
+    <basicPatterns>
+        <pattern id="1">
+            <english>I read a book.</english>
+            <structure>
+                <element position="1">Subject</element>
+                <element position="2">Object</element>
+                <element position="3">Verb</element>
+            </structure>
+        </pattern>
+
+        <pattern id="2">
+            <english>Do you speak Urdu?</english>
+            <structure>
+                <element position="1">Question Word</element>
+                <element position="2">Subject</element>
+                <element position="3">Object</element>
+                <element position="4">Verb</element>
+            </structure>
+            <type>question</type>
+        </pattern>
+
+        <pattern id="3">
+            <english>Where are you going?</english>
+            <structure>
+                <element position="1">Question Word</element>
+                <element position="2">Subject</element>
+                <element position="3">Verb</element>
+                <element position="4">Object</element>
+            </structure>
+            <type>question</type>
+        </pattern>
+
+        <pattern id="4">
+            <english>This is my house.</english>
+            <structure>
+                <element position="1">Subject</element>
+                <element position="2">Possessive Pronoun</element>
+                <element position="3">Object</element>
+                <element position="4">Verb</element>
+            </structure>
+        </pattern>
+
+        <pattern id="5">
+            <english>I drank tea.</english>
+            <structure>
+                <element position="1">Subject</element>
+                <element position="2">Object</element>
+                <element position="3">Past Tense Verb</element>
+            </structure>
+            <tense>past</tense>
+        </pattern>
+
+        <pattern id="6">
+            <english>I am reading a book.</english>
+            <structure>
+                <element position="1">Subject</element>
+                <element position="2">Object</element>
+                <element position="3">Continuous Form of Verb</element>
+                <element position="4">verb for to be</element>
+            </structure>
+            <tense>present_continuous</tense>
+        </pattern>
+
+        <pattern id="7">
+            <english>I will go to school tomorrow.</english>
+            <structure>
+                <element position="1">Subject</element>
+                <element position="2">Object</element>
+                <element position="3">Future Tense Verb</element>
+            </structure>
+            <tense>future</tense>
+        </pattern>
+    </basicPatterns>
+</sentencePatterns>
