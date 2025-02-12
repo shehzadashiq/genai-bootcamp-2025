@@ -72,10 +72,18 @@ def runserver(ctx, port=8000):
 
 
 @task
-def test(ctx):
+def test(ctx, coverage=False):
     """Run tests"""
-    print("Running tests...")
-    ctx.run("python scripts/manage.py test")
+    if coverage:
+        ctx.run("pytest --cov=internal --cov-report=html")
+    else:
+        ctx.run("pytest")
+
+
+@task
+def test_verbose(ctx):
+    """Run tests with verbose output"""
+    ctx.run("pytest -v")
 
 
 @task

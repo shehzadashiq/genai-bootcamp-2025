@@ -136,3 +136,20 @@ INFO 2025-02-12 19:15:21,223 basehttp 36556 38676 "GET /static/rest_framework/js
 INFO 2025-02-12 19:15:21,224 basehttp 36556 29588 "GET /static/rest_framework/js/bootstrap.min.js HTTP/1.1" 200 39680
 INFO 2025-02-12 19:15:21,226 basehttp 36556 36972 "GET /static/rest_framework/js/default.js HTTP/1.1" 200 1268
 INFO 2025-02-12 19:15:21,243 basehttp 36556 37376 "GET /static/rest_framework/img/grid.png HTTP/1.1" 200 1458
+INFO 2025-02-12 19:28:01,330 autoreload 33644 24820 Watching for file changes with StatReloader
+INFO 2025-02-12 19:28:26,141 basehttp 33644 22524 "GET /api/dashboard/last-study-session HTTP/1.1" 301 0
+INFO 2025-02-12 19:28:26,398 logging 33644 31120 API call to last_study_session
+INFO 2025-02-12 19:28:26,431 basehttp 33644 31120 "GET /api/dashboard/last-study-session/ HTTP/1.1" 200 5386
+INFO 2025-02-12 19:28:26,509 basehttp 33644 31120 "GET /static/rest_framework/css/bootstrap.min.css HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:26,540 basehttp 33644 31120 "GET /static/rest_framework/css/bootstrap-tweaks.css HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:26,540 basehttp 33644 11548 "GET /static/rest_framework/css/prettify.css HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:26,549 basehttp 33644 11548 "GET /static/rest_framework/js/jquery-3.5.1.min.js HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:26,549 basehttp 33644 31120 "GET /static/rest_framework/css/default.css HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:26,556 basehttp 33644 31120 "GET /static/rest_framework/js/ajax-form.js HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:26,557 basehttp 33644 11548 "GET /static/rest_framework/js/csrf.js HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:26,566 basehttp 33644 31120 "GET /static/rest_framework/js/prettify-min.js HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:26,567 basehttp 33644 11548 "GET /static/rest_framework/js/bootstrap.min.js HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:26,574 basehttp 33644 11548 "GET /static/rest_framework/js/default.js HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:26,979 basehttp 33644 11548 "GET /static/rest_framework/img/grid.png HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:41,316 logging 33644 11548 API call to study_progress
+INFO 2025-02-12 19:28:41,323 basehttp 33644 11548 "GET /api/dashboard/study-progress/ HTTP/1.1" 200 5444
