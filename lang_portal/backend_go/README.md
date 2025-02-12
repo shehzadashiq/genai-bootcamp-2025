@@ -43,6 +43,8 @@ A Go-based backend service for managing vocabulary learning and study sessions.
     - [Integration Tests](#integration-tests)
     - [Coverage](#coverage)
   - [Troubleshooting](#troubleshooting)
+  - [Testing Framework Troubleshooting](#testing-framework-troubleshooting)
+    - [SQLite In-Memory Database Concurrency Issues](#sqlite-in-memory-database-concurrency-issues)
 
 ## Overview
 
@@ -515,4 +517,61 @@ go test ./... -cover
     ```bash
     curl -X POST http://localhost:8080/api/full_reset
     ```
-  
+
+## Testing Framework Troubleshooting
+
+### SQLite In-Memory Database Concurrency Issues
+
+When running concurrent tests with SQLite in-memory databases, you may encounter these issues:
+- "no such table" errors
+- Missing data between operations
+- Inconsistent record counts
+
+**Root Cause:**
+SQLite in-memory databases create separate databases for each connection. In concurrent tests, goroutines may create new connections, resulting in isolated databases.
+
+**Solution:**
+
+1. Configure the connection pool to use a single connection
+
+```go
+db.SetMaxOpenConns(1)
+db.SetMaxIdleConns(1)
+db.SetConnMaxLifetime(0)
+```
+
+2. Add mutex synchronization for concurrent operations
+
+```go
+var mu sync.Mutex
+
+// In concurrent operations:
+mu.Lock()
+_, err := svc.ReviewWord(sessionID, wordID, true)
+mu.Unlock()
+```
+
+3. Use channels for error handling in goroutines:
+
+```go
+errChan := make(chan error, operationCount)
+go func() {
+    if err := operation(); err != nil {
+        errChan <- err
+    }
+}()
+
+// Check errors after operations complete
+for err := range errChan {
+    t.Errorf("Operation failed: %v", err)
+}
+```
+
+**Why This Works:**
+
+- Single connection ensures all operations use the same in-memory database
+- Mutex prevents race conditions during concurrent database access
+- Error channel allows proper error reporting from goroutines
+
+**Example:**
+See `TestConcurrentWordReviews` in `internal/service/concurrent_test.go` for a complete implementation.

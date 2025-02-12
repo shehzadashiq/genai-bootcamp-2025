@@ -20,6 +20,11 @@ func NewTestDB(t *testing.T) *TestDB {
 		t.Fatalf("Failed to open test db: %v", err)
 	}
 
+	// Configure connection pool for in-memory database
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	db.SetConnMaxLifetime(0)
+
 	// Enable foreign keys
 	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
 		t.Fatalf("Failed to enable foreign keys: %v", err)
