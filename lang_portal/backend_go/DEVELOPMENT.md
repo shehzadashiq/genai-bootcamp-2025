@@ -147,6 +147,7 @@ The database is seeded with sample data from JSON files in `db/seeds/`:
 To add new seed data:
 1. Create a new JSON file in `db/seeds/`
 2. Follow the format:
+
    ```json
    [
      {
@@ -159,6 +160,7 @@ To add new seed data:
      }
    ]
    ```
+
 3. Run `mage seed` to import the data
 
 ## Database Schema
