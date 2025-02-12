@@ -74,12 +74,18 @@ func Migrate() error {
 		}
 
 		// Split file into separate statements
-		statements := strings.Split(string(data), ";")
+		sqlContent := strings.TrimSpace(string(data))
+		statements := strings.Split(sqlContent, ";")
 		
 		for _, stmt := range statements {
 			stmt = strings.TrimSpace(stmt)
 			if stmt == "" {
 				continue
+			}
+			
+			// Add back the semicolon
+			if !strings.HasSuffix(stmt, ";") {
+				stmt += ";"
 			}
 
 			if _, err := db.Exec(stmt); err != nil {

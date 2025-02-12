@@ -144,7 +144,8 @@ The database is seeded with sample data from JSON files in `db/seeds/`:
 - `common_phrases.json` - Basic conversational phrases
 - `basic_words.json` - Common vocabulary words
 
-To add new seed data:
+### To add new seed data
+
 1. Create a new JSON file in `db/seeds/`
 2. Follow the format:
 

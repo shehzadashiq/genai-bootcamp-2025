@@ -246,14 +246,14 @@ func (s *Service) ListWords(page int) (*models.PaginatedResponse, error) {
 func (s *Service) GetWord(id int64) (*models.WordResponse, error) {
 	var word models.WordResponse
 	err := s.db.QueryRow(`
-		SELECT w.urdu, w.urdlish, w.english,
+		SELECT w.id, w.urdu, w.urdlish, w.english,
 			   COUNT(CASE WHEN wri.correct THEN 1 END) as correct_count,
 			   COUNT(CASE WHEN NOT wri.correct THEN 1 END) as wrong_count
 		FROM words w
 		LEFT JOIN word_review_items wri ON w.id = wri.word_id
 		WHERE w.id = ?
 		GROUP BY w.id
-	`, id).Scan(&word.Urdu, &word.Urdlish, &word.English, &word.CorrectCount, &word.WrongCount)
+	`, id).Scan(&word.ID, &word.Urdu, &word.Urdlish, &word.English, &word.CorrectCount, &word.WrongCount)
 	if err != nil {
 		return nil, err
 	}

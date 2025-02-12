@@ -34,6 +34,7 @@ type StudySessionResponse struct {
 }
 
 type WordResponse struct {
+	ID           int64  `json:"id"`
 	Urdu         string `json:"urdu"`
 	Urdlish      string `json:"urdlish"`
 	English      string `json:"english"`
