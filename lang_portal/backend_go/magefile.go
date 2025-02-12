@@ -15,86 +15,126 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// InitDB initializes the SQLite database
-func InitDB() error {
-	if _, err := os.Stat("words.db"); err == nil {
-		return fmt.Errorf("database already exists")
-	}
-
-	db, err := sql.Open("sqlite3", "words.db")
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	return nil
-}
-
-// Migrate runs all pending migrations
-func Migrate() error {
-	db, err := sql.Open("sqlite3", "words.db")
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	files, err := filepath.Glob("db/migrations/*.sql")
-	if err != nil {
-		return err
-	}
-
-	sort.Strings(files)
-
-	for _, file := range files {
-		content, err := os.ReadFile(file)
-		if err != nil {
-			return err
-		}
-
-		statements := strings.Split(string(content), ";")
-		for _, stmt := range statements {
-			if strings.TrimSpace(stmt) != "" {
-				if _, err := db.Exec(stmt); err != nil {
-					return fmt.Errorf("error executing %s: %v", file, err)
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
-// Seed imports data from JSON files
-func Seed() error {
-	db, err := sql.Open("sqlite3", "words.db")
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	files, err := filepath.Glob("db/seeds/*.json")
-	if err != nil {
-		return err
-	}
-
-	for _, file := range files {
-		// Get group name from filename
-		base := filepath.Base(file)
-		groupName := strings.TrimSuffix(base, filepath.Ext(base))
-		
-		if err := importSeedFile(db, file, groupName); err != nil {
-			return fmt.Errorf("error importing %s: %v", file, err)
-		}
-	}
-
-	return nil
-}
+const dbPath = "words.db"
 
 type seedWord struct {
 	Urdu    string          `json:"urdu"`
 	Urdlish string          `json:"urdlish"`
 	English string          `json:"english"`
 	Parts   json.RawMessage `json:"parts"`
+}
+
+// InitDB creates a new SQLite database
+func InitDB() error {
+	fmt.Println("Creating new database...")
+	
+	// Remove existing database if it exists
+	if _, err := os.Stat(dbPath); err == nil {
+		if err := os.Remove(dbPath); err != nil {
+			return fmt.Errorf("failed to remove existing database: %v", err)
+		}
+	}
+
+	// Create new database file
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		return fmt.Errorf("failed to create database: %v", err)
+	}
+	defer db.Close()
+
+	fmt.Println("Database created successfully")
+	return nil
+}
+
+// Migrate runs all database migrations
+func Migrate() error {
+	fmt.Println("Running migrations...")
+	
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		return fmt.Errorf("failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	// Read migrations from db/migrations directory
+	files, err := filepath.Glob("db/migrations/*.sql")
+	if err != nil {
+		return fmt.Errorf("failed to read migrations: %v", err)
+	}
+
+	// Sort files to ensure consistent order
+	sort.Strings(files)
+
+	for _, file := range files {
+		fmt.Printf("Running migration %s...\n", filepath.Base(file))
+		
+		data, err := ioutil.ReadFile(file)
+		if err != nil {
+			return fmt.Errorf("error reading %s: %v", file, err)
+		}
+
+		// Split file into separate statements
+		statements := strings.Split(string(data), ";")
+		
+		for _, stmt := range statements {
+			stmt = strings.TrimSpace(stmt)
+			if stmt == "" {
+				continue
+			}
+
+			if _, err := db.Exec(stmt); err != nil {
+				return fmt.Errorf("error executing %s: %v", file, err)
+			}
+		}
+	}
+
+	fmt.Println("Migrations completed successfully")
+	return nil
+}
+
+// Seed imports sample data
+func Seed() error {
+	fmt.Println("Importing sample data...")
+	
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		return fmt.Errorf("failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	// Add default study activities
+	activities := []struct {
+		name, desc string
+	}{
+		{"Vocabulary Quiz", "Practice your vocabulary with flashcards"},
+		{"Word Match", "Match words with their meanings"},
+		{"Sentence Builder", "Create sentences using learned words"},
+	}
+
+	for _, a := range activities {
+		_, err := db.Exec(`
+			INSERT INTO study_activities (name, description)
+			VALUES (?, ?)
+		`, a.name, a.desc)
+		if err != nil {
+			return fmt.Errorf("failed to insert activity: %v", err)
+		}
+	}
+
+	// Import seed data from JSON files
+	seedFiles := map[string]string{
+		"db/seeds/common_phrases.json": "Common Phrases",
+		"db/seeds/basic_words.json":    "Basic Words",
+	}
+
+	for file, groupName := range seedFiles {
+		if err := importSeedFile(db, file, groupName); err != nil {
+			return fmt.Errorf("error importing %s: %v", file, err)
+		}
+	}
+
+	fmt.Println("Sample data imported successfully")
+	return nil
 }
 
 func importSeedFile(db *sql.DB, filePath, groupName string) error {

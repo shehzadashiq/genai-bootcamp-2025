@@ -13,15 +13,42 @@ This guide explains how to set up and run the Language Learning Portal backend.
 
 2. Install SQLite3
 
-   ```bash
-   # Ubuntu/Debian
-   sudo apt-get install sqlite3
+   Windows:
+   - Download the SQLite tools from [SQLite Download Page](https://www.sqlite.org/download.html)
+   - Download the "Precompiled Binaries for Windows" bundle
+   - Extract sqlite3.exe to a folder in your PATH
+   - Verify installation: `sqlite3 --version`
+
+   macOS:
+   - brew install sqlite3
+
+   Ubuntu/Debian:
+   - sudo apt-get install sqlite3
+
+3. Install GCC (required for CGO)
+
+   Windows:
+   - Download and install [MSYS2](https://www.msys2.org/)
+   - Open MSYS2 and run `pacman -S mingw-w64-x86_64-gcc`
+   - Add `C:\msys64\mingw64\bin` to your system PATH
+
+   macOS:
+   - xcode-select --install
+
+   Ubuntu/Debian:
+   - sudo apt-get install build-essential
+
+4. Enable CGO
+
+   ```powershell
+   # Windows (PowerShell)
+   $env:CGO_ENABLED=1
    
-   # macOS
-   brew install sqlite3
+   # Linux/macOS
+   export CGO_ENABLED=1
    ```
 
-3. Install Mage
+5. Install Mage
 
    ```bash
    go install github.com/magefile/mage@latest
@@ -39,6 +66,7 @@ This guide explains how to set up and run the Language Learning Portal backend.
 
    ```bash
    go mod download
+   go mod tidy
    ```
 
 3. Initialize the database:
@@ -109,17 +137,78 @@ sqlite3 words.db
 .quit            -- Exit SQLite shell
 ```
 
+## Database Seeding
+
+The database is seeded with sample data from JSON files in `db/seeds/`:
+
+- `common_phrases.json` - Basic conversational phrases
+- `basic_words.json` - Common vocabulary words
+
+To add new seed data:
+1. Create a new JSON file in `db/seeds/`
+2. Follow the format:
+   ```json
+   [
+     {
+       "urdu": "سلام",
+       "urdlish": "salaam",
+       "english": "hello",
+       "parts": {
+         "type": "greeting"
+       }
+     }
+   ]
+   ```
+3. Run `mage seed` to import the data
+
+## Database Schema
+
+The database includes these main tables:
+
+- `words` - Vocabulary entries
+- `groups` - Word groupings (e.g., "Common Phrases")
+- `words_groups` - Many-to-many relationship between words and groups
+- `study_activities` - Types of study activities
+- `study_sessions` - Records of study sessions
+- `word_review_items` - Individual word reviews during sessions
+
 ## Troubleshooting
 
-1. If the database is corrupted:
+1. If you get "go-sqlite3 requires cgo to work":
 
-   ```bash
+   ```powershell
+   # Windows (PowerShell)
+   $env:CGO_ENABLED=1
+   
+   # Linux/macOS
+   export CGO_ENABLED=1
+   
+   # Then rebuild and run
+   go mod tidy
+   mage migrate
+   ```
+
+2. If the database is corrupted:
+
+   ```powershell
    mage initdb
    mage migrate
    mage seed
    ```
 
-2. If port 8080 is in use:
+3. If port 8080 is in use:
+
+   Windows
+
+   ```powershell
+   # Find process using port 8080
+   netstat -ano | findstr :8080
+   
+   # Kill the process (replace PID with the number from above)
+   taskkill /PID <PID> /F
+   ```
+
+   Linux/macOS:
 
    ```bash
    # Find process using port 8080
@@ -129,7 +218,7 @@ sqlite3 words.db
    kill <PID>
    ```
 
-3. To reset all data:
+4. To reset all data:
 
    ```bash
    curl -X POST http://localhost:8080/api/full_reset
