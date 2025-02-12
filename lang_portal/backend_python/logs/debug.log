@@ -1,0 +1,177 @@
+INFO 2025-02-12 19:10:56,239 autoreload 34444 12176 Watching for file changes with StatReloader
+INFO 2025-02-12 19:11:51,362 autoreload 37300 36388 Watching for file changes with StatReloader
+INFO 2025-02-12 19:12:49,431 basehttp 37300 22364 "GET /api/dashboard/quick-stats HTTP/1.1" 301 0
+INFO 2025-02-12 19:12:49,661 logging 37300 29896 API call to quick_stats
+ERROR 2025-02-12 19:12:49,663 logging 37300 29896 Error in quick_stats: Cannot resolve keyword 'study_sessions' into field. Choices are: id, name, studysession, wordgroup, words
+ERROR 2025-02-12 19:12:49,702 log 37300 29896 Internal Server Error: /api/dashboard/quick-stats/
+Traceback (most recent call last):
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\views\decorators\csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\rest_framework\viewsets.py", line 125, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\rest_framework\views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\rest_framework\views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\rest_framework\views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\rest_framework\views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\internal\utils\logging.py", line 16, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\internal\handlers\api_views.py", line 86, in quick_stats
+    Group.objects.filter(
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\db\models\query.py", line 1476, in filter
+    return self._filter_or_exclude(False, args, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\db\models\query.py", line 1494, in _filter_or_exclude
+    clone._filter_or_exclude_inplace(negate, args, kwargs)
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\db\models\query.py", line 1501, in _filter_or_exclude_inplace
+    self._query.add_q(Q(*args, **kwargs))
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\db\models\sql\query.py", line 1613, in add_q
+    clause, _ = self._add_q(q_object, self.used_aliases)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\db\models\sql\query.py", line 1645, in _add_q
+    child_clause, needed_inner = self.build_filter(
+                                 ^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\db\models\sql\query.py", line 1495, in build_filter
+    lookups, parts, reffed_expression = self.solve_lookup_type(arg, summarize)
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\db\models\sql\query.py", line 1307, in solve_lookup_type
+    _, field, _, lookup_parts = self.names_to_path(lookup_splitted, self.get_meta())
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\db\models\sql\query.py", line 1772, in names_to_path
+    raise FieldError(
+django.core.exceptions.FieldError: Cannot resolve keyword 'study_sessions' into field. Choices are: id, name, studysession, wordgroup, words
+ERROR 2025-02-12 19:12:49,707 basehttp 37300 29896 "GET /api/dashboard/quick-stats/ HTTP/1.1" 500 150371
+WARNING 2025-02-12 19:12:50,331 log 37300 29896 Not Found: /favicon.ico
+WARNING 2025-02-12 19:12:50,332 basehttp 37300 29896 "GET /favicon.ico HTTP/1.1" 404 3419
+INFO 2025-02-12 19:13:53,538 autoreload 37300 36388 E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\config\urls.py changed, reloading.
+INFO 2025-02-12 19:13:55,059 autoreload 32240 22860 Watching for file changes with StatReloader
+INFO 2025-02-12 19:14:14,302 autoreload 26596 6720 Watching for file changes with StatReloader
+INFO 2025-02-12 19:14:18,984 logging 26596 24340 API call to quick_stats
+ERROR 2025-02-12 19:14:18,986 logging 26596 24340 Error in quick_stats: Cannot resolve keyword 'study_sessions' into field. Choices are: id, name, studysession, wordgroup, words
+ERROR 2025-02-12 19:14:19,021 log 26596 24340 Internal Server Error: /api/dashboard/quick-stats/
+Traceback (most recent call last):
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\views\decorators\csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\rest_framework\viewsets.py", line 125, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\rest_framework\views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\rest_framework\views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\rest_framework\views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\rest_framework\views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\internal\utils\logging.py", line 16, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\internal\handlers\api_views.py", line 86, in quick_stats
+    Group.objects.filter(
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\db\models\query.py", line 1476, in filter
+    return self._filter_or_exclude(False, args, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\db\models\query.py", line 1494, in _filter_or_exclude
+    clone._filter_or_exclude_inplace(negate, args, kwargs)
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\db\models\query.py", line 1501, in _filter_or_exclude_inplace
+    self._query.add_q(Q(*args, **kwargs))
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\db\models\sql\query.py", line 1613, in add_q
+    clause, _ = self._add_q(q_object, self.used_aliases)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\db\models\sql\query.py", line 1645, in _add_q
+    child_clause, needed_inner = self.build_filter(
+                                 ^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\db\models\sql\query.py", line 1495, in build_filter
+    lookups, parts, reffed_expression = self.solve_lookup_type(arg, summarize)
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\db\models\sql\query.py", line 1307, in solve_lookup_type
+    _, field, _, lookup_parts = self.names_to_path(lookup_splitted, self.get_meta())
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\venv\Lib\site-packages\django\db\models\sql\query.py", line 1772, in names_to_path
+    raise FieldError(
+django.core.exceptions.FieldError: Cannot resolve keyword 'study_sessions' into field. Choices are: id, name, studysession, wordgroup, words
+ERROR 2025-02-12 19:14:19,025 basehttp 26596 24340 "GET /api/dashboard/quick-stats/ HTTP/1.1" 500 150508
+INFO 2025-02-12 19:15:03,488 autoreload 26596 6720 E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\internal\handlers\api_views.py changed, reloading.
+INFO 2025-02-12 19:15:05,183 autoreload 37428 28380 Watching for file changes with StatReloader
+INFO 2025-02-12 19:15:16,744 autoreload 36556 22332 Watching for file changes with StatReloader
+INFO 2025-02-12 19:15:20,727 logging 36556 38676 API call to quick_stats
+INFO 2025-02-12 19:15:20,770 basehttp 36556 38676 "GET /api/dashboard/quick-stats/ HTTP/1.1" 200 5498
+INFO 2025-02-12 19:15:20,870 basehttp 36556 38676 "GET /static/rest_framework/css/bootstrap.min.css HTTP/1.1" 200 121457
+INFO 2025-02-12 19:15:20,989 basehttp 36556 29588 "GET /static/rest_framework/css/bootstrap-tweaks.css HTTP/1.1" 200 3385
+INFO 2025-02-12 19:15:21,065 basehttp 36556 38676 "GET /static/rest_framework/css/prettify.css HTTP/1.1" 200 817
+INFO 2025-02-12 19:15:21,128 basehttp 36556 32860 "GET /static/rest_framework/js/ajax-form.js HTTP/1.1" 200 3597
+INFO 2025-02-12 19:15:21,129 basehttp 36556 37608 "GET /static/rest_framework/js/csrf.js HTTP/1.1" 200 1719
+INFO 2025-02-12 19:15:21,129 basehttp 36556 36972 "GET /static/rest_framework/css/default.css HTTP/1.1" 200 1152
+INFO 2025-02-12 19:15:21,131 basehttp 36556 37376 "GET /static/rest_framework/js/jquery-3.5.1.min.js HTTP/1.1" 200 89476
+INFO 2025-02-12 19:15:21,223 basehttp 36556 38676 "GET /static/rest_framework/js/prettify-min.js HTTP/1.1" 200 13632
+INFO 2025-02-12 19:15:21,224 basehttp 36556 29588 "GET /static/rest_framework/js/bootstrap.min.js HTTP/1.1" 200 39680
+INFO 2025-02-12 19:15:21,226 basehttp 36556 36972 "GET /static/rest_framework/js/default.js HTTP/1.1" 200 1268
+INFO 2025-02-12 19:15:21,243 basehttp 36556 37376 "GET /static/rest_framework/img/grid.png HTTP/1.1" 200 1458
+INFO 2025-02-12 19:28:01,330 autoreload 33644 24820 Watching for file changes with StatReloader
+INFO 2025-02-12 19:28:26,141 basehttp 33644 22524 "GET /api/dashboard/last-study-session HTTP/1.1" 301 0
+INFO 2025-02-12 19:28:26,398 logging 33644 31120 API call to last_study_session
+INFO 2025-02-12 19:28:26,431 basehttp 33644 31120 "GET /api/dashboard/last-study-session/ HTTP/1.1" 200 5386
+INFO 2025-02-12 19:28:26,509 basehttp 33644 31120 "GET /static/rest_framework/css/bootstrap.min.css HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:26,540 basehttp 33644 31120 "GET /static/rest_framework/css/bootstrap-tweaks.css HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:26,540 basehttp 33644 11548 "GET /static/rest_framework/css/prettify.css HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:26,549 basehttp 33644 11548 "GET /static/rest_framework/js/jquery-3.5.1.min.js HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:26,549 basehttp 33644 31120 "GET /static/rest_framework/css/default.css HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:26,556 basehttp 33644 31120 "GET /static/rest_framework/js/ajax-form.js HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:26,557 basehttp 33644 11548 "GET /static/rest_framework/js/csrf.js HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:26,566 basehttp 33644 31120 "GET /static/rest_framework/js/prettify-min.js HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:26,567 basehttp 33644 11548 "GET /static/rest_framework/js/bootstrap.min.js HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:26,574 basehttp 33644 11548 "GET /static/rest_framework/js/default.js HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:26,979 basehttp 33644 11548 "GET /static/rest_framework/img/grid.png HTTP/1.1" 304 0
+INFO 2025-02-12 19:28:41,316 logging 33644 11548 API call to study_progress
+INFO 2025-02-12 19:28:41,323 basehttp 33644 11548 "GET /api/dashboard/study-progress/ HTTP/1.1" 200 5444
+INFO 2025-02-12 20:41:54,659 logging 33644 33168 API call to list
+INFO 2025-02-12 20:41:54,679 basehttp 33644 33168 "GET /api/words/ HTTP/1.1" 200 10067
+INFO 2025-02-12 20:41:54,781 basehttp 33644 33168 "GET /static/rest_framework/css/bootstrap.min.css HTTP/1.1" 304 0
+INFO 2025-02-12 20:41:54,809 basehttp 33644 33168 "GET /static/rest_framework/css/bootstrap-tweaks.css HTTP/1.1" 304 0
+INFO 2025-02-12 20:41:54,816 basehttp 33644 33168 "GET /static/rest_framework/css/prettify.css HTTP/1.1" 304 0
+INFO 2025-02-12 20:41:54,821 basehttp 33644 33168 "GET /static/rest_framework/css/default.css HTTP/1.1" 304 0
+INFO 2025-02-12 20:41:54,826 basehttp 33644 33168 "GET /static/rest_framework/js/jquery-3.5.1.min.js HTTP/1.1" 304 0
+INFO 2025-02-12 20:41:54,832 basehttp 33644 33168 "GET /static/rest_framework/js/ajax-form.js HTTP/1.1" 304 0
+INFO 2025-02-12 20:41:54,838 basehttp 33644 33168 "GET /static/rest_framework/js/csrf.js HTTP/1.1" 304 0
+INFO 2025-02-12 20:41:54,842 basehttp 33644 33168 "GET /static/rest_framework/js/bootstrap.min.js HTTP/1.1" 304 0
+INFO 2025-02-12 20:41:54,847 basehttp 33644 33168 "GET /static/rest_framework/js/prettify-min.js HTTP/1.1" 304 0
+INFO 2025-02-12 20:41:54,852 basehttp 33644 33168 "GET /static/rest_framework/js/default.js HTTP/1.1" 304 0
+INFO 2025-02-12 20:41:55,059 basehttp 33644 33168 "GET /static/rest_framework/img/grid.png HTTP/1.1" 304 0
+INFO 2025-02-12 20:42:04,528 logging 33644 33168 API call to retrieve
+INFO 2025-02-12 20:42:04,538 basehttp 33644 33168 "GET /api/words/1/ HTTP/1.1" 200 11520
+INFO 2025-02-12 20:42:20,493 basehttp 33644 33168 "GET /api/groups/ HTTP/1.1" 200 8843
+INFO 2025-02-12 21:08:38,921 autoreload 33644 24820 E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\config\urls.py changed, reloading.
+INFO 2025-02-12 21:08:40,339 autoreload 44000 30584 Watching for file changes with StatReloader
+INFO 2025-02-12 21:08:43,058 autoreload 44000 30584 E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\internal\handlers\api_views.py changed, reloading.
+INFO 2025-02-12 21:08:44,336 autoreload 42708 42256 Watching for file changes with StatReloader
+INFO 2025-02-12 21:10:28,253 autoreload 42708 42256 E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\internal\handlers\api_views.py changed, reloading.
+INFO 2025-02-12 21:10:29,683 autoreload 42132 40980 Watching for file changes with StatReloader
