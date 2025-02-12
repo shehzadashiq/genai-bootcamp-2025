@@ -45,6 +45,7 @@ A Go-based backend service for managing vocabulary learning and study sessions.
   - [Troubleshooting](#troubleshooting)
   - [Testing Framework Troubleshooting](#testing-framework-troubleshooting)
     - [SQLite In-Memory Database Concurrency Issues](#sqlite-in-memory-database-concurrency-issues)
+  - [References](#references)
 
 ## Overview
 
@@ -575,3 +576,9 @@ for err := range errChan {
 
 **Example:**
 See `TestConcurrentWordReviews` in `internal/service/concurrent_test.go` for a complete implementation.
+
+## References
+
+Because sometimes AI does not have all the answers. There is no alternative to good old troubleshooting.
+
+- [How to Install GCC and GDB on Windows Using MSYS2 — Tutorial](https://sajidifti.medium.com/how-to-install-gcc-and-gdb-on-windows-using-msys2-tutorial-0fceb7e66454)
