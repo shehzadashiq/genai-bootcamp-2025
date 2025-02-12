@@ -1,0 +1,20 @@
+[
+    {
+        "urdu": "سلام",
+        "urdlish": "salaam",
+        "english": "hello",
+        "parts": {
+            "type": "greeting",
+            "formality": "informal"
+        }
+    },
+    {
+        "urdu": "خدا حافظ",
+        "urdlish": "khuda hafiz",
+        "english": "goodbye",
+        "parts": {
+            "type": "greeting",
+            "formality": "formal"
+        }
+    }
+]
