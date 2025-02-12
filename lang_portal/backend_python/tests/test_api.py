@@ -96,8 +96,8 @@ class TestWordEndpoints:
         url = reverse("word-list")
         response = api_client.get(url)
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data["results"]) == 1
-        assert response.data["results"][0]["english"] == sample_word.english
+        assert len(response.data) == 1
+        assert response.data[0]["english"] == sample_word.english
 
     def test_create_word(self, api_client):
         url = reverse("word-list")
@@ -129,8 +129,8 @@ class TestGroupEndpoints:
         url = reverse("group-list")
         response = api_client.get(url)
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data["results"]) == 1
-        assert response.data["results"][0]["name"] == sample_group.name
+        assert len(response.data) == 1
+        assert response.data[0]["name"] == sample_group.name
 
     def test_create_group(self, api_client):
         url = reverse("group-list")
@@ -169,7 +169,7 @@ class TestStudySessionEndpoints:
         data = {"word_id": sample_word.id, "correct": True}
         response = api_client.post(url, data)
         assert response.status_code == status.HTTP_200_OK
-        assert response.data["correct"] is True
+        assert response.data["correct"] == True
         assert WordReviewItem.objects.count() == 1
 
 

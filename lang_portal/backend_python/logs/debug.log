@@ -153,3 +153,25 @@ INFO 2025-02-12 19:28:26,574 basehttp 33644 11548 "GET /static/rest_framework/js
 INFO 2025-02-12 19:28:26,979 basehttp 33644 11548 "GET /static/rest_framework/img/grid.png HTTP/1.1" 304 0
 INFO 2025-02-12 19:28:41,316 logging 33644 11548 API call to study_progress
 INFO 2025-02-12 19:28:41,323 basehttp 33644 11548 "GET /api/dashboard/study-progress/ HTTP/1.1" 200 5444
+INFO 2025-02-12 20:41:54,659 logging 33644 33168 API call to list
+INFO 2025-02-12 20:41:54,679 basehttp 33644 33168 "GET /api/words/ HTTP/1.1" 200 10067
+INFO 2025-02-12 20:41:54,781 basehttp 33644 33168 "GET /static/rest_framework/css/bootstrap.min.css HTTP/1.1" 304 0
+INFO 2025-02-12 20:41:54,809 basehttp 33644 33168 "GET /static/rest_framework/css/bootstrap-tweaks.css HTTP/1.1" 304 0
+INFO 2025-02-12 20:41:54,816 basehttp 33644 33168 "GET /static/rest_framework/css/prettify.css HTTP/1.1" 304 0
+INFO 2025-02-12 20:41:54,821 basehttp 33644 33168 "GET /static/rest_framework/css/default.css HTTP/1.1" 304 0
+INFO 2025-02-12 20:41:54,826 basehttp 33644 33168 "GET /static/rest_framework/js/jquery-3.5.1.min.js HTTP/1.1" 304 0
+INFO 2025-02-12 20:41:54,832 basehttp 33644 33168 "GET /static/rest_framework/js/ajax-form.js HTTP/1.1" 304 0
+INFO 2025-02-12 20:41:54,838 basehttp 33644 33168 "GET /static/rest_framework/js/csrf.js HTTP/1.1" 304 0
+INFO 2025-02-12 20:41:54,842 basehttp 33644 33168 "GET /static/rest_framework/js/bootstrap.min.js HTTP/1.1" 304 0
+INFO 2025-02-12 20:41:54,847 basehttp 33644 33168 "GET /static/rest_framework/js/prettify-min.js HTTP/1.1" 304 0
+INFO 2025-02-12 20:41:54,852 basehttp 33644 33168 "GET /static/rest_framework/js/default.js HTTP/1.1" 304 0
+INFO 2025-02-12 20:41:55,059 basehttp 33644 33168 "GET /static/rest_framework/img/grid.png HTTP/1.1" 304 0
+INFO 2025-02-12 20:42:04,528 logging 33644 33168 API call to retrieve
+INFO 2025-02-12 20:42:04,538 basehttp 33644 33168 "GET /api/words/1/ HTTP/1.1" 200 11520
+INFO 2025-02-12 20:42:20,493 basehttp 33644 33168 "GET /api/groups/ HTTP/1.1" 200 8843
+INFO 2025-02-12 21:08:38,921 autoreload 33644 24820 E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\config\urls.py changed, reloading.
+INFO 2025-02-12 21:08:40,339 autoreload 44000 30584 Watching for file changes with StatReloader
+INFO 2025-02-12 21:08:43,058 autoreload 44000 30584 E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\internal\handlers\api_views.py changed, reloading.
+INFO 2025-02-12 21:08:44,336 autoreload 42708 42256 Watching for file changes with StatReloader
+INFO 2025-02-12 21:10:28,253 autoreload 42708 42256 E:\Training\genAi\genai-bootcamp-2025\lang_portal\backend_python\internal\handlers\api_views.py changed, reloading.
+INFO 2025-02-12 21:10:29,683 autoreload 42132 40980 Watching for file changes with StatReloader

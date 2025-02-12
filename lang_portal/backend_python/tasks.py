@@ -2,6 +2,13 @@ from invoke import task
 import os
 import json
 from pathlib import Path
+import sys
+
+
+def set_django_env():
+    """Set environment variables for Django"""
+    os.environ["PYTHONPATH"] = "."
+    os.environ["DJANGO_SETTINGS_MODULE"] = "config.settings_test"
 
 
 @task
@@ -74,6 +81,7 @@ def runserver(ctx, port=8000):
 @task
 def test(ctx, coverage=False):
     """Run tests"""
+    set_django_env()
     if coverage:
         ctx.run("pytest --cov=internal --cov-report=html")
     else:
@@ -83,6 +91,7 @@ def test(ctx, coverage=False):
 @task
 def test_verbose(ctx):
     """Run tests with verbose output"""
+    set_django_env()
     ctx.run("pytest -v")
 
 

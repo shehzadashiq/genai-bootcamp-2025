@@ -10,7 +10,8 @@ This guide explains how to test the various endpoints in the Language Learning P
 pip install httpie
 ```
 
-1. Start the development server:
+1. Start the development server
+
 ```bash
 python -m invoke runserver
 ```
@@ -19,11 +20,14 @@ python -m invoke runserver
 
 ### Dashboard Endpoints
 
-1. Quick Stats
+### Quick Stats
+
 ```bash
 http GET http://localhost:8000/api/dashboard/quick-stats/
 ```
+
 Expected response:
+
 ```json
 {
     "success_rate": 80.0,
@@ -33,11 +37,14 @@ Expected response:
 }
 ```
 
-2. Last Study Session
+### Last Study Session
+
 ```bash
 http GET http://localhost:8000/api/dashboard/last-study-session/
 ```
+
 Expected response:
+
 ```json
 {
     "id": 123,
@@ -48,11 +55,14 @@ Expected response:
 }
 ```
 
-3. Study Progress
+### Study Progress
+
 ```bash
 http GET http://localhost:8000/api/dashboard/study-progress/
 ```
+
 Expected response:
+
 ```json
 {
     "total_words_studied": 3,
@@ -62,17 +72,20 @@ Expected response:
 
 ### Word Management
 
-1. List Words
+#### List Words
+
 ```bash
 http GET http://localhost:8000/api/words/
 ```
 
-2. Get Word Details
+#### Get Word Details
+
 ```bash
 http GET http://localhost:8000/api/words/1/
 ```
 
-3. Create Word
+#### Create Word
+
 ```bash
 http POST http://localhost:8000/api/words/ \
     urdu="سلام" \
@@ -83,36 +96,42 @@ http POST http://localhost:8000/api/words/ \
 
 ### Group Management
 
-1. List Groups
+#### List Groups
+
 ```bash
 http GET http://localhost:8000/api/groups/
 ```
 
-2. Get Group Details
+#### Get Group Details
+
 ```bash
 http GET http://localhost:8000/api/groups/1/
 ```
 
-3. Get Group Words
+#### Get Group Words
+
 ```bash
 http GET http://localhost:8000/api/groups/1/words/
 ```
 
-4. Create Group
+#### Create Group
+
 ```bash
 http POST http://localhost:8000/api/groups/ name="Basic Phrases"
 ```
 
 ### Study Sessions
 
-1. Start Study Session
+#### Start Study Session
+
 ```bash
 http POST http://localhost:8000/api/study-activities/start_session/ \
     group_id=1 \
     study_activity_id=1
 ```
 
-2. Record Word Review
+#### Record Word Review
+
 ```bash
 http POST http://localhost:8000/api/study-sessions/1/review_word/ \
     word_id=1 \
@@ -121,12 +140,14 @@ http POST http://localhost:8000/api/study-sessions/1/review_word/ \
 
 ### System Management
 
-1. Reset Study History
+#### Reset Study History
+
 ```bash
 http POST http://localhost:8000/api/reset-history/
 ```
 
-2. Full System Reset
+#### Full System Reset
+
 ```bash
 http POST http://localhost:8000/api/full-reset/
 ```
@@ -134,11 +155,13 @@ http POST http://localhost:8000/api/full-reset/
 ## Testing with Sample Data
 
 1. First, seed the database with sample data:
+
 ```bash
 python -m invoke seed-all
 ```
 
 2. Test a complete study flow:
+
 ```bash
 # 1. Get available groups
 http GET http://localhost:8000/api/groups/
@@ -159,12 +182,14 @@ http GET http://localhost:8000/api/dashboard/quick-stats/
 
 ## Rate Limiting
 
-The API includes rate limiting:
+The API includes rate limiting
+
 - Anonymous users: 100 requests per minute
 - Study sessions: 30 requests per minute
 - Word reviews: 60 requests per minute
 
-To test rate limiting:
+To test rate limiting
+
 ```bash
 # Run this in a loop to trigger rate limiting
 for i in {1..40}; do 
@@ -180,8 +205,9 @@ done
 
 ## Using the Swagger UI
 
-For interactive API testing:
-1. Visit http://localhost:8000/swagger/
+For interactive API testing
+
+1. Visit [http://localhost:8000/swagger/](http://localhost:8000/swagger/)
 2. Click on an endpoint to expand it
 3. Click "Try it out"
 4. Fill in the parameters
@@ -190,18 +216,21 @@ For interactive API testing:
 ## Using the ReDoc Documentation
 
 For detailed API documentation:
-1. Visit http://localhost:8000/redoc/
+
+1. Visit [http://localhost:8000/redoc/](http://localhost:8000/redoc/)
 2. Browse the organized documentation
 3. Use the search function to find specific endpoints
 
 ## Monitoring
 
-1. Check application logs:
+1. Check application logs
+
 ```bash
 tail -f logs/debug.log
 ```
 
 2. View health status:
+
 ```bash
 http GET http://localhost:8000/health/
-``` 
+```
