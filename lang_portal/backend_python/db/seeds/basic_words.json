@@ -1,0 +1,17 @@
+[
+    {
+        "urdu": "سلام",
+        "urdlish": "salaam",
+        "english": "hello",
+        "parts": {
+            "pos": [
+                "interjection"
+            ],
+            "categories": [
+                "common",
+                "greetings"
+            ],
+            "difficulty": "beginner"
+        }
+    }
+]

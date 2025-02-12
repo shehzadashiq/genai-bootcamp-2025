@@ -1,6 +1,137 @@
 # Language Learning Portal Backend
 
-A Django-based backend service for a language learning portal that manages vocabulary, study sessions, and learning progress.
+A Django-based backend for the language learning portal.
+
+## Setup
+
+1. Create and activate a virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+3. Initialize the database:
+```bash
+python -m invoke init-db
+python -m invoke migrate
+```
+
+4. Seed initial data:
+```bash
+python -m invoke seed-all
+```
+
+## Development
+
+### Available Commands
+
+Use invoke to run common development tasks:
+
+```bash
+# Run database migrations
+python -m invoke migrate
+
+# Start development server
+python -m invoke runserver
+
+# Format code using black
+python -m invoke format
+
+# Run linting checks
+python -m invoke lint
+
+# Run tests
+python -m invoke test
+
+# Clean Python cache files
+python -m invoke clean
+
+# Reset database
+python -m invoke reset-db
+
+# Generate API documentation
+python -m invoke generate-docs
+
+# Seed all predefined data
+python -m invoke seed-all
+
+# Seed specific data file
+python -m invoke seed-data --file-path=db/seeds/basic_words.json --group-name="Basic Words"
+```
+
+### Seeding Data
+
+The project includes commands for seeding initial data. Seed files should be JSON files in the `db/seeds` directory with this structure:
+```json
+[
+    {
+        "urdu": "سلام",
+        "urdlish": "salaam",
+        "english": "hello",
+        "parts": {
+            "pos": [
+                "interjection"
+            ],
+            "categories": [
+                "common",
+                "greetings"
+            ],
+            "difficulty": "beginner"
+        }
+    }
+]
+```
+
+### Project Structure
+
+```
+backend_python/
+├── config/                 # Django settings and configuration
+├── internal/              # Main application code
+│   ├── handlers/          # API views and request handling
+│   ├── models/           # Database models and serializers
+│   ├── utils/            # Utility functions and classes
+│   └── management/       # Custom Django management commands
+├── scripts/              # Management scripts
+├── db/                   # Database and seed files
+│   └── seeds/           # JSON seed data files
+└── logs/                # Application logs
+```
+
+### API Documentation
+
+After starting the development server, visit:
+- Swagger UI: http://localhost:8000/swagger/
+- ReDoc: http://localhost:8000/redoc/
+
+## Testing
+
+Run the test suite:
+```bash
+python -m invoke test
+```
+
+## Contributing
+
+1. Format code before committing:
+```bash
+python -m invoke format
+```
+
+2. Run linting checks:
+```bash
+python -m invoke lint
+```
+
+3. Ensure all tests pass:
+```bash
+python -m invoke test
+```
 
 ## Features
 
@@ -25,7 +156,7 @@ A Django-based backend service for a language learning portal that manages vocab
 
 1. Create and activate a virtual environment:
 ```bash
-python -m venv venv
+python -m venv .venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
@@ -286,14 +417,6 @@ flake8 .
 - Health Check: `/health/`
 - Performance Monitoring: Check logs in `/var/log/django/debug.log`
 - Query Monitoring: Available in development through Django Debug Toolbar
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
 
 ## License
 
