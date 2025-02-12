@@ -1,465 +1,518 @@
-# Backend Server Technical Specs
+# Language Learning Portal Backend
 
-## Business Goal
+A Go-based backend service for managing vocabulary learning and study sessions.
 
-A language learning school wants to build a prototype of learning portal which will act as three things:
+## Table of Contents
 
-- Inventory of possible vocabulary that can be learned
-- Act as a Learning record store (LRS), providing correct and wrong score on practice vocabulary
-- A unified launchpad to launch different learning apps
+- [Language Learning Portal Backend](#language-learning-portal-backend)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Technical Specifications](#technical-specifications)
+  - [Features](#features)
+  - [Prerequisites](#prerequisites)
+  - [Setup](#setup)
+  - [Development](#development)
+    - [Start the server](#start-the-server)
+    - [Available Commands](#available-commands)
+    - [Testing the API](#testing-the-api)
+    - [Development Database](#development-database)
+    - [Database Migrations](#database-migrations)
+    - [Common SQLite Commands](#common-sqlite-commands)
+  - [Project Structure](#project-structure)
+  - [Database](#database)
+    - [Schema](#schema)
+      - [words](#words)
+      - [groups](#groups)
+      - [words\_groups](#words_groups)
+    - [Seeding](#seeding)
+  - [API Documentation](#api-documentation)
+    - [Authentication](#authentication)
+    - [Response Format](#response-format)
+    - [Error Responses](#error-responses)
+    - [Pagination](#pagination)
+    - [Key Endpoints](#key-endpoints)
+      - [Dashboard](#dashboard)
+      - [Study Activities](#study-activities)
+      - [Words](#words-1)
+      - [Groups](#groups-1)
+      - [Study Sessions](#study-sessions)
+      - [System](#system)
+  - [Testing](#testing)
+    - [Service Tests](#service-tests)
+    - [Handler Tests](#handler-tests)
+    - [Integration Tests](#integration-tests)
+    - [Coverage](#coverage)
+  - [Troubleshooting](#troubleshooting)
 
-## Technical Requirements
+## Overview
 
-- The backend will be built using Go
-- The database will be SQLite3
-- The API will be built using Gin
-- Mage is a task runner for Go
-- The API will always return JSON
-- There will no authentication or authorization
-- Everything be treated as a single user
+The Language Learning Portal backend provides
 
-## Directory Structure
+- Inventory of possible vocabulary
+- Learning record store (LRS) for practice tracking
+- Unified launchpad for learning apps
+
+## Technical Specifications
+
+- **Language**: Go 1.21+
+- **Database**: SQLite3
+- **Framework**: Gin
+- **Task Runner**: Mage
+- **Response Format**: JSON
+- **Authentication**: None (single user)
+- **Pagination**: 100 items per page
+
+## Features
+
+- Vocabulary management with groups
+- Study session tracking
+- Progress monitoring
+- Word review history
+- Dashboard with statistics
+
+## Prerequisites
+
+Note: Make sure to set up your environment variables before running the application:
+
+```bash
+# Required for SQLite
+export CGO_ENABLED=1  # Linux/macOS
+$env:CGO_ENABLED=1   # Windows PowerShell
+
+# Optional: Set custom port
+export PORT=8080     # Default is 8080
+```
+
+1. Install Go 1.21 or later
+
+    Windows:
+    - Download installer from [Go Downloads](https://golang.org/dl/)
+    - Run the installer
+    - Verify installation: `go version`
+    - Add to PATH if needed: `C:\Go\bin`
+
+    macOS:
+
+    ```bash
+    brew install go
+    go version
+    ```
+
+    Ubuntu/Debian:
+
+    ```bash
+    wget https://golang.org/dl/go1.21.linux-amd64.tar.gz
+    sudo tar -C /usr/local -xzf go1.21.linux-amd64.tar.gz
+    echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.profile
+    source ~/.profile
+    go version
+    ```
+
+2. Install SQLite3
+
+   Windows:
+   - Download from [SQLite Download Page](https://www.sqlite.org/download.html)
+   - Extract sqlite3.exe to PATH
+
+   macOS:
+   - `brew install sqlite3`
+
+   Ubuntu/Debian:
+   - `sudo apt-get install sqlite3`
+
+3. Install GCC (required for CGO)
+
+   Windows:
+   - Install [MSYS2](https://www.msys2.org/)
+   - Run `pacman -S mingw-w64-x86_64-gcc`
+   - Add `C:\msys64\mingw64\bin` to PATH
+
+   macOS:
+   - `xcode-select --install`
+
+   Ubuntu/Debian:
+   - `sudo apt-get install build-essential`
+
+4. Enable CGO
+
+   ```powershell
+   # Windows (PowerShell)
+   $env:CGO_ENABLED=1
+   
+   # Linux/macOS
+   export CGO_ENABLED=1
+   ```
+
+5. Install Mage
+
+   ```bash
+   go install github.com/magefile/mage@latest
+   ```
+
+## Setup
+
+1. Clone and navigate:
+
+   ```bash
+   cd lang_portal/backend_go
+   ```
+
+2. Install dependencies:
+
+   ```bash
+   go mod download
+   go mod tidy
+   ```
+
+3. Initialize database:
+
+   ```bash
+   mage initdb
+   mage migrate
+   mage seed
+   ```
+
+## Development
+
+### Start the server
+
+- `go run cmd/server/main.go`
+
+Server runs at [http://localhost:8080](http://localhost:8080)
+
+### Available Commands
+
+- `mage initdb` - Creates database
+- `mage migrate` - Runs migrations
+- `mage seed` - Imports sample data
+
+### Testing the API
+
+You can test the API using curl:
+
+```bash
+# Get dashboard stats
+curl http://localhost:8080/api/dashboard/quick-stats
+
+# Get list of words
+curl http://localhost:8080/api/words?page=1
+
+# Create a study session
+curl -X POST http://localhost:8080/api/study_activities \
+  -H "Content-Type: application/json" \
+  -d '{"group_id": 1, "study_activity_id": 1}'
+```
+
+### Development Database
+
+The SQLite database is stored in `words.db` in the project root. You can inspect it using:
+
+```bash
+sqlite3 words.db
+```
+
+To verify installation:
+
+```bash
+sqlite3 --version
+```
+
+### Database Migrations
+
+The database schema is managed through migrations in `db/migrations/`. Each migration file contains SQL statements to create or modify tables.
+
+To apply migrations:
+
+```bash
+mage migrate
+```
+
+To verify migrations:
+
+```sql
+.schema           -- Show all table schemas
+SELECT * FROM sqlite_master WHERE type='table';  -- List all tables
+```
+
+### Common SQLite Commands
+
+```sql
+.tables           -- List all tables
+.schema words     -- Show schema for words table
+.quit            -- Exit SQLite shell
+```
+
+## Project Structure
 
 ```text
 backend_go/
-├── cmd/
-│   └── server/
-├── internal/
-│   ├── models/     # Data structures and database operations
-│   ├── handlers/   # HTTP handlers organized by feature
-│   └── service/    # Business logic
-├── db/
-│   ├── migrations/
-│   └── seeds/      # For initial data population
-├── magefile.go
-├── go.mod
-└── words.db
+├── cmd/server/      # Application entry point
+├── internal/        # Internal packages
+│   ├── models/      # Data structures
+│   ├── handlers/    # HTTP handlers
+│   ├── service/     # Business logic
+│   └── middleware/  # HTTP middleware
+└── db/             # Database files
+    ├── migrations/  # SQL migrations
+    └── seeds/       # Sample data
 ```
 
-## Database Schema
+## Database
 
-Our database will be a single sqlite database called `words.db` that will be in the root of the project folder of `backend_go`.
+### Schema
 
-We have the following tables:
+- `words` - Vocabulary entries
+- `groups` - Word groupings
+- `words_groups` - Many-to-many relationships
+- `study_activities` - Study activity types
+- `study_sessions` - Study session records
+- `word_review_items` - Word review history
 
-- words - stored vocabulary words
-  - id integer
-  - urdu string
-  - urdlish string
-  - english string
-  - parts json
-- words_groups - join table for words and groups many-to-many
-  - id integer
-  - word_id integer
-  - group_id integer
-- groups - thematic groups of words
-  - id integer
-  - name string
-- study_sessions - records of study sessions grouping word_review_items
-  - id integer
-  - group_id integer
-  - created_at datetime
-  - study_activity_id integer
-- study_activities - a specific study activity, linking a study session to group
-  - id integer
-  - study_session_id integer
-  - group_id integer
-  - created_at datetime
-- word_review_items - a record of word practice, determining if the word was correct or not
-  - word_id integer
-  - study_session_id integer
-  - correct boolean
-  - created_at datetime
-
-## API Endpoints
-
-### GET /api/dashboard/last_study_session
-
-Returns information about the most recent study session.
-
-#### JSON Response
-
-```json
-{
-  "id": 123,
-  "group_id": 456,
-  "created_at": "2025-02-08T17:20:23-05:00",
-  "study_activity_id": 789,
-  "group_id": 456,
-  "group_name": "Basic Greetings"
-}
-```
-
-### GET /api/dashboard/study_progress
-
-Returns study progress statistics.
-Please note that the frontend will determine progress bar basedon total words studied and total available words.
-
-#### JSON Response
-
-```json
-{
-  "total_words_studied": 3,
-  "total_available_words": 124,
-}
-```
-
-### GET /api/dashboard/quick-stats
-
-Returns quick overview statistics.
-
-#### JSON Response
-
-```json
-{
-  "success_rate": 80.0,
-  "total_study_sessions": 4,
-  "total_active_groups": 3,
-  "study_streak_days": 4
-}
-```
-
-### GET /api/study_activities/:id
-
-#### JSON Response
-
-```json
-{
-  "id": 1,
-  "name": "Vocabulary Quiz",
-  "thumbnail_url": "https://example.com/thumbnail.jpg",
-  "description": "Practice your vocabulary with flashcards"
-}
-```
-
-### GET /api/study_activities/:id/study_sessions
-
-- pagination with 100 items per page
-
-```json
-{
-  "items": [
-    {
-      "id": 123,
-      "activity_name": "Vocabulary Quiz",
-      "group_name": "Basic Greetings",
-      "start_time": "2025-02-08T17:20:23-05:00",
-      "end_time": "2025-02-08T17:30:23-05:00",
-      "review_items_count": 20
-    }
-  ],
-  "pagination": {
-    "current_page": 1,
-    "total_pages": 5,
-    "total_items": 100,
-    "items_per_page": 20
-  }
-}
-```
-
-### POST /api/study_activities
-
-#### Request Params
-
-- group_id integer
-- study_activity_id integer
-
-#### JSON Response
-
-{
-  "id": 124,
-  "group_id": 123
-}
-
-### GET /api/words
-
-- pagination with 100 items per page
-
-#### JSON Response
-
-```json
-{
-  "items": [
-    {
-      "urdu": "سلام",
-      "urdlish": "salaam",
-      "english": "hello",
-      "correct_count": 5,
-      "wrong_count": 2
-    }
-  ],
-  "pagination": {
-    "current_page": 1,
-    "total_pages": 5,
-    "total_items": 500,
-    "items_per_page": 100
-  }
-}
-```
-
-### GET /api/words/:id
-
-#### JSON Response
-
-```json
-{
-  "": "سلام",
-  "urdlish": "salaam",
-  "english": "hello",
-  "stats": {
-    "correct_count": 5,
-    "wrong_count": 2
-  },
-  "groups": [
-    {
-      "id": 1,
-      "name": "Basic Greetings"
-    }
-  ]
-}
-```
-
-### GET /api/groups
-
-- pagination with 100 items per page
-
-#### JSON Response
-
-```json
-{
-  "items": [
-    {
-      "id": 1,
-      "name": "Basic Greetings",
-      "word_count": 20
-    }
-  ],
-  "pagination": {
-    "current_page": 1,
-    "total_pages": 1,
-    "total_items": 10,
-    "items_per_page": 100
-  }
-}
-```
-
-### GET /api/groups/:id
-
-#### JSON Response
-
-```json
-{
-  "id": 1,
-  "name": "Basic Greetings",
-  "stats": {
-    "total_word_count": 20
-  }
-}
-```
-
-### GET /api/groups/:id/words
-
-#### JSON Response
-
-```json
-{
-  "items": [
-    {
-      "urdu": "سلام",
-      "urdlish": "salaam",
-      "english": "hello",
-      "correct_count": 5,
-      "wrong_count": 2
-    }
-  ],
-  "pagination": {
-    "current_page": 1,
-    "total_pages": 1,
-    "total_items": 20,
-    "items_per_page": 100
-  }
-}
-```
-
-### GET /api/groups/:id/study_sessions
-
-#### JSON Response
-
-```json
-{
-  "items": [
-    {
-      "id": 123,
-      "activity_name": "Vocabulary Quiz",
-      "group_name": "Basic Greetings",
-      "start_time": "2025-02-08T17:20:23-05:00",
-      "end_time": "2025-02-08T17:30:23-05:00",
-      "review_items_count": 20
-    }
-  ],
-  "pagination": {
-    "current_page": 1,
-    "total_pages": 1,
-    "total_items": 5,
-    "items_per_page": 100
-  }
-}
-```
-
-### GET /api/study_sessions
-
-- pagination with 100 items per page
-
-#### JSON Response
-
-```json
-{
-  "items": [
-    {
-      "id": 123,
-      "activity_name": "Vocabulary Quiz",
-      "group_name": "Basic Greetings",
-      "start_time": "2025-02-08T17:20:23-05:00",
-      "end_time": "2025-02-08T17:30:23-05:00",
-      "review_items_count": 20
-    }
-  ],
-  "pagination": {
-    "current_page": 1,
-    "total_pages": 5,
-    "total_items": 100,
-    "items_per_page": 100
-  }
-}
-```
-
-### GET /api/study_sessions/:id
-
-#### JSON Response
-
-```json
-{
-  "id": 123,
-  "activity_name": "Vocabulary Quiz",
-  "group_name": "Basic Greetings",
-  "start_time": "2025-02-08T17:20:23-05:00",
-  "end_time": "2025-02-08T17:30:23-05:00",
-  "review_items_count": 20
-}
-```
-
-### GET /api/study_sessions/:id/words
-
-- pagination with 100 items per page
-
-#### JSON Response
-
-```json
-{
-  "items": [
-    {
-      "urdu": "سلام",
-      "urdlish": "salaam",
-      "english": "hello",
-      "correct_count": 5,
-      "wrong_count": 2
-    }
-  ],
-  "pagination": {
-    "current_page": 1,
-    "total_pages": 1,
-    "total_items": 20,
-    "items_per_page": 100
-  }
-}
-```
-
-### POST /api/reset_history
-
-#### JSON Response
-
-```json
-{
-  "success": true,
-  "message": "Study history has been reset"
-}
-```
-
-### POST /api/full_reset
-
-#### JSON Response
-
-```json
-{
-  "success": true,
-  "message": "System has been fully reset"
-}
-```
-
-### POST /api/study_sessions/:id/words/:word_id/review
-
-#### Request Params
-
-- id (study_session_id) integer
-- word_id integer
-- correct boolean
-
-#### Request Payload
-
-```json
-{
-  "correct": true
-}
-```
-
-#### JSON Response
-
-```json
-{
-  "success": true,
-  "word_id": 1,
-  "study_session_id": 123,
-  "correct": true,
-  "created_at": "2025-02-08T17:33:07-05:00"
-}
-```
-
-## Task Runner Tasks
-
-Lets list out possible tasks we need for our lang portal.
-
-### Initialize Database
-
-This task will initialize the sqlite database called `words.db
-
-### Migrate Database
-
-This task will run a series of migrations sql files on the database
-
-Migrations live in the `migrations` folder.
-The migration files will be run in order of their file name.
-The file names should looks like this:
+#### words
 
 ```sql
-0001_init.sql
-0002_create_words_table.sql
+CREATE TABLE words (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    urdu TEXT NOT NULL,
+    urdlish TEXT NOT NULL,
+    english TEXT NOT NULL,
+    parts TEXT
+);
 ```
 
-### Seed Data
+#### groups
 
-This task will import json files and transform them into target data for our database.
+```sql
+CREATE TABLE groups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL
+);
+```
 
-All seed files live in the `seeds` folder.
+#### words_groups
 
-In our task we should have DSL to specific each seed file and its expected group word name.
+```sql
+CREATE TABLE words_groups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    word_id INTEGER NOT NULL,
+    group_id INTEGER NOT NULL,
+    FOREIGN KEY (word_id) REFERENCES words(id),
+    FOREIGN KEY (group_id) REFERENCES groups(id)
+);
+```
+
+### Seeding
+
+Add new words via JSON files in `db/seeds/`
 
 ```json
 [
   {
-    "urdu": "ادائیگی",
-    "urdlish": "adaegee",
-    "english": "pay",
-  },
-  ...
+    "urdu": "سلام",
+    "urdlish": "salaam",
+    "english": "hello",
+    "parts": {
+      "type": "greeting"
+    }
+  }
 ]
 ```
+
+## API Documentation
+
+All endpoints return JSON and are prefixed with `/api`. For detailed documentation, see [API.md](API.md).
+
+### Authentication
+
+This API does not require authentication as it's designed for single-user use.
+
+### Response Format
+
+All responses follow this structure:
+
+```json
+{
+    "data": {}, // Response data
+    "meta": {}, // Additional metadata
+    "pagination": {} // For paginated responses
+}
+```
+
+### Error Responses
+
+Error responses follow this format:
+
+```json
+{
+    "error": "Error message description",
+    "code": "ERROR_CODE"
+}
+```
+
+Common status codes:
+
+- 400 - Bad Request (invalid input)
+- 404 - Not Found
+- 500 - Internal Server Error
+
+### Pagination
+
+List endpoints support pagination with these query parameters:
+
+- `page` - Page number (default: 1)
+- `per_page` - Items per page (default: 100)
+
+Response includes pagination metadata:
+
+```json
+{
+    "pagination": {
+        "current_page": 1,
+        "total_pages": 5,
+        "total_items": 50,
+        "items_per_page": 100
+    }
+}
+```
+
+### Key Endpoints
+
+#### Dashboard
+
+- `GET /dashboard/last_study_session` - Latest study session
+- `GET /dashboard/study_progress` - Overall progress
+- `GET /dashboard/quick-stats` - Dashboard statistics
+
+```json
+{
+    "total_words_studied": 50,
+    "total_available_words": 100
+}
+```
+
+#### Study Activities
+
+- `GET /study_activities/:id` - Activity details
+
+```json
+{
+    "id": 1,
+    "name": "Vocabulary Quiz",
+    "thumbnail_url": "https://example.com/thumbnails/1.jpg",
+    "description": "Practice your vocabulary with flashcards"
+}
+```
+
+#### Words
+
+- `GET /words` - List all words
+
+```json
+{
+    "items": [
+        {
+            "urdu": "سلام",
+            "urdlish": "salaam",
+            "english": "hello",
+            "correct_count": 5,
+            "wrong_count": 1
+        }
+    ],
+    "pagination": {
+        "current_page": 1,
+        "total_pages": 5,
+        "total_items": 50,
+        "items_per_page": 100
+    }
+}
+```
+
+#### Groups
+
+- `GET /groups` - List all groups
+- `GET /groups/:id` - Group details
+- `GET /groups/:id/words` - Words in group
+- `GET /groups/:id/study_sessions` - Group study sessions
+
+#### Study Sessions
+
+- `GET /study_sessions` - List all sessions
+- `GET /study_sessions/:id` - Session details
+- `GET /study_sessions/:id/words` - Words reviewed in session
+- `POST /study_sessions/:id/words/:word_id/review` - Record word review
+
+#### System
+
+- `POST /reset_history` - Reset study history
+- `POST /full_reset` - Reset entire system
+
+## Testing
+
+### Service Tests
+
+```bash
+go test ./internal/service -v
+```
+
+Tests business logic layer
+
+### Handler Tests
+
+```bash
+go test ./internal/handlers -v
+```
+
+Tests HTTP endpoints
+
+### Integration Tests
+
+```bash
+go test ./... -v        # All tests
+go test ./... -short    # Skip integration
+```
+
+### Coverage
+
+```bash
+go test ./... -cover
+```
+
+## Troubleshooting
+
+1. CGO Issues:
+
+   ```bash
+   export CGO_ENABLED=1
+   go mod tidy
+   ```
+
+2. Database Issues:
+
+    ```bash
+    mage initdb
+    mage migrate
+    mage seed
+    ```
+
+3. Port Conflicts:
+
+    Windows:
+
+    ```powershell
+    netstat -ano | findstr :8080
+    taskkill /PID <PID> /F
+    ```
+
+    Linux/macOS:
+
+    ```bash
+    lsof -i :8080
+    kill <PID>
+    ```
+
+4. Reset Data:
+
+    ```bash
+    curl -X POST http://localhost:8080/api/full_reset
+    ```
+  

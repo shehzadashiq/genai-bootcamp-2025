@@ -372,3 +372,64 @@ Resets entire system including words and groups.
     "message": "System has been fully reset"
 }
 ```
+
+## Testing
+
+The API includes comprehensive test coverage across multiple layers:
+
+### Service Tests
+```bash
+go test ./internal/service -v
+```
+
+Tests the business logic layer:
+- Word management (create, read, list)
+- Study sessions and activities
+- Progress tracking and statistics
+- Error cases and edge conditions
+
+### Handler Tests
+```bash
+go test ./internal/handlers -v
+```
+
+Tests the HTTP layer:
+- Endpoint responses
+- JSON validation
+- Error responses
+- Parameter validation
+
+### Integration Tests
+```bash
+# Run all tests
+go test ./... -v
+
+# Skip integration tests
+go test ./... -short
+```
+
+Tests full workflows:
+- Complete study sessions
+- Word review cycles
+- Statistics calculations
+
+### Concurrent Tests
+```bash
+go test ./internal/service -run TestConcurrent
+```
+
+Tests concurrent access:
+- Multiple simultaneous reviews
+- Database transaction integrity
+
+### Test Coverage
+```bash
+go test ./... -cover
+```
+
+Key areas covered:
+- Service layer: Core business logic
+- Handlers: API endpoints
+- Middleware: CORS, error handling, rate limiting
+- Database: Connections, migrations, transactions
+- Edge cases: Invalid inputs, missing data, error conditions

@@ -13,11 +13,17 @@ type Service struct {
 	db *sql.DB
 }
 
-func NewService(dbPath string) *Service {
+// NewService creates a new service with the given database path
+func NewService(dbPath string) (*Service, error) {
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to open database: %v", err)
 	}
+	return &Service{db: db}, nil
+}
+
+// NewServiceWithDB creates a new service with an existing database connection
+func NewServiceWithDB(db *sql.DB) *Service {
 	return &Service{db: db}
 }
 
@@ -179,9 +185,9 @@ func (s *Service) GetStudyActivitySessions(id int64, page int) (*models.Paginate
 
 func (s *Service) CreateStudyActivity(groupID, studyActivityID int64) (*models.StudyActivityResponse, error) {
 	result, err := s.db.Exec(`
-		INSERT INTO study_activities (group_id, created_at)
-		VALUES (?, ?)
-	`, groupID, time.Now())
+		INSERT INTO study_activities (name, description, group_id, created_at)
+		VALUES (?, ?, ?, ?)
+	`, fmt.Sprintf("Study Session %d", studyActivityID), "New study session", groupID, time.Now())
 	if err != nil {
 		return nil, err
 	}
@@ -200,6 +206,9 @@ func (s *Service) CreateStudyActivity(groupID, studyActivityID int64) (*models.S
 
 // Words methods
 func (s *Service) ListWords(page int) (*models.PaginatedResponse, error) {
+	if page < 1 {
+		return nil, fmt.Errorf("invalid page number: %d", page)
+	}
 	offset := (page - 1) * 100
 	rows, err := s.db.Query(`
 		SELECT w.id, w.urdu, w.urdlish, w.english,

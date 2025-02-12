@@ -17,18 +17,6 @@ func RegisterWordsRoutes(r *gin.RouterGroup, svc *service.Service) {
 	}
 }
 
-func (h *Handler) ListWords(c *gin.Context) {
-	page := c.DefaultQuery("page", "1")
-	pageNum, _ := strconv.Atoi(page)
-
-	words, err := h.svc.ListWords(pageNum)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, words)
-}
-
 func (h *Handler) GetWord(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {

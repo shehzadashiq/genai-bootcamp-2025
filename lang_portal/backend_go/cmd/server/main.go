@@ -11,7 +11,10 @@ import (
 
 func main() {
 	// Initialize services
-	svc := service.NewService("words.db")
+	svc, err := service.NewService("words.db")
+	if err != nil {
+		log.Fatalf("Failed to create service: %v", err)
+	}
 	defer svc.Close()
 
 	// Setup router
