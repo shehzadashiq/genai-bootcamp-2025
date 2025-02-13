@@ -10,7 +10,7 @@ import (
 )
 
 type Service struct {
-	db *sql.DB
+	db *models.DB
 }
 
 // NewService creates a new service with the given database path
@@ -19,12 +19,12 @@ func NewService(dbPath string) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %v", err)
 	}
-	return &Service{db: db}, nil
+	return &Service{db: models.NewDB(db)}, nil
 }
 
 // NewServiceWithDB creates a new service with an existing database connection
 func NewServiceWithDB(db *sql.DB) *Service {
-	return &Service{db: db}
+	return &Service{db: models.NewDB(db)}
 }
 
 func (s *Service) Close() error {
@@ -204,6 +204,55 @@ func (s *Service) CreateStudyActivity(groupID, studyActivityID int64) (*models.S
 	}, nil
 }
 
+func (s *Service) GetStudyActivities(page int) (*models.PaginatedResponse, error) {
+	itemsPerPage := 100
+	offset := (page - 1) * itemsPerPage
+
+	rows, err := s.db.Query(`
+		SELECT id, name, thumbnail_url, description
+		FROM study_activities
+		LIMIT ? OFFSET ?
+	`, itemsPerPage, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var activities []*models.StudyActivity
+	for rows.Next() {
+		activity := &models.StudyActivity{}
+		err := rows.Scan(
+			&activity.ID,
+			&activity.Name,
+			&activity.ThumbnailURL,
+			&activity.Description,
+		)
+		if err != nil {
+			return nil, err
+		}
+		activities = append(activities, activity)
+	}
+
+	// Get total count for pagination
+	var total int
+	err = s.db.QueryRow(`
+		SELECT COUNT(*) FROM study_activities
+	`).Scan(&total)
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.PaginatedResponse{
+		Items: activities,
+		Pagination: models.Pagination{
+			CurrentPage:  page,
+			TotalPages:  (total + itemsPerPage - 1) / itemsPerPage,
+			TotalItems:  total,
+			ItemsPerPage: itemsPerPage,
+		},
+	}, nil
+}
+
 // Words methods
 func (s *Service) ListWords(page int) (*models.PaginatedResponse, error) {
 	if page < 1 {
@@ -329,11 +378,11 @@ func (s *Service) GetGroupWords(id int64, page int) (*models.PaginatedResponse, 
 	offset := (page - 1) * 100
 	rows, err := s.db.Query(`
 		SELECT w.urdu, w.urdlish, w.english,
-			   COUNT(CASE WHEN wri.correct THEN 1 END) as correct_count,
-			   COUNT(CASE WHEN NOT wri.correct THEN 1 END) as wrong_count
+			   COUNT(CASE WHEN wri2.correct THEN 1 END) as correct_count,
+			   COUNT(CASE WHEN NOT wri2.correct THEN 1 END) as wrong_count
 		FROM words w
 		JOIN words_groups wg ON w.id = wg.word_id
-		LEFT JOIN word_review_items wri ON w.id = wri.word_id
+		LEFT JOIN word_review_items wri2 ON w.id = wri2.word_id
 		WHERE wg.group_id = ?
 		GROUP BY w.id
 		LIMIT 100 OFFSET ?

@@ -27,7 +27,7 @@ type seedWord struct {
 // InitDB creates a new SQLite database
 func InitDB() error {
 	fmt.Println("Creating new database...")
-	
+
 	// Remove existing database if it exists
 	if _, err := os.Stat(dbPath); err == nil {
 		if err := os.Remove(dbPath); err != nil {
@@ -36,11 +36,19 @@ func InitDB() error {
 	}
 
 	// Create new database file
-	db, err := sql.Open("sqlite3", dbPath)
+	db, err := sql.Open("sqlite3", dbPath+"?_journal=WAL&_timeout=5000&_fk=true&cache=shared")
 	if err != nil {
 		return fmt.Errorf("failed to create database: %v", err)
 	}
 	defer db.Close()
+
+	// Enable WAL mode and set busy timeout
+	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+		return fmt.Errorf("failed to set journal mode: %v", err)
+	}
+	if _, err := db.Exec("PRAGMA busy_timeout=5000"); err != nil {
+		return fmt.Errorf("failed to set busy timeout: %v", err)
+	}
 
 	fmt.Println("Database created successfully")
 	return nil
@@ -49,12 +57,20 @@ func InitDB() error {
 // Migrate runs all database migrations
 func Migrate() error {
 	fmt.Println("Running migrations...")
-	
-	db, err := sql.Open("sqlite3", dbPath)
+
+	db, err := sql.Open("sqlite3", dbPath+"?_journal=WAL&_timeout=5000&_fk=true&cache=shared")
 	if err != nil {
 		return fmt.Errorf("failed to open database: %v", err)
 	}
 	defer db.Close()
+
+	// Enable WAL mode and set busy timeout
+	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+		return fmt.Errorf("failed to set journal mode: %v", err)
+	}
+	if _, err := db.Exec("PRAGMA busy_timeout=5000"); err != nil {
+		return fmt.Errorf("failed to set busy timeout: %v", err)
+	}
 
 	// Read migrations from db/migrations directory
 	files, err := filepath.Glob("db/migrations/*.sql")
@@ -67,7 +83,7 @@ func Migrate() error {
 
 	for _, file := range files {
 		fmt.Printf("Running migration %s...\n", filepath.Base(file))
-		
+
 		data, err := ioutil.ReadFile(file)
 		if err != nil {
 			return fmt.Errorf("error reading %s: %v", file, err)
@@ -76,13 +92,13 @@ func Migrate() error {
 		// Split file into separate statements
 		sqlContent := strings.TrimSpace(string(data))
 		statements := strings.Split(sqlContent, ";")
-		
+
 		for _, stmt := range statements {
 			stmt = strings.TrimSpace(stmt)
 			if stmt == "" {
 				continue
 			}
-			
+
 			// Add back the semicolon
 			if !strings.HasSuffix(stmt, ";") {
 				stmt += ";"
@@ -101,12 +117,27 @@ func Migrate() error {
 // Seed imports sample data
 func Seed() error {
 	fmt.Println("Importing sample data...")
-	
-	db, err := sql.Open("sqlite3", dbPath)
+
+	db, err := sql.Open("sqlite3", dbPath+"?_journal=WAL&_timeout=5000&_fk=true&cache=shared")
 	if err != nil {
 		return fmt.Errorf("failed to open database: %v", err)
 	}
 	defer db.Close()
+
+	// Enable WAL mode and set busy timeout
+	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+		return fmt.Errorf("failed to set journal mode: %v", err)
+	}
+	if _, err := db.Exec("PRAGMA busy_timeout=5000"); err != nil {
+		return fmt.Errorf("failed to set busy timeout: %v", err)
+	}
+
+	// Start transaction
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %v", err)
+	}
+	defer tx.Rollback()
 
 	// Add default study activities
 	activities := []struct {
@@ -118,7 +149,7 @@ func Seed() error {
 	}
 
 	for _, a := range activities {
-		_, err := db.Exec(`
+		_, err := tx.Exec(`
 			INSERT INTO study_activities (name, description)
 			VALUES (?, ?)
 		`, a.name, a.desc)
@@ -134,16 +165,110 @@ func Seed() error {
 	}
 
 	for file, groupName := range seedFiles {
-		if err := importSeedFile(db, file, groupName); err != nil {
+		if err := importSeedFile(tx, file, groupName); err != nil {
 			return fmt.Errorf("error importing %s: %v", file, err)
 		}
+	}
+
+	// Add sample study sessions
+	// First get a group ID
+	var groupID int64
+	err = tx.QueryRow("SELECT id FROM groups LIMIT 1").Scan(&groupID)
+	if err != nil {
+		return fmt.Errorf("failed to get group ID: %v", err)
+	}
+
+	// Get study activity IDs
+	activityRows, err := tx.Query("SELECT id FROM study_activities")
+	if err != nil {
+		return fmt.Errorf("failed to get activity IDs: %v", err)
+	}
+
+	var activityIDs []int64
+	for activityRows.Next() {
+		var id int64
+		if err := activityRows.Scan(&id); err != nil {
+			activityRows.Close()
+			return fmt.Errorf("failed to scan activity ID: %v", err)
+		}
+		activityIDs = append(activityIDs, id)
+	}
+	activityRows.Close()
+	if err = activityRows.Err(); err != nil {
+		return fmt.Errorf("error iterating activity rows: %v", err)
+	}
+
+	// Create some study sessions
+	for i := 0; i < 5; i++ {
+		activityID := activityIDs[i%len(activityIDs)]
+		_, err := tx.Exec(`
+			INSERT INTO study_sessions (study_activity_id, group_id, created_at)
+			VALUES (?, ?, datetime('now', ?))
+		`, activityID, groupID, fmt.Sprintf("-%d days", i))
+		if err != nil {
+			return fmt.Errorf("failed to insert study session: %v", err)
+		}
+	}
+
+	// Add some word reviews for each session
+	var wordIDs []int64
+	wordRows, err := tx.Query("SELECT id FROM words")
+	if err != nil {
+		return fmt.Errorf("failed to get word IDs: %v", err)
+	}
+
+	for wordRows.Next() {
+		var id int64
+		if err := wordRows.Scan(&id); err != nil {
+			wordRows.Close()
+			return fmt.Errorf("failed to scan word ID: %v", err)
+		}
+		wordIDs = append(wordIDs, id)
+	}
+	wordRows.Close()
+	if err = wordRows.Err(); err != nil {
+		return fmt.Errorf("error iterating word rows: %v", err)
+	}
+
+	sessionRows, err := tx.Query("SELECT id FROM study_sessions")
+	if err != nil {
+		return fmt.Errorf("failed to get session IDs: %v", err)
+	}
+
+	for sessionRows.Next() {
+		var sessionID int64
+		if err := sessionRows.Scan(&sessionID); err != nil {
+			sessionRows.Close()
+			return fmt.Errorf("failed to scan session ID: %v", err)
+		}
+
+		// Add word reviews for each session
+		for _, wordID := range wordIDs {
+			_, err := tx.Exec(`
+				INSERT INTO word_review_items (study_session_id, word_id, correct, created_at)
+				VALUES (?, ?, ?, datetime('now'))
+			`, sessionID, wordID, true)
+			if err != nil {
+				sessionRows.Close()
+				return fmt.Errorf("failed to insert word review: %v", err)
+			}
+		}
+	}
+	sessionRows.Close()
+	if err = sessionRows.Err(); err != nil {
+		return fmt.Errorf("error iterating session rows: %v", err)
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %v", err)
 	}
 
 	fmt.Println("Sample data imported successfully")
 	return nil
 }
 
-func importSeedFile(db *sql.DB, filePath, groupName string) error {
+func importSeedFile(tx *sql.Tx, filePath, groupName string) error {
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return err
@@ -153,12 +278,6 @@ func importSeedFile(db *sql.DB, filePath, groupName string) error {
 	if err := json.Unmarshal(data, &words); err != nil {
 		return err
 	}
-
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
 
 	// Create group
 	result, err := tx.Exec(`
@@ -197,5 +316,5 @@ func importSeedFile(db *sql.DB, filePath, groupName string) error {
 		}
 	}
 
-	return tx.Commit()
-} 
+	return nil
+}

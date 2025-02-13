@@ -12,10 +12,23 @@ func RegisterStudyActivitiesRoutes(r *gin.RouterGroup, svc *service.Service) {
 	h := NewHandler(svc)
 	activities := r.Group("/study_activities")
 	{
+		activities.GET("", h.GetStudyActivities)
 		activities.GET("/:id", h.GetStudyActivity)
 		activities.GET("/:id/study_sessions", h.GetStudyActivitySessions)
 		activities.POST("", h.CreateStudyActivity)
 	}
+}
+
+func (h *Handler) GetStudyActivities(c *gin.Context) {
+	page := c.DefaultQuery("page", "1")
+	pageNum, _ := strconv.Atoi(page)
+
+	activities, err := h.svc.GetStudyActivities(pageNum)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, activities)
 }
 
 func (h *Handler) GetStudyActivity(c *gin.Context) {
@@ -68,4 +81,4 @@ func (h *Handler) CreateStudyActivity(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, activity)
-} 
+}

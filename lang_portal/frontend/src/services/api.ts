@@ -17,12 +17,15 @@ export const studyActivitiesApi = {
   getAll: () => api.get('/study_activities'),
   getById: (id: string) => api.get(`/study_activities/${id}`),
   getStudySessions: (id: string) => api.get(`/study_activities/${id}/study_sessions`),
-  create: (data: any) => api.post('/study_activities', data),
+  create: (data: { group_id: number; study_activity_id: number }) => 
+    api.post('/study_activities', data),
 };
 
 export const wordsApi = {
   getAll: (page: number = 1) => api.get(`/words?page=${page}`),
   getById: (id: string) => api.get(`/words/${id}`),
+  submitReview: (sessionId: number, wordId: number, correct: boolean) =>
+    api.post(`/study_sessions/${sessionId}/words/${wordId}/review`, { correct }),
 };
 
 export const groupsApi = {
