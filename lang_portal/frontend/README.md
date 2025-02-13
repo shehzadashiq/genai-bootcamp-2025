@@ -12,8 +12,15 @@ This application serves as a comprehensive language learning portal with three m
 ## Features
 
 ### Dashboard
-- Last Study Session tracking
-- Study Progress visualization
+- Last Study Session tracking with:
+  - Start and end times
+  - Activity name
+  - Group name
+  - Words reviewed count
+- Study Progress visualization with:
+  - Total words studied
+  - Total available words
+  - Progress bar
 - Quick Stats including:
   - Success rate
   - Total study sessions
@@ -28,8 +35,11 @@ This application serves as a comprehensive language learning portal with three m
 
 ### Words Management
 - Browse complete vocabulary inventory
-- View detailed word information
-- Track correct/incorrect usage statistics
+- View detailed word information including:
+  - Urdu text
+  - Urdlish transliteration
+  - English translation
+  - Correct/incorrect usage statistics
 
 ## Technical Stack
 
@@ -58,6 +68,10 @@ frontend/
 │   │   ├── ui/                  # ShadCN components
 │   │   └── common/             # Custom shared components
 │   ├── features/               # Feature-based modules
+│   │   ├── dashboard/         # Dashboard components
+│   │   ├── study-activities/ # Study activity components
+│   │   ├── study-sessions/  # Study session components
+│   │   └── words/          # Word management components
 │   ├── hooks/                 # Shared custom hooks
 │   ├── lib/                   # Utility functions
 │   ├── styles/               # Global styles
@@ -90,7 +104,7 @@ frontend/
    yarn install
    ```
 
-3. Create a `.env` file in the root directory (if needed)
+3. Create a `.env` file in the root directory
 
    ```env
    VITE_API_URL=http://localhost:8080/api
@@ -98,7 +112,7 @@ frontend/
 
 ### Development
 
-Run the development server
+Run the development server:
 
 ```bash
 npm run dev
@@ -111,46 +125,86 @@ The application will be available at `http://localhost:5173`
 ### Building for Production
 
 Build the application:
+
 ```bash
 npm run build
 # or
 yarn build
 ```
 
-Preview the production build:
+### Type Checking
+
+Run TypeScript type checking:
+
 ```bash
-npm run preview
+npm run typecheck
 # or
-yarn preview
+yarn typecheck
 ```
 
-## API Endpoints
+## API Integration
 
-The application interacts with the following API endpoints:
+The frontend communicates with the backend through RESTful API endpoints. All API calls are centralized in the `services/api.ts` file. The application uses Axios for making HTTP requests and handles responses with proper TypeScript types.
 
-### Dashboard
-- `GET /api/dashboard/last_study_session`
-- `GET /api/dashboard/study_progress`
-- `GET /api/dashboard/quick_stats`
+Key API endpoints:
 
-### Study Activities
-- `GET /api/study_activities`
-- `GET /api/study_activities/:id`
-- `GET /api/study_activities/:id/study_sessions`
-- `POST /api/study_activities`
+- `/api/dashboard/*` - Dashboard statistics and last session
+- `/api/study_activities/*` - Study activity management
+- `/api/study_sessions/*` - Study session tracking
+- `/api/words/*` - Word inventory and review
+- `/api/groups/*` - Word group management
 
-### Words
-- `GET /api/words`
-- `GET /api/words/:id`
+## Component Architecture
+
+The application follows a feature-based architecture where each major feature has its own directory containing:
+
+- Components specific to the feature
+- Feature-specific types
+- Feature-specific hooks
+- Feature-specific utilities
+
+Common components and utilities are placed in shared directories.
+
+## State Management
+
+The application uses React's built-in state management with:
+
+- `useState` for local component state
+- `useEffect` for side effects and data fetching
+- Custom hooks for shared logic
+- Props for component communication
+
+## Styling
+
+The application uses Tailwind CSS for styling with:
+
+- Custom theme configuration
+- Responsive design
+- Dark mode support
+- ShadCN UI components
+
+## Error Handling
+
+The application implements comprehensive error handling:
+
+- API error handling with proper user feedback
+- Loading states for async operations
+- Fallback UI for error states
+- Type-safe error boundaries
 
 ## Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1. Create a new branch for your feature
+2. Make your changes
+3. Submit a pull request
+
+Please ensure your code:
+- Follows TypeScript best practices
+- Includes proper error handling
+- Has responsive design
+- Is properly typed
+- Follows the existing code style
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License.
