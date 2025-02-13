@@ -12,6 +12,7 @@ interface Group {
 interface StudyActivity {
   id: number
   name: string
+  url: string
   thumbnail_url: string
   description: string
 }
@@ -68,8 +69,8 @@ export default function StudyActivityLaunch() {
       console.log('Created session:', data)
 
       // Open activity in new tab if URL is provided
-      if (activity.thumbnail_url) {
-        window.open(activity.thumbnail_url, '_blank')
+      if (activity.url) {
+        window.open(activity.url, '_blank')
       }
 
       // Redirect to the study session page

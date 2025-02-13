@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS words (
 CREATE TABLE IF NOT EXISTS study_activities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
+    url TEXT,
     thumbnail_url TEXT,
     description TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -51,7 +52,7 @@ INSERT OR REPLACE INTO groups (name) VALUES
     ('Intermediate Words'),
     ('Advanced Words');
 
-INSERT OR REPLACE INTO study_activities (name, description) VALUES 
-    ('Flashcards', 'Practice words with flashcards'),
-    ('Quiz', 'Test your knowledge with a quiz'),
-    ('Writing', 'Practice writing sentences');
+INSERT OR REPLACE INTO study_activities (id, name, url, thumbnail_url, description) VALUES 
+    (1, 'Vocabulary Quiz', '/apps/vocabulary-quiz', '/images/thumbnails/vocabulary.svg', 'Test your vocabulary knowledge with interactive flashcards and quizzes.'),
+    (2, 'Word Matching', '/apps/word-matching', '/images/thumbnails/matching.svg', 'Match Urdu words with their English translations in this fun memory game.'),
+    (3, 'Sentence Builder', '/apps/sentence-builder', '/images/thumbnails/sentences.svg', 'Practice building sentences using the words you''ve learned.');

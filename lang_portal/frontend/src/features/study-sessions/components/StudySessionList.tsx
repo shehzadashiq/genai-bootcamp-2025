@@ -31,26 +31,45 @@ export default function StudySessionList({ fetchSessions }: StudySessionListProp
   const [pagination, setPagination] = useState<PaginationInfo | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const loadSessions = async () => {
       try {
+        setLoading(true)
+        setError(null)
         const response = await fetchSessions(currentPage)
         const data: StudySessionsResponse = response.data
         setSessions(data.items)
         setPagination(data.pagination)
       } catch (error) {
         console.error('Error fetching study sessions:', error)
+        setError('Failed to load study sessions')
+        setSessions([])
+        setPagination(null)
       } finally {
         setLoading(false)
       }
     }
 
     loadSessions()
-  }, [currentPage, fetchSessions])
+  }, [currentPage]) // fetchSessions is stable and doesn't need to be in deps
 
   if (loading) {
     return <div>Loading study sessions...</div>
+  }
+
+  if (error) {
+    return <div className="text-red-500">{error}</div>
+  }
+
+  if (sessions.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-muted-foreground mb-4">No study sessions found</p>
+        <p className="text-sm">Start a new session by selecting a study activity</p>
+      </div>
+    )
   }
 
   return (

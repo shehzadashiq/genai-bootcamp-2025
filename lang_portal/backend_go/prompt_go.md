@@ -63,6 +63,7 @@ We have the following tables
 - study_activities - a specific study activity type (e.g., Vocabulary Quiz), linking a study session to group
   - id integer
   - name string
+  - url string
   - thumbnail_url string
   - description string
   - created_at datetime
@@ -128,6 +129,7 @@ Returns quick overview statistics.
 {
   "id": 1,
   "name": "Vocabulary Quiz",
+  "url": "The full URL of the study activity",
   "thumbnail_url": "https://example.com/thumbnail.jpg",
   "description": "Practice your vocabulary with flashcards",
   "created_at": "2025-02-08T17:20:23-05:00"
