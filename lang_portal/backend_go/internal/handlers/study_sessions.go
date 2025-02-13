@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"lang_portal/internal/service"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -32,17 +33,24 @@ func (h *Handler) ListStudySessions(c *gin.Context) {
 }
 
 func (h *Handler) GetStudySession(c *gin.Context) {
+	fmt.Printf("GetStudySession handler called with params: %+v\n", c.Params)
+	
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
+		fmt.Printf("Invalid ID: %v\n", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
 
+	fmt.Printf("Getting study session with ID: %d\n", id)
 	session, err := h.svc.GetStudySession(id)
 	if err != nil {
+		fmt.Printf("Error getting study session: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	fmt.Printf("Returning study session: %+v\n", session)
 	c.JSON(http.StatusOK, session)
 }
 

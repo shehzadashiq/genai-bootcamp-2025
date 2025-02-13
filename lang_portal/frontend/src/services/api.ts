@@ -1,6 +1,15 @@
 import axios from 'axios';
 import { StudySessionResponse, PaginatedResponse } from '@/types';
 
+interface Word {
+  id: number;
+  urdu: string;
+  urdlish: string;
+  english: string;
+  correct_count: number;
+  wrong_count: number;
+}
+
 const api = axios.create({
   baseURL: 'http://localhost:8080/api',
   headers: {
@@ -23,8 +32,8 @@ export const studyActivitiesApi = {
 };
 
 export const wordsApi = {
-  getAll: (page: number = 1) => api.get(`/words?page=${page}`),
-  getById: (id: string) => api.get(`/words/${id}`),
+  getAll: (page: number = 1) => api.get<PaginatedResponse<Word>>(`/words?page=${page}`),
+  getById: (id: string) => api.get<Word>(`/words/${id}`),
   submitReview: (sessionId: number, wordId: number, correct: boolean) =>
     api.post(`/study_sessions/${sessionId}/words/${wordId}/review`, { correct }),
 };
@@ -32,14 +41,14 @@ export const wordsApi = {
 export const groupsApi = {
   getAll: (page: number = 1) => api.get<PaginatedResponse<any>>(`/groups?page=${page}`),
   getById: (id: string) => api.get(`/groups/${id}`),
-  getWords: (id: string, page: number = 1) => api.get(`/groups/${id}/words?page=${page}`),
+  getWords: (id: string, page: number = 1) => api.get<PaginatedResponse<Word>>(`/groups/${id}/words?page=${page}`),
   getStudySessions: (id: string, page: number = 1) => api.get<PaginatedResponse<StudySessionResponse>>(`/groups/${id}/study_sessions?page=${page}`),
 };
 
 export const studySessionsApi = {
   getAll: (page: number = 1) => api.get<PaginatedResponse<StudySessionResponse>>(`/study_sessions?page=${page}`),
   getById: (id: string) => api.get<StudySessionResponse>(`/study_sessions/${id}`),
-  getWords: (id: string, page: number = 1) => api.get(`/study_sessions/${id}/words?page=${page}`),
+  getWords: (id: string, page: number = 1) => api.get<PaginatedResponse<Word>>(`/study_sessions/${id}/words?page=${page}`),
 };
 
 export const settingsApi = {

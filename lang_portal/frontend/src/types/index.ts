@@ -1,9 +1,9 @@
 export interface StudySessionResponse {
   id: number
-  activity_name: string
-  group_name: string
-  start_time: string
-  end_time: string
+  activity_name?: string
+  group_name?: string
+  start_time?: string
+  end_time?: string
   review_items_count: number
 }
 

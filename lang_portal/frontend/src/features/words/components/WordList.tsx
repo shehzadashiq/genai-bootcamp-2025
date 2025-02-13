@@ -31,26 +31,59 @@ export default function WordList({ fetchWords }: WordListProps) {
   const [pagination, setPagination] = useState<PaginationInfo | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    let mounted = true
+
     const loadWords = async () => {
       try {
+        setLoading(true)
         const response = await fetchWords(currentPage)
+        if (!mounted) return
+
+        // Handle empty or invalid response
+        if (!response?.data?.items) {
+          setWords([])
+          setPagination(null)
+          return
+        }
+
         const data: WordsResponse = response.data
         setWords(data.items)
         setPagination(data.pagination)
+        setError(null)
       } catch (error) {
         console.error('Error fetching words:', error)
+        if (mounted) {
+          setError('Failed to load words')
+          setWords([])
+          setPagination(null)
+        }
       } finally {
-        setLoading(false)
+        if (mounted) {
+          setLoading(false)
+        }
       }
     }
 
     loadWords()
+
+    return () => {
+      mounted = false
+    }
   }, [currentPage, fetchWords])
 
   if (loading) {
     return <div>Loading words...</div>
+  }
+
+  if (error) {
+    return <div className="text-red-500">{error}</div>
+  }
+
+  if (words.length === 0) {
+    return <div className="text-muted-foreground">No words reviewed yet</div>
   }
 
   return (
@@ -86,29 +119,27 @@ export default function WordList({ fetchWords }: WordListProps) {
           </tbody>
         </table>
       </div>
-      {pagination && (
+      {pagination && pagination.total_pages > 1 && (
         <div className="mt-4 flex justify-between items-center">
           <div className="text-sm text-muted-foreground">
             Showing {words.length} of {pagination.total_items} words
           </div>
-          {pagination.total_pages > 1 && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1 border rounded hover:bg-muted disabled:opacity-50"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(pagination.total_pages, prev + 1))}
-                disabled={currentPage === pagination.total_pages}
-                className="px-3 py-1 border rounded hover:bg-muted disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-          )}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 border rounded hover:bg-muted disabled:opacity-50"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(pagination.total_pages, prev + 1))}
+              disabled={currentPage === pagination.total_pages}
+              className="px-3 py-1 border rounded hover:bg-muted disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
         </div>
       )}
     </div>
