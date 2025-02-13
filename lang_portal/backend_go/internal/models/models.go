@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 )
 
@@ -29,8 +30,8 @@ type StudySession struct {
 type StudyActivity struct {
 	ID            int64     `json:"id"`
 	Name          string    `json:"name"`
-	ThumbnailURL  string    `json:"thumbnail_url"`
-	Description   string    `json:"description"`
+	ThumbnailURL  *string   `json:"thumbnail_url,omitempty"`
+	Description   *string   `json:"description,omitempty"`
 	CreatedAt     time.Time `json:"created_at"`
 }
 
@@ -53,6 +54,7 @@ func (db *DB) GetStudyActivities(limit, offset int) ([]*StudyActivity, error) {
 	query := `
 		SELECT id, name, thumbnail_url, description, created_at
 		FROM study_activities
+		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?
 	`
 
@@ -65,17 +67,35 @@ func (db *DB) GetStudyActivities(limit, offset int) ([]*StudyActivity, error) {
 	var activities []*StudyActivity
 	for rows.Next() {
 		activity := &StudyActivity{}
+		var (
+			thumbnailURL sql.NullString
+			description  sql.NullString
+			createdAt   sql.NullTime
+		)
 		err := rows.Scan(
 			&activity.ID,
 			&activity.Name,
-			&activity.ThumbnailURL,
-			&activity.Description,
-			&activity.CreatedAt,
+			&thumbnailURL,
+			&description,
+			&createdAt,
 		)
 		if err != nil {
 			return nil, err
 		}
+		if thumbnailURL.Valid {
+			activity.ThumbnailURL = &thumbnailURL.String
+		}
+		if description.Valid {
+			activity.Description = &description.String
+		}
+		if createdAt.Valid {
+			activity.CreatedAt = createdAt.Time
+		}
 		activities = append(activities, activity)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return activities, nil
@@ -88,22 +108,40 @@ func (db *DB) CountStudyActivities() (int, error) {
 }
 
 func (db *DB) GetStudyActivity(id int64) (*StudyActivity, error) {
-	activity := &StudyActivity{}
-	err := db.QueryRow(
-		"SELECT id, name, thumbnail_url, description, created_at FROM study_activities WHERE id = ?",
-		id,
-	).Scan(
+	var (
+		activity StudyActivity
+		thumbnailURL sql.NullString
+		description  sql.NullString
+		createdAt    sql.NullTime
+	)
+	err := db.QueryRow(`
+		SELECT id, name, thumbnail_url, description, created_at
+		FROM study_activities WHERE id = ?
+	`, id).Scan(
 		&activity.ID,
 		&activity.Name,
-		&activity.ThumbnailURL,
-		&activity.Description,
-		&activity.CreatedAt,
+		&thumbnailURL,
+		&description,
+		&createdAt,
 	)
-
-	if err == sql.ErrNoRows {
-		return nil, nil
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("study activity not found")
+		}
+		return nil, err
 	}
-	return activity, err
+
+	if thumbnailURL.Valid {
+		activity.ThumbnailURL = &thumbnailURL.String
+	}
+	if description.Valid {
+		activity.Description = &description.String
+	}
+	if createdAt.Valid {
+		activity.CreatedAt = createdAt.Time
+	}
+
+	return &activity, nil
 }
 
 func (db *DB) GetStudyActivitySessions(activityID int64, limit, offset int) ([]*StudySession, error) {

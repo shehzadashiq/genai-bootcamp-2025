@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"fmt"
+	"lang_portal/internal/models"
 	"lang_portal/internal/service"
 	"net/http"
 	"strconv"
@@ -25,9 +27,11 @@ func (h *Handler) GetStudyActivities(c *gin.Context) {
 
 	activities, err := h.svc.GetStudyActivities(pageNum)
 	if err != nil {
+		fmt.Printf("Error getting study activities: %v\n", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	fmt.Printf("Found %d study activities\n", len(activities.Items.([]*models.StudyActivity)))
 	c.JSON(http.StatusOK, activities)
 }
 

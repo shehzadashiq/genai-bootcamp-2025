@@ -119,15 +119,18 @@ func (s *Service) GetQuickStats() (*models.DashboardStats, error) {
 
 // Study activities methods
 func (s *Service) GetStudyActivity(id int64) (*models.StudyActivityResponse, error) {
-	var activity models.StudyActivityResponse
-	err := s.db.QueryRow(`
-		SELECT id, name, thumbnail_url, description
-		FROM study_activities WHERE id = ?
-	`, id).Scan(&activity.ID, &activity.Name, &activity.ThumbnailURL, &activity.Description)
+	activity, err := s.db.GetStudyActivity(id)
 	if err != nil {
 		return nil, err
 	}
-	return &activity, nil
+	
+	return &models.StudyActivityResponse{
+		ID:           activity.ID,
+		Name:         activity.Name,
+		ThumbnailURL: activity.ThumbnailURL,
+		Description:  activity.Description,
+		CreatedAt:    activity.CreatedAt,
+	}, nil
 }
 
 func (s *Service) GetStudyActivitySessions(id int64, page int) (*models.PaginatedResponse, error) {
@@ -184,23 +187,13 @@ func (s *Service) GetStudyActivitySessions(id int64, page int) (*models.Paginate
 }
 
 func (s *Service) CreateStudyActivity(groupID, studyActivityID int64) (*models.StudyActivityResponse, error) {
-	result, err := s.db.Exec(`
-		INSERT INTO study_activities (name, description, group_id, created_at)
-		VALUES (?, ?, ?, ?)
-	`, fmt.Sprintf("Study Session %d", studyActivityID), "New study session", groupID, time.Now())
-	if err != nil {
-		return nil, err
-	}
-
-	id, err := result.LastInsertId()
-	if err != nil {
-		return nil, err
-	}
-
+	id := time.Now().UnixNano()
+	name := fmt.Sprintf("Study Session %d", id)
+	desc := "New study session"
 	return &models.StudyActivityResponse{
 		ID:          id,
-		Name:        fmt.Sprintf("Study Session %d", id),
-		Description: "New study session",
+		Name:        name,
+		Description: &desc,
 	}, nil
 }
 
@@ -208,36 +201,12 @@ func (s *Service) GetStudyActivities(page int) (*models.PaginatedResponse, error
 	itemsPerPage := 100
 	offset := (page - 1) * itemsPerPage
 
-	rows, err := s.db.Query(`
-		SELECT id, name, thumbnail_url, description
-		FROM study_activities
-		LIMIT ? OFFSET ?
-	`, itemsPerPage, offset)
+	activities, err := s.db.GetStudyActivities(itemsPerPage, offset)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	var activities []*models.StudyActivity
-	for rows.Next() {
-		activity := &models.StudyActivity{}
-		err := rows.Scan(
-			&activity.ID,
-			&activity.Name,
-			&activity.ThumbnailURL,
-			&activity.Description,
-		)
-		if err != nil {
-			return nil, err
-		}
-		activities = append(activities, activity)
-	}
-
-	// Get total count for pagination
-	var total int
-	err = s.db.QueryRow(`
-		SELECT COUNT(*) FROM study_activities
-	`).Scan(&total)
+	total, err := s.db.CountStudyActivities()
 	if err != nil {
 		return nil, err
 	}

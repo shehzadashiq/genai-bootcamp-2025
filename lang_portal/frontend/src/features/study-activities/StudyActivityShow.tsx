@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button'
 import { studyActivitiesApi } from '@/services/api'
 
 interface StudyActivity {
-  id: string
+  id: number
   name: string
-  thumbnail: string
-  description: string
+  thumbnail_url?: string
+  description?: string
+  created_at: string
 }
 
 interface StudySession {
@@ -68,14 +69,16 @@ export default function StudyActivityShow() {
       <Card>
         <CardContent className="pt-6">
           <div className="grid md:grid-cols-2 gap-6">
-            <img
-              src={activity.thumbnail}
-              alt={activity.name}
-              className="w-full h-64 object-cover rounded-lg"
-            />
+            {activity.thumbnail_url && (
+              <img
+                src={activity.thumbnail_url}
+                alt={activity.name}
+                className="w-full h-64 object-cover rounded-lg"
+              />
+            )}
             <div>
               <h2 className="text-xl font-semibold mb-2">Description</h2>
-              <p className="text-muted-foreground">{activity.description}</p>
+              <p className="text-muted-foreground">{activity.description || 'No description available'}</p>
             </div>
           </div>
         </CardContent>
