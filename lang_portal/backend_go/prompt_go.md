@@ -60,10 +60,11 @@ We have the following tables
   - group_id integer
   - created_at datetime
   - study_activity_id integer
-- study_activities - a specific study activity, linking a study session to group
+- study_activities - a specific study activity type (e.g., Vocabulary Quiz), linking a study session to group
   - id integer
-  - study_session_id integer
-  - group_id integer
+  - name string
+  - thumbnail_url string
+  - description string
   - created_at datetime
 - word_review_items - a record of word practice, determining if the word was correct or not
   - word_id integer
@@ -138,6 +139,7 @@ Returns quick overview statistics.
 Returns paginated list of study sessions for a specific activity.
 
 #### Query Parameters
+
 - page (optional): Page number for pagination (default: 1)
 - per_page (optional): Items per page (default: 100)
 
@@ -195,6 +197,7 @@ Creates a new study session for an activity.
 Returns a paginated list of words.
 
 #### Query Parameters
+
 - page (optional): Page number for pagination (default: 1)
 - per_page (optional): Items per page (default: 100)
 
@@ -243,6 +246,7 @@ Returns details of a specific study session.
 Returns a paginated list of words reviewed in a specific study session.
 
 #### Query Parameters
+
 - page (optional): Page number for pagination (default: 1)
 - per_page (optional): Items per page (default: 100)
 

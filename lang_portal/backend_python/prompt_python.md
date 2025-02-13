@@ -77,6 +77,7 @@ We have the following tables
 ## Database Schema Additions
 
 ### Constraints and Indexes
+
 - Primary Keys: All `id` fields are PRIMARY KEY AUTOINCREMENT
 - Foreign Keys:
   - words_groups.word_id -> words.id
@@ -87,6 +88,7 @@ We have the following tables
   - word_review_items.study_session_id -> study_sessions.id
 
 ### Words Table parts Field Structure
+
 ```json
 {
   "pos": ["noun", "verb"],  // parts of speech
@@ -449,6 +451,7 @@ Returns quick overview statistics.
 ```
 
 ## API Error Responses
+
 All endpoints may return these error responses:
 
 ```json
@@ -463,26 +466,31 @@ All endpoints may return these error responses:
 ## Additional Tasks
 
 ### Run Tests
+
 ```bash
 python scripts/manage.py test
 ```
 
 ### Start Development Server
+
 ```bash
 python scripts/manage.py runserver
 ```
 
 ### Generate API Documentation
+
 ```bash
 python scripts/manage.py generate_docs
 ```
 
 ### Code Formatting
+
 ```bash
 python scripts/manage.py format
 ```
 
 ### Seed Data Handling
+
 - Duplicate entries are identified by matching urdu+english combinations
 - Existing entries will be updated with new data
 - Related group associations will be merged, not replaced
