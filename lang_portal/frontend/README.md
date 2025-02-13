@@ -5,6 +5,7 @@ A modern web application for language learning, built with React, TypeScript, an
 ## Overview
 
 This application serves as a comprehensive language learning portal with three main functions:
+
 - Inventory management for vocabulary
 - Score tracking system for practice sessions
 - Unified launchpad for various learning applications
@@ -12,6 +13,7 @@ This application serves as a comprehensive language learning portal with three m
 ## Features
 
 ### Dashboard
+
 - Last Study Session tracking with:
   - Start and end times
   - Activity name
@@ -28,12 +30,14 @@ This application serves as a comprehensive language learning portal with three m
   - Study streak
 
 ### Study Activities
+
 - Browse available learning activities
 - Launch activities with specific word groups
 - View detailed activity history
 - Track progress across sessions
 
 ### Words Management
+
 - Browse complete vocabulary inventory
 - View detailed word information including:
   - Urdu text
@@ -199,6 +203,7 @@ The application implements comprehensive error handling:
 3. Submit a pull request
 
 Please ensure your code:
+
 - Follows TypeScript best practices
 - Includes proper error handling
 - Has responsive design
