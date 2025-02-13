@@ -74,8 +74,16 @@ frontend/
 └── tests/                # Test files
     ├── components/
     └── features/
-
 ```
+
+## Backend Requirements
+
+The Backend API has the following guidelines
+
+- Run on port 8080
+- The API will always return JSON
+- There will no authentication or authorization
+- Everything be treated as a single user
 
 #### Components
 
@@ -313,3 +321,9 @@ The purpose of this page is to make configurations to the study portal.
 
 - POST /api/reset_history
 - POST /api/full_reset
+
+### Stats Page
+
+The purpose of this page is to show statistics about the user's study progress.
+
+- GET /api/dashboard/quick-stats

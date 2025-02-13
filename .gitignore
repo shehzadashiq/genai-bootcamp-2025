@@ -4,3 +4,5 @@ lang_portal/backend_python/venv/*
 lang_portal/backend_python/logs/debug.log
 lang_portal/backend_python/logs/*
 *.log
+lang_portal/frontend/node_modules/*
+
