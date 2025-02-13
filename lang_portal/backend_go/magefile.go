@@ -116,7 +116,7 @@ func Migrate() error {
 
 // Seed imports sample data
 func Seed() error {
-	fmt.Println("Importing sample data...")
+	fmt.Println("Seeding database...")
 
 	db, err := sql.Open("sqlite3", dbPath+"?_journal=WAL&_timeout=5000&_fk=true&cache=shared")
 	if err != nil {
@@ -132,187 +132,124 @@ func Seed() error {
 		return fmt.Errorf("failed to set busy timeout: %v", err)
 	}
 
-	// Start transaction
+	// Start a transaction
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %v", err)
 	}
-	defer tx.Rollback()
 
-	// Add default study activities
-	activities := []struct {
-		name, desc string
-	}{
-		{"Vocabulary Quiz", "Practice your vocabulary with flashcards"},
-		{"Word Match", "Match words with their meanings"},
-		{"Sentence Builder", "Create sentences using learned words"},
+	// Import study activities from seed file
+	studyActivitiesFile := "db/seeds/study_activities.json"
+	if err := importStudyActivities(tx, studyActivitiesFile); err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to import study activities: %v", err)
 	}
 
-	for _, a := range activities {
-		_, err := tx.Exec(`
-			INSERT INTO study_activities (name, description)
-			VALUES (?, ?)
-		`, a.name, a.desc)
-		if err != nil {
-			return fmt.Errorf("failed to insert activity: %v", err)
-		}
-	}
-
-	// Import seed data from JSON files
-	seedFiles := map[string]string{
-		"db/seeds/common_phrases.json": "Common Phrases",
-		"db/seeds/basic_words.json":    "Basic Words",
-	}
-
-	for file, groupName := range seedFiles {
-		if err := importSeedFile(tx, file, groupName); err != nil {
-			return fmt.Errorf("error importing %s: %v", file, err)
-		}
-	}
-
-	// Add sample study sessions
-	// First get a group ID
-	var groupID int64
-	err = tx.QueryRow("SELECT id FROM groups LIMIT 1").Scan(&groupID)
+	// Create default groups
+	_, err = tx.Exec(`
+		INSERT OR REPLACE INTO groups (name) VALUES 
+		('Beginner Words'),
+		('Intermediate Words'),
+		('Advanced Words')
+	`)
 	if err != nil {
-		return fmt.Errorf("failed to get group ID: %v", err)
+		tx.Rollback()
+		return fmt.Errorf("failed to insert groups: %v", err)
 	}
 
-	// Get study activity IDs
-	activityRows, err := tx.Query("SELECT id FROM study_activities")
+	// Import words from JSON files
+	wordFiles := []string{
+		"db/seeds/basic_words.json",
+		"db/seeds/common_phrases.json",
+	}
+
+	// Get the beginner group ID
+	var beginnerGroupID int64
+	err = tx.QueryRow("SELECT id FROM groups WHERE name = 'Beginner Words'").Scan(&beginnerGroupID)
 	if err != nil {
-		return fmt.Errorf("failed to get activity IDs: %v", err)
+		tx.Rollback()
+		return fmt.Errorf("failed to get beginner group ID: %v", err)
 	}
 
-	var activityIDs []int64
-	for activityRows.Next() {
-		var id int64
-		if err := activityRows.Scan(&id); err != nil {
-			activityRows.Close()
-			return fmt.Errorf("failed to scan activity ID: %v", err)
-		}
-		activityIDs = append(activityIDs, id)
-	}
-	activityRows.Close()
-	if err = activityRows.Err(); err != nil {
-		return fmt.Errorf("error iterating activity rows: %v", err)
-	}
-
-	// Create some study sessions
-	for i := 0; i < 5; i++ {
-		activityID := activityIDs[i%len(activityIDs)]
-		_, err := tx.Exec(`
-			INSERT INTO study_sessions (study_activity_id, group_id, created_at)
-			VALUES (?, ?, datetime('now', ?))
-		`, activityID, groupID, fmt.Sprintf("-%d days", i))
-		if err != nil {
-			return fmt.Errorf("failed to insert study session: %v", err)
+	for _, file := range wordFiles {
+		if err := importSeedFile(tx, file, beginnerGroupID); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to import %s: %v", file, err)
 		}
 	}
 
-	// Add some word reviews for each session
-	var wordIDs []int64
-	wordRows, err := tx.Query("SELECT id FROM words")
-	if err != nil {
-		return fmt.Errorf("failed to get word IDs: %v", err)
-	}
-
-	for wordRows.Next() {
-		var id int64
-		if err := wordRows.Scan(&id); err != nil {
-			wordRows.Close()
-			return fmt.Errorf("failed to scan word ID: %v", err)
-		}
-		wordIDs = append(wordIDs, id)
-	}
-	wordRows.Close()
-	if err = wordRows.Err(); err != nil {
-		return fmt.Errorf("error iterating word rows: %v", err)
-	}
-
-	sessionRows, err := tx.Query("SELECT id FROM study_sessions")
-	if err != nil {
-		return fmt.Errorf("failed to get session IDs: %v", err)
-	}
-
-	for sessionRows.Next() {
-		var sessionID int64
-		if err := sessionRows.Scan(&sessionID); err != nil {
-			sessionRows.Close()
-			return fmt.Errorf("failed to scan session ID: %v", err)
-		}
-
-		// Add word reviews for each session
-		for _, wordID := range wordIDs {
-			_, err := tx.Exec(`
-				INSERT INTO word_review_items (study_session_id, word_id, correct, created_at)
-				VALUES (?, ?, ?, datetime('now'))
-			`, sessionID, wordID, true)
-			if err != nil {
-				sessionRows.Close()
-				return fmt.Errorf("failed to insert word review: %v", err)
-			}
-		}
-	}
-	sessionRows.Close()
-	if err = sessionRows.Err(); err != nil {
-		return fmt.Errorf("error iterating session rows: %v", err)
-	}
-
-	// Commit transaction
+	// Commit the transaction
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %v", err)
 	}
 
-	fmt.Println("Sample data imported successfully")
+	fmt.Println("Database seeded successfully")
 	return nil
 }
 
-func importSeedFile(tx *sql.Tx, filePath, groupName string) error {
+func importStudyActivities(tx *sql.Tx, filePath string) error {
 	data, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("error reading file: %v", err)
+	}
+
+	var activities []struct {
+		ID           int     `json:"id"`
+		Name         string  `json:"name"`
+		ThumbnailURL string  `json:"thumbnail_url"`
+		Description  string  `json:"description"`
+	}
+	if err := json.Unmarshal(data, &activities); err != nil {
+		return fmt.Errorf("error parsing JSON: %v", err)
+	}
+
+	for _, activity := range activities {
+		_, err = tx.Exec(`
+			INSERT OR REPLACE INTO study_activities (id, name, thumbnail_url, description, created_at)
+			VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+		`, activity.ID, activity.Name, activity.ThumbnailURL, activity.Description)
+		if err != nil {
+			return fmt.Errorf("error inserting activity: %v", err)
+		}
+	}
+
+	return nil
+}
+
+func importSeedFile(tx *sql.Tx, filePath string, groupID int64) error {
+	data, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("error reading file: %v", err)
 	}
 
 	var words []seedWord
 	if err := json.Unmarshal(data, &words); err != nil {
-		return err
+		return fmt.Errorf("error parsing JSON: %v", err)
 	}
 
-	// Create group
-	result, err := tx.Exec(`
-		INSERT INTO groups (name) VALUES (?)
-	`, groupName)
-	if err != nil {
-		return err
-	}
-
-	groupID, err := result.LastInsertId()
-	if err != nil {
-		return err
-	}
-
-	// Insert words and create word-group associations
 	for _, word := range words {
+		// Insert word
 		result, err := tx.Exec(`
 			INSERT INTO words (urdu, urdlish, english, parts)
 			VALUES (?, ?, ?, ?)
 		`, word.Urdu, word.Urdlish, word.English, word.Parts)
 		if err != nil {
-			return err
+			return fmt.Errorf("error inserting word: %v", err)
 		}
 
+		// Get the word ID
 		wordID, err := result.LastInsertId()
 		if err != nil {
-			return err
+			return fmt.Errorf("error getting last insert ID: %v", err)
 		}
 
+		// Link word to group
 		_, err = tx.Exec(`
 			INSERT INTO words_groups (word_id, group_id)
 			VALUES (?, ?)
 		`, wordID, groupID)
 		if err != nil {
-			return err
+			return fmt.Errorf("error linking word to group: %v", err)
 		}
 	}
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { studyActivitiesApi, groupsApi } from '@/services/api'
+import { StudySessionResponse } from '@/types'
 
 interface Group {
   id: number
@@ -34,12 +35,15 @@ export default function StudyActivityLaunch() {
           groupsApi.getAll(),
         ])
 
-        setActivity(activityRes.data)
-        setGroups(groupsRes.data.items)
+        console.log('Activity:', activityRes.data)
+        console.log('Groups:', groupsRes.data)
 
-        // Pre-select the first group if available
-        if (groupsRes.data.items.length > 0) {
+        setActivity(activityRes.data)
+        if (groupsRes.data.items && groupsRes.data.items.length > 0) {
+          setGroups(groupsRes.data.items)
           setSelectedGroupId(groupsRes.data.items[0].id)
+        } else {
+          console.error('No groups found')
         }
       } catch (error) {
         console.error('Error fetching data:', error)
@@ -56,10 +60,12 @@ export default function StudyActivityLaunch() {
 
     setLaunching(true)
     try {
-      const response = await studyActivitiesApi.create({
+      const { data } = await studyActivitiesApi.create({
         group_id: selectedGroupId,
         study_activity_id: activity.id,
       })
+
+      console.log('Created session:', data)
 
       // Open activity in new tab if URL is provided
       if (activity.thumbnail_url) {
@@ -67,7 +73,7 @@ export default function StudyActivityLaunch() {
       }
 
       // Redirect to the study session page
-      navigate(`/study_sessions/${response.data.id}`)
+      navigate(`/study_sessions/${data.id}`)
     } catch (error) {
       console.error('Error launching activity:', error)
       alert('Failed to launch activity. Please try again.')
@@ -99,32 +105,21 @@ export default function StudyActivityLaunch() {
           </div>
           {activity.thumbnail_url && (
             <div>
-              <h3 className="font-medium mb-2">Preview</h3>
+              <h3 className="font-medium">Preview</h3>
               <img
                 src={activity.thumbnail_url}
                 alt={activity.name}
-                className="rounded-lg max-w-full h-auto"
+                className="mt-2 rounded-lg border"
               />
             </div>
           )}
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Launch Settings</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
           <div>
-            <label htmlFor="group" className="block font-medium mb-2">
-              Select Group
-            </label>
+            <h3 className="font-medium">Select Group</h3>
             <select
-              id="group"
+              className="mt-2 w-full rounded-md border p-2"
               value={selectedGroupId || ''}
               onChange={(e) => setSelectedGroupId(Number(e.target.value))}
-              className="w-full p-2 border rounded-md bg-background"
-              disabled={launching}
             >
               {groups.map((group) => (
                 <option key={group.id} value={group.id}>
@@ -135,11 +130,11 @@ export default function StudyActivityLaunch() {
           </div>
 
           <button
+            className="w-full rounded-md bg-primary px-4 py-2 text-white"
             onClick={handleLaunch}
-            disabled={!selectedGroupId || launching}
-            className="w-full py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
+            disabled={launching || !selectedGroupId}
           >
-            {launching ? 'Launching...' : 'Launch Now'}
+            {launching ? 'Launching...' : 'Launch Activity'}
           </button>
         </CardContent>
       </Card>

@@ -2,19 +2,16 @@
   {
     "id": 1,
     "name": "Vocabulary Quiz",
-    "thumbnail_url": "https://source.unsplash.com/random/800x600?vocabulary",
     "description": "Test your vocabulary knowledge with interactive flashcards and quizzes."
   },
   {
     "id": 2,
     "name": "Word Matching",
-    "thumbnail_url": "https://source.unsplash.com/random/800x600?matching",
     "description": "Match Urdu words with their English translations in this fun memory game."
   },
   {
     "id": 3,
     "name": "Sentence Builder",
-    "thumbnail_url": "https://source.unsplash.com/random/800x600?sentence",
     "description": "Practice building sentences using the words you've learned."
   }
 ]

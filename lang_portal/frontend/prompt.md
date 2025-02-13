@@ -129,10 +129,12 @@ of study activities with a thumbnail and its name, to either launch or view the 
 
 - GET /api/study_activities
 
+
 ### Study Activity Show `/study_activities/:id`
 
 #### Purpose
 The purpose of this page is to show the details of a study activity and its past study sessions.
+It also allows you to create a new study session for this activity.
 
 #### Components
 

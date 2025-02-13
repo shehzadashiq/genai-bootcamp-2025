@@ -6,7 +6,6 @@ import { studyActivitiesApi } from '@/services/api'
 interface StudyActivity {
   id: number
   name: string
-  thumbnail_url: string
   description: string
 }
 
@@ -40,13 +39,6 @@ export default function StudyActivitiesIndex() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {activities.map((activity) => (
           <Card key={activity.id} className="overflow-hidden">
-            {activity.thumbnail_url && (
-              <img
-                src={activity.thumbnail_url}
-                alt={activity.name}
-                className="w-full h-48 object-cover"
-              />
-            )}
             <CardHeader>
               <CardTitle>{activity.name}</CardTitle>
             </CardHeader>

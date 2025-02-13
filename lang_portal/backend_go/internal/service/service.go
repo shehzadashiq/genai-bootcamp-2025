@@ -186,14 +186,37 @@ func (s *Service) GetStudyActivitySessions(id int64, page int) (*models.Paginate
 	}, nil
 }
 
-func (s *Service) CreateStudyActivity(groupID, studyActivityID int64) (*models.StudyActivityResponse, error) {
-	id := time.Now().UnixNano()
-	name := fmt.Sprintf("Study Session %d", id)
-	desc := "New study session"
-	return &models.StudyActivityResponse{
-		ID:          id,
-		Name:        name,
-		Description: &desc,
+func (s *Service) CreateStudyActivity(groupID, studyActivityID int64) (*models.StudySessionResponse, error) {
+	// Create a new study session
+	session := &models.StudySession{
+		GroupID:         groupID,
+		StudyActivityID: studyActivityID,
+		CreatedAt:       time.Now(),
+	}
+
+	if err := s.db.CreateStudySession(session); err != nil {
+		return nil, fmt.Errorf("failed to create study session: %v", err)
+	}
+
+	// Get group name
+	group, err := s.GetGroup(groupID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get group: %v", err)
+	}
+
+	// Get activity name
+	activity, err := s.GetStudyActivity(studyActivityID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get activity: %v", err)
+	}
+
+	return &models.StudySessionResponse{
+		ID:              session.ID,
+		ActivityName:    activity.Name,
+		GroupName:       group.Name,
+		StartTime:       session.CreatedAt.Format(time.RFC3339),
+		EndTime:         session.CreatedAt.Add(10 * time.Minute).Format(time.RFC3339),
+		ReviewItemsCount: 0,
 	}, nil
 }
 
@@ -487,6 +510,13 @@ func (s *Service) ListStudySessions(page int) (*models.PaginatedResponse, error)
 
 func (s *Service) GetStudySession(id int64) (*models.StudySessionResponse, error) {
 	var session models.StudySessionResponse
+	var (
+		activityName sql.NullString
+		groupName    sql.NullString
+		startTime    sql.NullTime
+		endTime      sql.NullTime
+		reviewCount  sql.NullInt64
+	)
 	
 	err := s.db.QueryRow(`
 		SELECT ss.id, sa.name as activity_name, g.name as group_name,
@@ -494,15 +524,34 @@ func (s *Service) GetStudySession(id int64) (*models.StudySessionResponse, error
 			   datetime(ss.created_at, '+10 minutes') as end_time,
 			   COUNT(wri.word_id) as review_items_count
 		FROM study_sessions ss
-		JOIN study_activities sa ON ss.study_activity_id = sa.id
-		JOIN groups g ON ss.group_id = g.id
+		LEFT JOIN study_activities sa ON ss.study_activity_id = sa.id
+		LEFT JOIN groups g ON ss.group_id = g.id
 		LEFT JOIN word_review_items wri ON ss.id = wri.study_session_id
 		WHERE ss.id = ?
 		GROUP BY ss.id
-	`, id).Scan(&session.ID, &session.ActivityName, &session.GroupName,
-		&session.StartTime, &session.EndTime, &session.ReviewItemsCount)
+	`, id).Scan(&session.ID, &activityName, &groupName,
+		&startTime, &endTime, &reviewCount)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("study session not found")
+		}
 		return nil, err
+	}
+
+	if activityName.Valid {
+		session.ActivityName = activityName.String
+	}
+	if groupName.Valid {
+		session.GroupName = groupName.String
+	}
+	if startTime.Valid {
+		session.StartTime = startTime.Time.Format(time.RFC3339)
+	}
+	if endTime.Valid {
+		session.EndTime = endTime.Time.Format(time.RFC3339)
+	}
+	if reviewCount.Valid {
+		session.ReviewItemsCount = int(reviewCount.Int64)
 	}
 
 	return &session, nil
