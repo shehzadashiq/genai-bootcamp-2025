@@ -56,41 +56,11 @@ func TestGetWord(t *testing.T) {
 }
 
 func TestCreateStudySession(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		t.Fatalf("Failed to open database: %v", err)
-	}
-	defer db.Close()
-
-	// Create tables
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS groups (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL UNIQUE
-		);
-
-		CREATE TABLE IF NOT EXISTS study_activities (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL UNIQUE,
-			description TEXT,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-		);
-
-		CREATE TABLE IF NOT EXISTS study_sessions (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			group_id INTEGER NOT NULL,
-			created_at DATETIME NOT NULL,
-			study_activity_id INTEGER NOT NULL,
-			FOREIGN KEY (group_id) REFERENCES groups(id),
-			FOREIGN KEY (study_activity_id) REFERENCES study_activities(id)
-		);
-	`)
-	if err != nil {
-		t.Fatalf("Failed to create tables: %v", err)
-	}
+	svc := setupTestDB(t)
+	defer teardownTestDB(t)
 
 	// Insert test data
-	result, err := db.Exec("INSERT INTO groups (name) VALUES ('Test Group')")
+	result, err := svc.db.Exec("INSERT INTO groups (name) VALUES ('Test Group')")
 	if err != nil {
 		t.Fatalf("Failed to insert group: %v", err)
 	}
@@ -99,13 +69,7 @@ func TestCreateStudySession(t *testing.T) {
 		t.Fatalf("Failed to get group ID: %v", err)
 	}
 
-	_, err = db.Exec("INSERT INTO study_activities (name, description) VALUES ('Test Activity', 'Test Description')")
-	if err != nil {
-		t.Fatalf("Failed to insert study activity: %v", err)
-	}
-
-	svc := service.NewServiceWithDB(db)
-
+	// Create study session using existing activity
 	session, err := svc.CreateStudySession(groupID, 1)
 	if err != nil {
 		t.Fatalf("CreateStudySession failed: %v", err)
@@ -115,8 +79,8 @@ func TestCreateStudySession(t *testing.T) {
 		t.Errorf("Expected group name 'Test Group', got '%s'", session.GroupName)
 	}
 
-	if session.ActivityName != "Test Activity" {
-		t.Errorf("Expected activity name 'Test Activity', got '%s'", session.ActivityName)
+	if session.ActivityName != "Vocabulary Quiz" {
+		t.Errorf("Expected activity name 'Vocabulary Quiz', got '%s'", session.ActivityName)
 	}
 }
 
@@ -193,13 +157,22 @@ func TestGetQuickStats(t *testing.T) {
 		t.Fatalf("Failed to clear review items: %v", err)
 	}
 
+	// Create study session
+	_, err = svc.db.Exec(`
+		INSERT INTO study_sessions (id, group_id, study_activity_id, created_at)
+		VALUES (1, 1, 1, datetime('now'))
+	`)
+	if err != nil {
+		t.Fatalf("Failed to create study session: %v", err)
+	}
+
 	// Insert test data with some correct and incorrect reviews
 	_, err = svc.db.Exec(`
 		INSERT INTO word_review_items (word_id, study_session_id, correct, created_at) 
 		VALUES (1, 1, true, datetime('now')), (1, 1, false, datetime('now'));
 	`)
 	if err != nil {
-		t.Fatalf("Failed to insert test data: %v", err)
+		t.Fatalf("Failed to insert test reviews: %v", err)
 	}
 
 	stats, err := svc.GetQuickStats()
@@ -208,7 +181,7 @@ func TestGetQuickStats(t *testing.T) {
 	}
 
 	if stats.SuccessRate != 50.0 {
-		t.Errorf("Expected 50%% success rate, got %.1f%%", stats.SuccessRate)
+		t.Errorf("Expected success rate 50.0, got %f", stats.SuccessRate)
 	}
 }
 
@@ -216,18 +189,20 @@ func TestReviewWord(t *testing.T) {
 	svc := setupTestDB(t)
 	defer teardownTestDB(t)
 
-	// Setup test data
-	_, err := svc.db.Exec(`
-		INSERT INTO words (urdu, urdlish, english) VALUES ('سلام', 'salaam', 'hello');
-		INSERT INTO study_sessions (group_id, created_at, study_activity_id) 
-		VALUES (1, datetime('now'), 1);
-	`)
+	// Create test data
+	result, err := svc.db.Exec(`INSERT INTO words (urdu, urdlish, english) VALUES ('سلام', 'salaam', 'hello')`)
 	if err != nil {
-		t.Fatalf("Failed to insert test data: %v", err)
+		t.Fatalf("Failed to insert test word: %v", err)
 	}
+	wordID, _ := result.LastInsertId()
 
-	// Test reviewing a word
-	review, err := svc.ReviewWord(1, 1, true)
+	result, err = svc.db.Exec(`INSERT INTO study_sessions (group_id, study_activity_id, created_at) VALUES (1, 1, CURRENT_TIMESTAMP)`)
+	if err != nil {
+		t.Fatalf("Failed to insert test session: %v", err)
+	}
+	sessionID, _ := result.LastInsertId()
+
+	review, err := svc.ReviewWord(sessionID, wordID, true)
 	if err != nil {
 		t.Fatalf("ReviewWord failed: %v", err)
 	}

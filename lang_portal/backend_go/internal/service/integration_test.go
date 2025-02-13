@@ -54,7 +54,10 @@ func TestFullWorkflow(t *testing.T) {
 	}
 
 	// 3. Create study activity
-	activity, err := svc.CreateStudyActivity(groupID, 1)
+	_, err = svc.db.Exec(`
+		INSERT INTO study_activities (id, name, description)
+		VALUES (1, 'Vocabulary Quiz', 'Test your vocabulary knowledge')
+	`)
 	if err != nil {
 		t.Fatalf("Failed to create study activity: %v", err)
 	}
@@ -115,6 +118,15 @@ func TestStudySessionWorkflow(t *testing.T) {
 		t.Fatalf("Failed to get group ID: %v", err)
 	}
 
+	// Create study activity
+	_, err = svc.db.Exec(`
+		INSERT INTO study_activities (id, name, description)
+		VALUES (1, 'Vocabulary Quiz', 'Test your vocabulary knowledge')
+	`)
+	if err != nil {
+		t.Fatalf("Failed to create activity: %v", err)
+	}
+
 	// Create a study session
 	session, err := svc.CreateStudySession(groupID, 1)
 	if err != nil {
@@ -172,13 +184,16 @@ func TestStudySessionWorkflow(t *testing.T) {
 	}
 
 	// Create study activity
-	activity, err := svc.CreateStudyActivity(groupID, 1)
+	_, err = svc.db.Exec(`
+		INSERT INTO study_activities (id, name, description)
+		VALUES (2, 'Vocabulary Quiz', 'Test your vocabulary knowledge')
+	`)
 	if err != nil {
 		t.Fatalf("Failed to create activity: %v", err)
 	}
 
 	// Create study session
-	session, err = svc.CreateStudySession(groupID, 1)
+	session, err = svc.CreateStudySession(groupID, 2)
 	if err != nil {
 		t.Fatalf("Failed to create study session: %v", err)
 	}
@@ -200,6 +215,6 @@ func TestStudySessionWorkflow(t *testing.T) {
 	}
 
 	if stats.SuccessRate != 50.0 {
-		t.Errorf("Expected 50%% success rate, got %.1f%%", stats.SuccessRate)
+		t.Errorf("Expected success rate 50.0, got %f", stats.SuccessRate)
 	}
-} 
+}

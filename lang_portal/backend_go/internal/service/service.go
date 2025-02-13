@@ -285,6 +285,19 @@ func (s *Service) GetStudyActivities(page int) (*models.PaginatedResponse, error
 	}, nil
 }
 
+func (s *Service) CreateStudyActivity(groupID int64, activityID int64) (*models.StudyActivityResponse, error) {
+	var activity models.StudyActivityResponse
+	err := s.db.QueryRow(`
+		INSERT INTO study_activities (group_id, activity_id, created_at)
+		VALUES (?, ?, CURRENT_TIMESTAMP)
+		RETURNING id, group_id, activity_id, created_at
+	`, groupID, activityID).Scan(&activity.ID, &activity.Name, &activity.Description, &activity.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &activity, nil
+}
+
 // Words methods
 func (s *Service) ListWords(page int) (*models.PaginatedResponse, error) {
 	if page < 1 {
