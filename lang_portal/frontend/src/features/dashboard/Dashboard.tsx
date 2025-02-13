@@ -6,9 +6,11 @@ import { dashboardApi } from '@/services/api'
 interface LastStudySession {
   id: number
   group_id: number
-  created_at: string
-  study_activity_id: number
+  activity_name: string
   group_name: string
+  start_time: string
+  end_time: string
+  review_items_count: number
 }
 
 interface StudyProgress {
@@ -55,6 +57,17 @@ export default function Dashboard() {
     return <div>Loading dashboard...</div>
   }
 
+  const formatDate = (dateStr: string | undefined) => {
+    if (!dateStr) return 'Not available'
+    try {
+      // SQLite returns dates in ISO format, so we need to handle them properly
+      return new Date(dateStr).toLocaleString()
+    } catch (e) {
+      console.error('Error formatting date:', e)
+      return 'Invalid date'
+    }
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Dashboard</h1>
@@ -75,9 +88,27 @@ export default function Dashboard() {
               </Link>
             </div>
             <div>
-              <h3 className="font-medium">Date</h3>
+              <h3 className="font-medium">Start Time</h3>
               <p className="text-muted-foreground">
-                {new Date(lastSession.created_at).toLocaleString()}
+                {formatDate(lastSession.start_time)}
+              </p>
+            </div>
+            <div>
+              <h3 className="font-medium">End Time</h3>
+              <p className="text-muted-foreground">
+                {formatDate(lastSession.end_time)}
+              </p>
+            </div>
+            <div>
+              <h3 className="font-medium">Activity</h3>
+              <p className="text-muted-foreground">
+                {lastSession.activity_name}
+              </p>
+            </div>
+            <div>
+              <h3 className="font-medium">Words Reviewed</h3>
+              <p className="text-muted-foreground">
+                {lastSession.review_items_count}
               </p>
             </div>
           </CardContent>
@@ -101,9 +132,11 @@ export default function Dashboard() {
               </div>
               <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-primary transition-all"
+                  className="h-full bg-primary"
                   style={{
-                    width: `${(progress.total_words_studied / progress.total_available_words) * 100}%`,
+                    width: `${Math.round(
+                      (progress.total_words_studied / progress.total_available_words) * 100
+                    )}%`,
                   }}
                 />
               </div>
@@ -117,39 +150,26 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle>Quick Stats</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <h3 className="font-medium">Success Rate</h3>
-                <p className="text-2xl font-bold">{stats.success_rate}%</p>
-              </div>
-              <div>
-                <h3 className="font-medium">Study Sessions</h3>
-                <p className="text-2xl font-bold">{stats.total_study_sessions}</p>
-              </div>
-              <div>
-                <h3 className="font-medium">Active Groups</h3>
-                <p className="text-2xl font-bold">{stats.total_active_groups}</p>
-              </div>
-              <div>
-                <h3 className="font-medium">Study Streak</h3>
-                <p className="text-2xl font-bold">{stats.study_streak_days} days</p>
-              </div>
+          <CardContent className="grid grid-cols-2 gap-4">
+            <div>
+              <h3 className="font-medium">Success Rate</h3>
+              <p className="text-2xl font-bold">{Math.round(stats.success_rate)}%</p>
+            </div>
+            <div>
+              <h3 className="font-medium">Study Sessions</h3>
+              <p className="text-2xl font-bold">{stats.total_study_sessions}</p>
+            </div>
+            <div>
+              <h3 className="font-medium">Active Groups</h3>
+              <p className="text-2xl font-bold">{stats.total_active_groups}</p>
+            </div>
+            <div>
+              <h3 className="font-medium">Study Streak</h3>
+              <p className="text-2xl font-bold">{stats.study_streak_days} days</p>
             </div>
           </CardContent>
         </Card>
       )}
-
-      <Card>
-        <CardContent className="pt-6">
-          <Link
-            to="/study_activities"
-            className="block w-full py-3 text-center bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
-          >
-            Start Studying
-          </Link>
-        </CardContent>
-      </Card>
     </div>
   )
 }
