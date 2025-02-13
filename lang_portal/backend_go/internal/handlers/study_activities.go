@@ -79,10 +79,10 @@ func (h *Handler) CreateStudyActivity(c *gin.Context) {
 		return
 	}
 
-	activity, err := h.svc.CreateStudyActivity(req.GroupID, req.StudyActivityID)
+	session, err := h.svc.CreateStudySession(req.GroupID, req.StudyActivityID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, activity)
+	c.JSON(http.StatusCreated, session)
 }

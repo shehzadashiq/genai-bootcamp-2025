@@ -186,7 +186,19 @@ func (s *Service) GetStudyActivitySessions(id int64, page int) (*models.Paginate
 	}, nil
 }
 
-func (s *Service) CreateStudyActivity(groupID, studyActivityID int64) (*models.StudySessionResponse, error) {
+func (s *Service) CreateStudySession(groupID, studyActivityID int64) (*models.StudySessionResponse, error) {
+	// Validate that the study activity exists
+	activity, err := s.GetStudyActivity(studyActivityID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid study activity: %v", err)
+	}
+
+	// Validate that the group exists
+	group, err := s.GetGroup(groupID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid group: %v", err)
+	}
+
 	// Create a new study session
 	session := &models.StudySession{
 		GroupID:         groupID,
@@ -196,18 +208,6 @@ func (s *Service) CreateStudyActivity(groupID, studyActivityID int64) (*models.S
 
 	if err := s.db.CreateStudySession(session); err != nil {
 		return nil, fmt.Errorf("failed to create study session: %v", err)
-	}
-
-	// Get group name
-	group, err := s.GetGroup(groupID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get group: %v", err)
-	}
-
-	// Get activity name
-	activity, err := s.GetStudyActivity(studyActivityID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get activity: %v", err)
 	}
 
 	return &models.StudySessionResponse{

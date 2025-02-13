@@ -55,31 +55,68 @@ func TestGetWord(t *testing.T) {
 	}
 }
 
-func TestCreateStudyActivity(t *testing.T) {
-	svc := setupTestDB(t)
-	defer teardownTestDB(t)
-
-	// Insert test group
-	result, err := svc.db.Exec(`
-		INSERT INTO groups (name) VALUES (?)
-	`, "Test Group")
+func TestCreateStudySession(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
-		t.Fatalf("Failed to insert test group: %v", err)
+		t.Fatalf("Failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	// Create tables
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS groups (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL UNIQUE
+		);
+
+		CREATE TABLE IF NOT EXISTS study_activities (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL UNIQUE,
+			description TEXT,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);
+
+		CREATE TABLE IF NOT EXISTS study_sessions (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			group_id INTEGER NOT NULL,
+			created_at DATETIME NOT NULL,
+			study_activity_id INTEGER NOT NULL,
+			FOREIGN KEY (group_id) REFERENCES groups(id),
+			FOREIGN KEY (study_activity_id) REFERENCES study_activities(id)
+		);
+	`)
+	if err != nil {
+		t.Fatalf("Failed to create tables: %v", err)
 	}
 
+	// Insert test data
+	result, err := db.Exec("INSERT INTO groups (name) VALUES ('Test Group')")
+	if err != nil {
+		t.Fatalf("Failed to insert group: %v", err)
+	}
 	groupID, err := result.LastInsertId()
 	if err != nil {
 		t.Fatalf("Failed to get group ID: %v", err)
 	}
 
-	// Test creating study activity
-	activity, err := svc.CreateStudyActivity(groupID, 1)
+	_, err = db.Exec("INSERT INTO study_activities (name, description) VALUES ('Test Activity', 'Test Description')")
 	if err != nil {
-		t.Fatalf("CreateStudyActivity failed: %v", err)
+		t.Fatalf("Failed to insert study activity: %v", err)
 	}
 
-	if activity.ID == 0 {
-		t.Error("Expected non-zero activity ID")
+	svc := service.NewServiceWithDB(db)
+
+	session, err := svc.CreateStudySession(groupID, 1)
+	if err != nil {
+		t.Fatalf("CreateStudySession failed: %v", err)
+	}
+
+	if session.GroupName != "Test Group" {
+		t.Errorf("Expected group name 'Test Group', got '%s'", session.GroupName)
+	}
+
+	if session.ActivityName != "Test Activity" {
+		t.Errorf("Expected activity name 'Test Activity', got '%s'", session.ActivityName)
 	}
 }
 
@@ -287,4 +324,4 @@ func TestTransactionRollback(t *testing.T) {
 	if finalCount != initialCount {
 		t.Errorf("Expected count to remain %d, got %d", initialCount, finalCount)
 	}
-} 
+}
