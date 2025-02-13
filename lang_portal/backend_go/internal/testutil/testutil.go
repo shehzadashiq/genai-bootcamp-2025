@@ -99,25 +99,18 @@ func (db *TestDB) Seed() {
 			('شکریہ', 'shukriya', 'thank you');`,
 
 		// Then, link words to groups
-		`INSERT INTO words_groups (word_id, group_id) VALUES (1, 1), (2, 1);`,
+		`INSERT INTO words_groups (word_id, group_id) VALUES 
+			(1, 1),
+			(2, 1);`,
 
-		// Then, create study activities
-		`INSERT INTO study_activities (name, description, created_at) VALUES 
-			('Vocabulary Quiz', 'Practice your vocabulary', datetime('now'));`,
-
-		// Then, create study sessions
-		`INSERT INTO study_sessions (group_id, created_at, study_activity_id) 
-			VALUES (1, datetime('now'), 1);`,
-
-		// Finally, add word reviews
-		`INSERT INTO word_review_items (word_id, study_session_id, correct, created_at)
-			VALUES (1, 1, true, datetime('now'));`,
+		// Insert study activities
+		`INSERT INTO study_activities (id, name, description) VALUES 
+			(1, 'Vocabulary Quiz', 'Test your vocabulary knowledge');`,
 	}
 
-	// Execute each statement separately to catch specific errors
-	for _, sql := range seedData {
-		if _, err := db.Exec(sql); err != nil {
-			db.t.Fatalf("Failed to seed data with statement '%s': %v", sql, err)
+	for _, query := range seedData {
+		if _, err := db.Exec(query); err != nil {
+			db.t.Fatalf("Failed to seed data: %v", err)
 		}
 	}
 }

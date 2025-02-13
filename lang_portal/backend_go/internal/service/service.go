@@ -10,7 +10,7 @@ import (
 )
 
 type Service struct {
-	db *sql.DB
+	db *models.DB
 }
 
 // NewService creates a new service with the given database path
@@ -19,12 +19,12 @@ func NewService(dbPath string) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %v", err)
 	}
-	return &Service{db: db}, nil
+	return &Service{db: models.NewDB(db)}, nil
 }
 
 // NewServiceWithDB creates a new service with an existing database connection
 func NewServiceWithDB(db *sql.DB) *Service {
-	return &Service{db: db}
+	return &Service{db: models.NewDB(db)}
 }
 
 func (s *Service) Close() error {
@@ -119,29 +119,33 @@ func (s *Service) GetQuickStats() (*models.DashboardStats, error) {
 
 // Study activities methods
 func (s *Service) GetStudyActivity(id int64) (*models.StudyActivityResponse, error) {
-	var activity models.StudyActivityResponse
-	err := s.db.QueryRow(`
-		SELECT id, name, thumbnail_url, description
-		FROM study_activities WHERE id = ?
-	`, id).Scan(&activity.ID, &activity.Name, &activity.ThumbnailURL, &activity.Description)
+	activity, err := s.db.GetStudyActivity(id)
 	if err != nil {
 		return nil, err
 	}
-	return &activity, nil
+	
+	return &models.StudyActivityResponse{
+		ID:           activity.ID,
+		Name:         activity.Name,
+		ThumbnailURL: activity.ThumbnailURL,
+		Description:  activity.Description,
+		CreatedAt:    activity.CreatedAt,
+	}, nil
 }
 
 func (s *Service) GetStudyActivitySessions(id int64, page int) (*models.PaginatedResponse, error) {
 	offset := (page - 1) * 100
+
 	rows, err := s.db.Query(`
-		SELECT ss.id, sa.name as activity_name, g.name as group_name,
-			   ss.created_at as start_time,
-			   datetime(ss.created_at, '+10 minutes') as end_time,
-			   COUNT(wri.word_id) as review_items_count
+		SELECT ss.id, g.name, sa.name,
+			   ss.created_at,
+			   strftime('%Y-%m-%dT%H:%M:%SZ', datetime(ss.created_at, '+10 minutes')),
+			   COUNT(wri.word_id)
 		FROM study_sessions ss
-		JOIN study_activities sa ON ss.study_activity_id = sa.id
-		JOIN groups g ON ss.group_id = g.id
+		LEFT JOIN study_activities sa ON ss.study_activity_id = sa.id
+		LEFT JOIN groups g ON ss.group_id = g.id
 		LEFT JOIN word_review_items wri ON ss.id = wri.study_session_id
-		WHERE sa.id = ?
+		WHERE ss.study_activity_id = ?
 		GROUP BY ss.id
 		ORDER BY ss.created_at DESC
 		LIMIT 100 OFFSET ?
@@ -154,14 +158,49 @@ func (s *Service) GetStudyActivitySessions(id int64, page int) (*models.Paginate
 	var sessions []models.StudySessionResponse
 	for rows.Next() {
 		var session models.StudySessionResponse
-		if err := rows.Scan(&session.ID, &session.ActivityName, &session.GroupName,
-			&session.StartTime, &session.EndTime, &session.ReviewItemsCount); err != nil {
+		var (
+			activityName sql.NullString
+			groupName    sql.NullString
+			startTime    sql.NullTime
+			endTimeStr   sql.NullString
+			reviewCount  sql.NullInt64
+		)
+
+		err := rows.Scan(
+			&session.ID,
+			&groupName,
+			&activityName,
+			&startTime,
+			&endTimeStr,
+			&reviewCount,
+		)
+		if err != nil {
 			return nil, err
 		}
+
+		if activityName.Valid {
+			session.ActivityName = activityName.String
+		}
+		if groupName.Valid {
+			session.GroupName = groupName.String
+		}
+		if startTime.Valid {
+			session.StartTime = startTime.Time.Format(time.RFC3339)
+		}
+		if endTimeStr.Valid {
+			session.EndTime = endTimeStr.String
+		}
+		if reviewCount.Valid {
+			session.ReviewItemsCount = int(reviewCount.Int64)
+		}
+
 		sessions = append(sessions, session)
 	}
 
-	// Get total count for pagination
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
 	var total int
 	err = s.db.QueryRow(`
 		SELECT COUNT(DISTINCT ss.id)
@@ -183,25 +222,80 @@ func (s *Service) GetStudyActivitySessions(id int64, page int) (*models.Paginate
 	}, nil
 }
 
-func (s *Service) CreateStudyActivity(groupID, studyActivityID int64) (*models.StudyActivityResponse, error) {
-	result, err := s.db.Exec(`
-		INSERT INTO study_activities (name, description, group_id, created_at)
-		VALUES (?, ?, ?, ?)
-	`, fmt.Sprintf("Study Session %d", studyActivityID), "New study session", groupID, time.Now())
+func (s *Service) CreateStudySession(groupID, studyActivityID int64) (*models.StudySessionResponse, error) {
+	// First check if group exists
+	group, err := s.GetGroup(groupID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("group not found: %v", err)
 	}
 
-	id, err := result.LastInsertId()
+	// Then check if study activity exists
+	activity, err := s.GetStudyActivity(studyActivityID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("study activity not found: %v", err)
 	}
 
-	return &models.StudyActivityResponse{
-		ID:          id,
-		Name:        fmt.Sprintf("Study Session %d", id),
-		Description: "New study session",
+	// Create study session
+	session := &models.StudySession{
+		GroupID:         groupID,
+		StudyActivityID: studyActivityID,
+		CreatedAt:       time.Now(),
+	}
+
+	if err := s.db.CreateStudySession(session); err != nil {
+		return nil, fmt.Errorf("failed to create study session: %v", err)
+	}
+
+	// Convert to response type
+	timeStr := session.CreatedAt.Format(time.RFC3339)
+	endTimeStr := session.CreatedAt.Add(10 * time.Minute).Format(time.RFC3339)
+	
+	return &models.StudySessionResponse{
+		ID:               session.ID,
+		ActivityName:     activity.Name,
+		GroupName:        group.Name,
+		StartTime:        timeStr,
+		EndTime:          endTimeStr,
+		ReviewItemsCount: 0,
 	}, nil
+}
+
+func (s *Service) GetStudyActivities(page int) (*models.PaginatedResponse, error) {
+	itemsPerPage := 100
+	offset := (page - 1) * itemsPerPage
+
+	activities, err := s.db.GetStudyActivities(itemsPerPage, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	total, err := s.db.CountStudyActivities()
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.PaginatedResponse{
+		Items: activities,
+		Pagination: models.Pagination{
+			CurrentPage:  page,
+			TotalPages:  (total + itemsPerPage - 1) / itemsPerPage,
+			TotalItems:  total,
+			ItemsPerPage: itemsPerPage,
+		},
+	}, nil
+}
+
+func (s *Service) CreateStudyActivity(groupID int64, activityID int64) (*models.StudyActivityResponse, error) {
+	var activity models.StudyActivityResponse
+	err := s.db.QueryRow(`
+		INSERT INTO study_activities (group_id, activity_id, created_at)
+		VALUES (?, ?, CURRENT_TIMESTAMP)
+		RETURNING id, group_id, activity_id, created_at
+	`, groupID, activityID).Scan(&activity.ID, &activity.Name, &activity.Description, &activity.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &activity, nil
 }
 
 // Words methods
@@ -329,11 +423,11 @@ func (s *Service) GetGroupWords(id int64, page int) (*models.PaginatedResponse, 
 	offset := (page - 1) * 100
 	rows, err := s.db.Query(`
 		SELECT w.urdu, w.urdlish, w.english,
-			   COUNT(CASE WHEN wri.correct THEN 1 END) as correct_count,
-			   COUNT(CASE WHEN NOT wri.correct THEN 1 END) as wrong_count
+			   COUNT(CASE WHEN wri2.correct THEN 1 END) as correct_count,
+			   COUNT(CASE WHEN NOT wri2.correct THEN 1 END) as wrong_count
 		FROM words w
 		JOIN words_groups wg ON w.id = wg.word_id
-		LEFT JOIN word_review_items wri ON w.id = wri.word_id
+		LEFT JOIN word_review_items wri2 ON w.id = wri2.word_id
 		WHERE wg.group_id = ?
 		GROUP BY w.id
 		LIMIT 100 OFFSET ?
@@ -372,16 +466,17 @@ func (s *Service) GetGroupWords(id int64, page int) (*models.PaginatedResponse, 
 
 func (s *Service) GetGroupStudySessions(id int64, page int) (*models.PaginatedResponse, error) {
 	offset := (page - 1) * 100
+
 	rows, err := s.db.Query(`
-		SELECT ss.id, sa.name as activity_name, g.name as group_name,
-			   ss.created_at as start_time,
-			   datetime(ss.created_at, '+10 minutes') as end_time,
-			   COUNT(wri.word_id) as review_items_count
+		SELECT ss.id, g.name, sa.name,
+			   ss.created_at,
+			   strftime('%Y-%m-%dT%H:%M:%SZ', datetime(ss.created_at, '+10 minutes')),
+			   COUNT(wri.word_id)
 		FROM study_sessions ss
-		JOIN study_activities sa ON ss.study_activity_id = sa.id
-		JOIN groups g ON ss.group_id = g.id
+		LEFT JOIN study_activities sa ON ss.study_activity_id = sa.id
+		LEFT JOIN groups g ON ss.group_id = g.id
 		LEFT JOIN word_review_items wri ON ss.id = wri.study_session_id
-		WHERE g.id = ?
+		WHERE ss.group_id = ?
 		GROUP BY ss.id
 		ORDER BY ss.created_at DESC
 		LIMIT 100 OFFSET ?
@@ -394,16 +489,54 @@ func (s *Service) GetGroupStudySessions(id int64, page int) (*models.PaginatedRe
 	var sessions []models.StudySessionResponse
 	for rows.Next() {
 		var session models.StudySessionResponse
-		if err := rows.Scan(&session.ID, &session.ActivityName, &session.GroupName,
-			&session.StartTime, &session.EndTime, &session.ReviewItemsCount); err != nil {
+		var (
+			activityName sql.NullString
+			groupName    sql.NullString
+			startTime    sql.NullTime
+			endTimeStr   sql.NullString
+			reviewCount  sql.NullInt64
+		)
+
+		err := rows.Scan(
+			&session.ID,
+			&groupName,
+			&activityName,
+			&startTime,
+			&endTimeStr,
+			&reviewCount,
+		)
+		if err != nil {
 			return nil, err
 		}
+
+		if activityName.Valid {
+			session.ActivityName = activityName.String
+		}
+		if groupName.Valid {
+			session.GroupName = groupName.String
+		}
+		if startTime.Valid {
+			session.StartTime = startTime.Time.Format(time.RFC3339)
+		}
+		if endTimeStr.Valid {
+			session.EndTime = endTimeStr.String
+		}
+		if reviewCount.Valid {
+			session.ReviewItemsCount = int(reviewCount.Int64)
+		}
+
 		sessions = append(sessions, session)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
 	}
 
 	var total int
 	err = s.db.QueryRow(`
-		SELECT COUNT(*) FROM study_sessions WHERE group_id = ?
+		SELECT COUNT(DISTINCT ss.id)
+		FROM study_sessions ss
+		WHERE ss.group_id = ?
 	`, id).Scan(&total)
 	if err != nil {
 		return nil, err
@@ -425,7 +558,7 @@ func (s *Service) ListStudySessions(page int) (*models.PaginatedResponse, error)
 	rows, err := s.db.Query(`
 		SELECT ss.id, sa.name as activity_name, g.name as group_name,
 			   ss.created_at as start_time,
-			   datetime(ss.created_at, '+10 minutes') as end_time,
+			   strftime('%Y-%m-%dT%H:%M:%SZ', datetime(ss.created_at, '+10 minutes')) as end_time,
 			   COUNT(wri.word_id) as review_items_count
 		FROM study_sessions ss
 		JOIN study_activities sa ON ss.study_activity_id = sa.id
@@ -443,10 +576,36 @@ func (s *Service) ListStudySessions(page int) (*models.PaginatedResponse, error)
 	var sessions []models.StudySessionResponse
 	for rows.Next() {
 		var session models.StudySessionResponse
-		if err := rows.Scan(&session.ID, &session.ActivityName, &session.GroupName,
-			&session.StartTime, &session.EndTime, &session.ReviewItemsCount); err != nil {
+		var (
+			activityName sql.NullString
+			groupName    sql.NullString
+			startTime    sql.NullTime
+			endTimeStr   sql.NullString
+			reviewCount  sql.NullInt64
+		)
+
+		err := rows.Scan(&session.ID, &activityName, &groupName,
+			&startTime, &endTimeStr, &reviewCount)
+		if err != nil {
 			return nil, err
 		}
+
+		if activityName.Valid {
+			session.ActivityName = activityName.String
+		}
+		if groupName.Valid {
+			session.GroupName = groupName.String
+		}
+		if startTime.Valid {
+			session.StartTime = startTime.Time.Format(time.RFC3339)
+		}
+		if endTimeStr.Valid {
+			session.EndTime = endTimeStr.String
+		}
+		if reviewCount.Valid {
+			session.ReviewItemsCount = int(reviewCount.Int64)
+		}
+
 		sessions = append(sessions, session)
 	}
 
@@ -468,25 +627,69 @@ func (s *Service) ListStudySessions(page int) (*models.PaginatedResponse, error)
 }
 
 func (s *Service) GetStudySession(id int64) (*models.StudySessionResponse, error) {
-	var session models.StudySessionResponse
+	fmt.Printf("Getting study session with ID: %d\n", id)
 	
-	err := s.db.QueryRow(`
-		SELECT ss.id, sa.name as activity_name, g.name as group_name,
-			   ss.created_at as start_time,
-			   datetime(ss.created_at, '+10 minutes') as end_time,
-			   COUNT(wri.word_id) as review_items_count
+	var session models.StudySessionResponse
+	var (
+		activityName sql.NullString
+		groupName    sql.NullString
+		startTime    sql.NullTime
+		endTimeStr   sql.NullString
+		reviewCount  sql.NullInt64
+	)
+	
+	query := `
+		SELECT ss.id, sa.name, g.name,
+			   ss.created_at,
+			   strftime('%Y-%m-%dT%H:%M:%SZ', datetime(ss.created_at, '+10 minutes')),
+			   COUNT(wri.word_id)
 		FROM study_sessions ss
-		JOIN study_activities sa ON ss.study_activity_id = sa.id
-		JOIN groups g ON ss.group_id = g.id
+		LEFT JOIN study_activities sa ON ss.study_activity_id = sa.id
+		LEFT JOIN groups g ON ss.group_id = g.id
 		LEFT JOIN word_review_items wri ON ss.id = wri.study_session_id
 		WHERE ss.id = ?
 		GROUP BY ss.id
-	`, id).Scan(&session.ID, &session.ActivityName, &session.GroupName,
-		&session.StartTime, &session.EndTime, &session.ReviewItemsCount)
+	`
+	fmt.Printf("Executing query: %s\n", query)
+	
+	err := s.db.QueryRow(query, id).Scan(
+		&session.ID,
+		&activityName,
+		&groupName,
+		&startTime,
+		&endTimeStr,
+		&reviewCount,
+	)
 	if err != nil {
-		return nil, err
+		if err == sql.ErrNoRows {
+			fmt.Printf("Study session not found: %v\n", err)
+			return nil, fmt.Errorf("study session not found")
+		}
+		fmt.Printf("Error getting study session: %v\n", err)
+		return nil, fmt.Errorf("error getting study session: %v", err)
 	}
 
+	fmt.Printf("Found study session: %+v\n", session)
+	fmt.Printf("Activity name: %+v\n", activityName)
+	fmt.Printf("Group name: %+v\n", groupName)
+
+	if activityName.Valid {
+		session.ActivityName = activityName.String
+	}
+	if groupName.Valid {
+		session.GroupName = groupName.String
+	}
+	if startTime.Valid {
+		session.StartTime = startTime.Time.Format(time.RFC3339)
+	}
+	if endTimeStr.Valid {
+		session.EndTime = endTimeStr.String
+	}
+	if reviewCount.Valid {
+		session.ReviewItemsCount = int(reviewCount.Int64)
+	}
+
+	fmt.Printf("Returning study session: %+v\n", session)
 	return &session, nil
 }
 

@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"fmt"
+	"lang_portal/internal/models"
 	"lang_portal/internal/service"
 	"net/http"
 	"strconv"
@@ -12,10 +14,25 @@ func RegisterStudyActivitiesRoutes(r *gin.RouterGroup, svc *service.Service) {
 	h := NewHandler(svc)
 	activities := r.Group("/study_activities")
 	{
+		activities.GET("", h.GetStudyActivities)
 		activities.GET("/:id", h.GetStudyActivity)
 		activities.GET("/:id/study_sessions", h.GetStudyActivitySessions)
 		activities.POST("", h.CreateStudyActivity)
 	}
+}
+
+func (h *Handler) GetStudyActivities(c *gin.Context) {
+	page := c.DefaultQuery("page", "1")
+	pageNum, _ := strconv.Atoi(page)
+
+	activities, err := h.svc.GetStudyActivities(pageNum)
+	if err != nil {
+		fmt.Printf("Error getting study activities: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	fmt.Printf("Found %d study activities\n", len(activities.Items.([]*models.StudyActivity)))
+	c.JSON(http.StatusOK, activities)
 }
 
 func (h *Handler) GetStudyActivity(c *gin.Context) {
@@ -62,10 +79,10 @@ func (h *Handler) CreateStudyActivity(c *gin.Context) {
 		return
 	}
 
-	activity, err := h.svc.CreateStudyActivity(req.GroupID, req.StudyActivityID)
+	session, err := h.svc.CreateStudySession(req.GroupID, req.StudyActivityID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, activity)
-} 
+	c.JSON(http.StatusCreated, session)
+}

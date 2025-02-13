@@ -54,23 +54,22 @@ func TestFullWorkflow(t *testing.T) {
 	}
 
 	// 3. Create study activity
-	activity, err := svc.CreateStudyActivity(groupID, 1)
+	_, err = svc.db.Exec(`
+		INSERT INTO study_activities (id, name, description)
+		VALUES (1, 'Vocabulary Quiz', 'Test your vocabulary knowledge')
+	`)
 	if err != nil {
 		t.Fatalf("Failed to create study activity: %v", err)
 	}
 
 	// Create study session
-	sessionResult, err := svc.db.Exec(`
-		INSERT INTO study_sessions (group_id, created_at, study_activity_id)
-		VALUES (?, datetime('now'), ?)
-	`, groupID, activity.ID)
+	session, err := svc.CreateStudySession(groupID, 1)
 	if err != nil {
 		t.Fatalf("Failed to create study session: %v", err)
 	}
-	sessionID, _ := sessionResult.LastInsertId()
 
 	// 4. Review words
-	_, err = svc.ReviewWord(sessionID, wordID, true)
+	_, err = svc.ReviewWord(session.ID, wordID, true)
 	if err != nil {
 		t.Fatalf("Failed to review word: %v", err)
 	}
@@ -107,12 +106,49 @@ func TestStudySessionWorkflow(t *testing.T) {
 		t.Fatalf("Failed to clear data: %v", err)
 	}
 
+	// Insert test data and get group ID
+	result, err := svc.db.Exec(`
+		INSERT INTO groups (name) VALUES (?)
+	`, "Test Group")
+	if err != nil {
+		t.Fatalf("Failed to insert test group: %v", err)
+	}
+	groupID, err := result.LastInsertId()
+	if err != nil {
+		t.Fatalf("Failed to get group ID: %v", err)
+	}
+
+	// Create study activity
+	_, err = svc.db.Exec(`
+		INSERT INTO study_activities (id, name, description)
+		VALUES (1, 'Vocabulary Quiz', 'Test your vocabulary knowledge')
+	`)
+	if err != nil {
+		t.Fatalf("Failed to create activity: %v", err)
+	}
+
+	// Create a study session
+	session, err := svc.CreateStudySession(groupID, 1)
+	if err != nil {
+		t.Fatalf("Failed to create study session: %v", err)
+	}
+
+	// Test retrieving the study session
+	retrievedSession, err := svc.GetStudySession(session.ID)
+	if err != nil {
+		t.Fatalf("Failed to get study session: %v", err)
+	}
+
+	if retrievedSession.GroupName != "Test Group" {
+		t.Errorf("Expected group name 'Test Group', got '%s'", retrievedSession.GroupName)
+	}
+
 	// First create group
-	result, err := svc.db.Exec(`INSERT INTO groups (name) VALUES ('Test Group')`)
+	result, err = svc.db.Exec(`INSERT INTO groups (name) VALUES ('Test Group')`)
 	if err != nil {
 		t.Fatalf("Failed to create group: %v", err)
 	}
-	groupID, err := result.LastInsertId()
+	groupID, err = result.LastInsertId()
 	if err != nil {
 		t.Fatalf("Failed to get group ID: %v", err)
 	}
@@ -148,27 +184,26 @@ func TestStudySessionWorkflow(t *testing.T) {
 	}
 
 	// Create study activity
-	activity, err := svc.CreateStudyActivity(groupID, 1)
+	_, err = svc.db.Exec(`
+		INSERT INTO study_activities (id, name, description)
+		VALUES (2, 'Vocabulary Quiz', 'Test your vocabulary knowledge')
+	`)
 	if err != nil {
 		t.Fatalf("Failed to create activity: %v", err)
 	}
 
 	// Create study session
-	sessionResult, err := svc.db.Exec(`
-		INSERT INTO study_sessions (group_id, created_at, study_activity_id)
-		VALUES (?, datetime('now'), ?)
-	`, groupID, activity.ID)
+	session, err = svc.CreateStudySession(groupID, 2)
 	if err != nil {
 		t.Fatalf("Failed to create study session: %v", err)
 	}
-	sessionID, _ := sessionResult.LastInsertId()
 
 	// Review multiple words
-	_, err = svc.ReviewWord(sessionID, word1ID, true)
+	_, err = svc.ReviewWord(session.ID, word1ID, true)
 	if err != nil {
 		t.Fatalf("Failed to review word 1: %v", err)
 	}
-	_, err = svc.ReviewWord(sessionID, word2ID, false)
+	_, err = svc.ReviewWord(session.ID, word2ID, false)
 	if err != nil {
 		t.Fatalf("Failed to review word 2: %v", err)
 	}
@@ -180,6 +215,6 @@ func TestStudySessionWorkflow(t *testing.T) {
 	}
 
 	if stats.SuccessRate != 50.0 {
-		t.Errorf("Expected 50%% success rate, got %.1f%%", stats.SuccessRate)
+		t.Errorf("Expected success rate 50.0, got %f", stats.SuccessRate)
 	}
-} 
+}

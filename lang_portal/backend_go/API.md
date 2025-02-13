@@ -95,14 +95,14 @@ Returns paginated list of study sessions for an activity.
 
 ### POST /study_activities
 
-Creates a new study activity.
+Creates a new study session for an activity.
 
 #### Request
 
 ```json
 {
-    "group_id": 1,
-    "study_activity_id": 1
+    "group_id": 123,
+    "study_activity_id": 456
 }
 ```
 
@@ -110,9 +110,12 @@ Creates a new study activity.
 
 ```json
 {
-    "id": 2,
-    "name": "Study Session 2",
-    "description": "New study session"
+    "id": 789,
+    "activity_name": "Vocabulary Quiz",
+    "group_name": "Basic Words",
+    "start_time": "2024-03-10T15:30:00Z",
+    "end_time": "2024-03-10T15:40:00Z",
+    "review_items_count": 0
 }
 ```
 
@@ -201,6 +204,7 @@ Returns details of a specific group.
 ```
 
 ### GET /groups/:id/words?page=1
+
 Returns paginated list of words in a group.
 
 #### Response
@@ -303,6 +307,7 @@ Returns details of a specific study session.
 Returns paginated list of words reviewed in a study session.
 
 Response:
+
 ```json
 {
     "items": [
@@ -324,6 +329,7 @@ Response:
 ```
 
 ### POST /study_sessions/:id/words/:word_id/review
+
 Records a word review in a study session.
 
 #### Request
@@ -378,28 +384,33 @@ Resets entire system including words and groups.
 The API includes comprehensive test coverage across multiple layers:
 
 ### Service Tests
+
 ```bash
 go test ./internal/service -v
 ```
 
 Tests the business logic layer:
+
 - Word management (create, read, list)
 - Study sessions and activities
 - Progress tracking and statistics
 - Error cases and edge conditions
 
 ### Handler Tests
+
 ```bash
 go test ./internal/handlers -v
 ```
 
 Tests the HTTP layer:
+
 - Endpoint responses
 - JSON validation
 - Error responses
 - Parameter validation
 
 ### Integration Tests
+
 ```bash
 # Run all tests
 go test ./... -v
@@ -409,25 +420,30 @@ go test ./... -short
 ```
 
 Tests full workflows:
+
 - Complete study sessions
 - Word review cycles
 - Statistics calculations
 
 ### Concurrent Tests
+
 ```bash
 go test ./internal/service -run TestConcurrent
 ```
 
 Tests concurrent access:
+
 - Multiple simultaneous reviews
 - Database transaction integrity
 
 ### Test Coverage
+
 ```bash
 go test ./... -cover
 ```
 
 Key areas covered:
+
 - Service layer: Core business logic
 - Handlers: API endpoints
 - Middleware: CORS, error handling, rate limiting

@@ -1,6 +1,10 @@
 package models
 
-import "time"
+import (
+	"database/sql"
+	"fmt"
+	"time"
+)
 
 // Core domain models
 type Word struct {
@@ -26,8 +30,8 @@ type StudySession struct {
 type StudyActivity struct {
 	ID            int64     `json:"id"`
 	Name          string    `json:"name"`
-	ThumbnailURL  string    `json:"thumbnail_url"`
-	Description   string    `json:"description"`
+	ThumbnailURL  *string   `json:"thumbnail_url,omitempty"`
+	Description   *string   `json:"description,omitempty"`
 	CreatedAt     time.Time `json:"created_at"`
 }
 
@@ -43,4 +47,161 @@ type Pagination struct {
 	TotalPages   int `json:"total_pages"`
 	TotalItems   int `json:"total_items"`
 	ItemsPerPage int `json:"items_per_page"`
-} 
+}
+
+// Study Activities database methods
+func (db *DB) GetStudyActivities(limit, offset int) ([]*StudyActivity, error) {
+	query := `
+		SELECT id, name, thumbnail_url, description, created_at
+		FROM study_activities
+		ORDER BY created_at DESC
+		LIMIT ? OFFSET ?
+	`
+
+	rows, err := db.Query(query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var activities []*StudyActivity
+	for rows.Next() {
+		activity := &StudyActivity{}
+		var (
+			thumbnailURL sql.NullString
+			description  sql.NullString
+			createdAt   sql.NullTime
+		)
+		err := rows.Scan(
+			&activity.ID,
+			&activity.Name,
+			&thumbnailURL,
+			&description,
+			&createdAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if thumbnailURL.Valid {
+			activity.ThumbnailURL = &thumbnailURL.String
+		}
+		if description.Valid {
+			activity.Description = &description.String
+		}
+		if createdAt.Valid {
+			activity.CreatedAt = createdAt.Time
+		}
+		activities = append(activities, activity)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return activities, nil
+}
+
+func (db *DB) CountStudyActivities() (int, error) {
+	var count int
+	err := db.QueryRow("SELECT COUNT(*) FROM study_activities").Scan(&count)
+	return count, err
+}
+
+func (db *DB) GetStudyActivity(id int64) (*StudyActivity, error) {
+	var (
+		activity StudyActivity
+		thumbnailURL sql.NullString
+		description  sql.NullString
+		createdAt    sql.NullTime
+	)
+	err := db.QueryRow(`
+		SELECT id, name, thumbnail_url, description, created_at
+		FROM study_activities WHERE id = ?
+	`, id).Scan(
+		&activity.ID,
+		&activity.Name,
+		&thumbnailURL,
+		&description,
+		&createdAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("study activity not found")
+		}
+		return nil, err
+	}
+
+	if thumbnailURL.Valid {
+		activity.ThumbnailURL = &thumbnailURL.String
+	}
+	if description.Valid {
+		activity.Description = &description.String
+	}
+	if createdAt.Valid {
+		activity.CreatedAt = createdAt.Time
+	}
+
+	return &activity, nil
+}
+
+func (db *DB) GetStudyActivitySessions(activityID int64, limit, offset int) ([]*StudySession, error) {
+	query := `
+		SELECT s.id, s.group_id, s.study_activity_id, s.created_at
+		FROM study_sessions s
+		WHERE s.study_activity_id = ?
+		ORDER BY s.created_at DESC
+		LIMIT ? OFFSET ?
+	`
+
+	rows, err := db.Query(query, activityID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sessions []*StudySession
+	for rows.Next() {
+		session := &StudySession{}
+		err := rows.Scan(
+			&session.ID,
+			&session.GroupID,
+			&session.StudyActivityID,
+			&session.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, session)
+	}
+
+	return sessions, nil
+}
+
+func (db *DB) CountStudyActivitySessions(activityID int64) (int, error) {
+	var count int
+	err := db.QueryRow(
+		"SELECT COUNT(*) FROM study_sessions WHERE study_activity_id = ?",
+		activityID,
+	).Scan(&count)
+	return count, err
+}
+
+func (db *DB) CreateStudySession(session *StudySession) error {
+	result, err := db.Exec(
+		"INSERT INTO study_sessions (group_id, study_activity_id, created_at) VALUES (?, ?, ?)",
+		session.GroupID,
+		session.StudyActivityID,
+		session.CreatedAt,
+	)
+	if err != nil {
+		return err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return err
+	}
+
+	session.ID = id
+	return nil
+}

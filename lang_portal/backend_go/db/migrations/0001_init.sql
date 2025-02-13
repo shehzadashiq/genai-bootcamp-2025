@@ -8,14 +8,15 @@ CREATE TABLE IF NOT EXISTS words (
 
 CREATE TABLE IF NOT EXISTS study_activities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
+    name TEXT NOT NULL UNIQUE,
     thumbnail_url TEXT,
-    description TEXT
+    description TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS groups (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL
+    name TEXT NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS words_groups (
@@ -42,4 +43,15 @@ CREATE TABLE IF NOT EXISTS word_review_items (
     created_at DATETIME NOT NULL,
     FOREIGN KEY (word_id) REFERENCES words(id),
     FOREIGN KEY (study_session_id) REFERENCES study_sessions(id)
-); 
+);
+
+-- Seed data
+INSERT OR REPLACE INTO groups (name) VALUES 
+    ('Beginner Words'),
+    ('Intermediate Words'),
+    ('Advanced Words');
+
+INSERT OR REPLACE INTO study_activities (name, description) VALUES 
+    ('Flashcards', 'Practice words with flashcards'),
+    ('Quiz', 'Test your knowledge with a quiz'),
+    ('Writing', 'Practice writing sentences');

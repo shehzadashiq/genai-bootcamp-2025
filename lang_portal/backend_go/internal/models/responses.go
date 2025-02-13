@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type PaginatedResponse struct {
 	Items      interface{} `json:"items"`
 	Pagination Pagination  `json:"pagination"`
@@ -18,18 +20,19 @@ type StudyProgress struct {
 }
 
 type StudyActivityResponse struct {
-	ID           int64  `json:"id"`
-	Name         string `json:"name"`
-	ThumbnailURL string `json:"thumbnail_url"`
-	Description  string `json:"description"`
+	ID           int64      `json:"id"`
+	Name         string     `json:"name"`
+	ThumbnailURL *string    `json:"thumbnail_url,omitempty"`
+	Description  *string    `json:"description,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
 }
 
 type StudySessionResponse struct {
 	ID               int64  `json:"id"`
-	ActivityName     string `json:"activity_name"`
-	GroupName        string `json:"group_name"`
-	StartTime        string `json:"start_time"`
-	EndTime          string `json:"end_time"`
+	ActivityName     string `json:"activity_name,omitempty"`
+	GroupName        string `json:"group_name,omitempty"`
+	StartTime        string `json:"start_time,omitempty"`
+	EndTime          string `json:"end_time,omitempty"`
 	ReviewItemsCount int    `json:"review_items_count"`
 }
 

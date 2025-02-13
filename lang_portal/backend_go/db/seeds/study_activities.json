@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "name": "Vocabulary Quiz",
+    "description": "Test your vocabulary knowledge with interactive flashcards and quizzes."
+  },
+  {
+    "id": 2,
+    "name": "Word Matching",
+    "description": "Match Urdu words with their English translations in this fun memory game."
+  },
+  {
+    "id": 3,
+    "name": "Sentence Builder",
+    "description": "Practice building sentences using the words you've learned."
+  }
+]

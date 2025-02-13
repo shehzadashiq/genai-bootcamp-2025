@@ -55,31 +55,32 @@ func TestGetWord(t *testing.T) {
 	}
 }
 
-func TestCreateStudyActivity(t *testing.T) {
+func TestCreateStudySession(t *testing.T) {
 	svc := setupTestDB(t)
 	defer teardownTestDB(t)
 
-	// Insert test group
-	result, err := svc.db.Exec(`
-		INSERT INTO groups (name) VALUES (?)
-	`, "Test Group")
+	// Insert test data
+	result, err := svc.db.Exec("INSERT INTO groups (name) VALUES ('Test Group')")
 	if err != nil {
-		t.Fatalf("Failed to insert test group: %v", err)
+		t.Fatalf("Failed to insert group: %v", err)
 	}
-
 	groupID, err := result.LastInsertId()
 	if err != nil {
 		t.Fatalf("Failed to get group ID: %v", err)
 	}
 
-	// Test creating study activity
-	activity, err := svc.CreateStudyActivity(groupID, 1)
+	// Create study session using existing activity
+	session, err := svc.CreateStudySession(groupID, 1)
 	if err != nil {
-		t.Fatalf("CreateStudyActivity failed: %v", err)
+		t.Fatalf("CreateStudySession failed: %v", err)
 	}
 
-	if activity.ID == 0 {
-		t.Error("Expected non-zero activity ID")
+	if session.GroupName != "Test Group" {
+		t.Errorf("Expected group name 'Test Group', got '%s'", session.GroupName)
+	}
+
+	if session.ActivityName != "Vocabulary Quiz" {
+		t.Errorf("Expected activity name 'Vocabulary Quiz', got '%s'", session.ActivityName)
 	}
 }
 
@@ -156,13 +157,22 @@ func TestGetQuickStats(t *testing.T) {
 		t.Fatalf("Failed to clear review items: %v", err)
 	}
 
+	// Create study session
+	_, err = svc.db.Exec(`
+		INSERT INTO study_sessions (id, group_id, study_activity_id, created_at)
+		VALUES (1, 1, 1, datetime('now'))
+	`)
+	if err != nil {
+		t.Fatalf("Failed to create study session: %v", err)
+	}
+
 	// Insert test data with some correct and incorrect reviews
 	_, err = svc.db.Exec(`
 		INSERT INTO word_review_items (word_id, study_session_id, correct, created_at) 
 		VALUES (1, 1, true, datetime('now')), (1, 1, false, datetime('now'));
 	`)
 	if err != nil {
-		t.Fatalf("Failed to insert test data: %v", err)
+		t.Fatalf("Failed to insert test reviews: %v", err)
 	}
 
 	stats, err := svc.GetQuickStats()
@@ -171,7 +181,7 @@ func TestGetQuickStats(t *testing.T) {
 	}
 
 	if stats.SuccessRate != 50.0 {
-		t.Errorf("Expected 50%% success rate, got %.1f%%", stats.SuccessRate)
+		t.Errorf("Expected success rate 50.0, got %f", stats.SuccessRate)
 	}
 }
 
@@ -179,18 +189,20 @@ func TestReviewWord(t *testing.T) {
 	svc := setupTestDB(t)
 	defer teardownTestDB(t)
 
-	// Setup test data
-	_, err := svc.db.Exec(`
-		INSERT INTO words (urdu, urdlish, english) VALUES ('سلام', 'salaam', 'hello');
-		INSERT INTO study_sessions (group_id, created_at, study_activity_id) 
-		VALUES (1, datetime('now'), 1);
-	`)
+	// Create test data
+	result, err := svc.db.Exec(`INSERT INTO words (urdu, urdlish, english) VALUES ('سلام', 'salaam', 'hello')`)
 	if err != nil {
-		t.Fatalf("Failed to insert test data: %v", err)
+		t.Fatalf("Failed to insert test word: %v", err)
 	}
+	wordID, _ := result.LastInsertId()
 
-	// Test reviewing a word
-	review, err := svc.ReviewWord(1, 1, true)
+	result, err = svc.db.Exec(`INSERT INTO study_sessions (group_id, study_activity_id, created_at) VALUES (1, 1, CURRENT_TIMESTAMP)`)
+	if err != nil {
+		t.Fatalf("Failed to insert test session: %v", err)
+	}
+	sessionID, _ := result.LastInsertId()
+
+	review, err := svc.ReviewWord(sessionID, wordID, true)
 	if err != nil {
 		t.Fatalf("ReviewWord failed: %v", err)
 	}
@@ -287,4 +299,4 @@ func TestTransactionRollback(t *testing.T) {
 	if finalCount != initialCount {
 		t.Errorf("Expected count to remain %d, got %d", initialCount, finalCount)
 	}
-} 
+}
