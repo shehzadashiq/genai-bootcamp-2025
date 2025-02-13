@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { wordsApi } from '@/services/api'
+
+interface Group {
+  id: number
+  name: string
+}
 
 interface Word {
   id: number
@@ -10,6 +15,7 @@ interface Word {
   english: string
   correct_count: number
   wrong_count: number
+  groups: Group[]
 }
 
 export default function WordShow() {
@@ -86,6 +92,27 @@ export default function WordShow() {
             </div>
           </CardContent>
         </Card>
+
+        {word.groups && word.groups.length > 0 && (
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle>Word Groups</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {word.groups.map((group) => (
+                  <Link
+                    key={group.id}
+                    to={`/groups/${group.id}`}
+                    className="px-3 py-1 bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-colors"
+                  >
+                    {group.name}
+                  </Link>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )
