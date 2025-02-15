@@ -3,6 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { studyActivitiesApi, groupsApi } from '@/services/api'
 import { StudySessionResponse } from '@/types'
+import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 interface Group {
   id: number
@@ -12,6 +20,7 @@ interface Group {
 interface StudyActivity {
   id: number
   name: string
+  url: string
   thumbnail_url: string
   description: string
 }
@@ -68,8 +77,8 @@ export default function StudyActivityLaunch() {
       console.log('Created session:', data)
 
       // Open activity in new tab if URL is provided
-      if (activity.thumbnail_url) {
-        window.open(activity.thumbnail_url, '_blank')
+      if (activity.url) {
+        window.open(activity.url, '_blank')
       }
 
       // Redirect to the study session page
@@ -116,26 +125,30 @@ export default function StudyActivityLaunch() {
 
           <div>
             <h3 className="font-medium">Select Group</h3>
-            <select
-              className="mt-2 w-full rounded-md border p-2"
-              value={selectedGroupId || ''}
-              onChange={(e) => setSelectedGroupId(Number(e.target.value))}
+            <Select
+              value={selectedGroupId?.toString() || ''}
+              onValueChange={(value) => setSelectedGroupId(Number(value))}
             >
-              {groups.map((group) => (
-                <option key={group.id} value={group.id}>
-                  {group.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full mt-2">
+                <SelectValue placeholder="Select a group" />
+              </SelectTrigger>
+              <SelectContent>
+                {groups.map((group) => (
+                  <SelectItem key={group.id} value={group.id.toString()}>
+                    {group.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <button
-            className="w-full rounded-md bg-primary px-4 py-2 text-white"
+          <Button
+            className="w-full"
             onClick={handleLaunch}
             disabled={launching || !selectedGroupId}
           >
             {launching ? 'Launching...' : 'Launch Activity'}
-          </button>
+          </Button>
         </CardContent>
       </Card>
     </div>

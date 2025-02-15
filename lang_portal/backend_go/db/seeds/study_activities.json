@@ -2,16 +2,22 @@
   {
     "id": 1,
     "name": "Vocabulary Quiz",
+    "url": "/apps/vocabulary-quiz",
+    "thumbnail_url": "/images/thumbnails/vocabulary.svg",
     "description": "Test your vocabulary knowledge with interactive flashcards and quizzes."
   },
   {
     "id": 2,
     "name": "Word Matching",
+    "url": "/apps/word-matching",
+    "thumbnail_url": "/images/thumbnails/matching.svg",
     "description": "Match Urdu words with their English translations in this fun memory game."
   },
   {
     "id": 3,
     "name": "Sentence Builder",
+    "url": "/apps/sentence-builder",
+    "thumbnail_url": "/images/thumbnails/sentences.svg",
     "description": "Practice building sentences using the words you've learned."
   }
 ]

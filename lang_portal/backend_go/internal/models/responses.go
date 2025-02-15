@@ -22,6 +22,7 @@ type StudyProgress struct {
 type StudyActivityResponse struct {
 	ID           int64      `json:"id"`
 	Name         string     `json:"name"`
+	URL          *string    `json:"url,omitempty"`
 	ThumbnailURL *string    `json:"thumbnail_url,omitempty"`
 	Description  *string    `json:"description,omitempty"`
 	CreatedAt    time.Time  `json:"created_at"`

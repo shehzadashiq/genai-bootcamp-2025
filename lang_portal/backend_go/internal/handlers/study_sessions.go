@@ -46,7 +46,11 @@ func (h *Handler) GetStudySession(c *gin.Context) {
 	session, err := h.svc.GetStudySession(id)
 	if err != nil {
 		fmt.Printf("Error getting study session: %v\n", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if err.Error() == "study session not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
 		return
 	}
 

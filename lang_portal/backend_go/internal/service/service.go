@@ -3,14 +3,17 @@ package service
 import (
 	"database/sql"
 	"fmt"
+	"lang_portal/internal/db/seeder"
 	"lang_portal/internal/models"
+	"os"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
 type Service struct {
-	db *models.DB
+	db     *models.DB
+	seeder *seeder.Seeder
 }
 
 // NewService creates a new service with the given database path
@@ -19,7 +22,24 @@ func NewService(dbPath string) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %v", err)
 	}
-	return &Service{db: models.NewDB(db)}, nil
+
+	modelDB := models.NewDB(db)
+	svc := &Service{
+		db:     modelDB,
+		seeder: seeder.NewSeeder(modelDB),
+	}
+
+	// Initialize database schema
+	if err := svc.initSchema(); err != nil {
+		return nil, fmt.Errorf("failed to initialize schema: %v", err)
+	}
+
+	// Seed data from JSON files
+	if err := svc.seedData(); err != nil {
+		return nil, fmt.Errorf("failed to seed data: %v", err)
+	}
+
+	return svc, nil
 }
 
 // NewServiceWithDB creates a new service with an existing database connection
@@ -123,7 +143,7 @@ func (s *Service) GetStudyActivity(id int64) (*models.StudyActivityResponse, err
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &models.StudyActivityResponse{
 		ID:           activity.ID,
 		Name:         activity.Name,
@@ -215,8 +235,8 @@ func (s *Service) GetStudyActivitySessions(id int64, page int) (*models.Paginate
 		Items: sessions,
 		Pagination: models.Pagination{
 			CurrentPage:  page,
-			TotalPages:  (total + 99) / 100,
-			TotalItems:  total,
+			TotalPages:   (total + 99) / 100,
+			TotalItems:   total,
 			ItemsPerPage: 100,
 		},
 	}, nil
@@ -249,7 +269,7 @@ func (s *Service) CreateStudySession(groupID, studyActivityID int64) (*models.St
 	// Convert to response type
 	timeStr := session.CreatedAt.Format(time.RFC3339)
 	endTimeStr := session.CreatedAt.Add(10 * time.Minute).Format(time.RFC3339)
-	
+
 	return &models.StudySessionResponse{
 		ID:               session.ID,
 		ActivityName:     activity.Name,
@@ -278,8 +298,8 @@ func (s *Service) GetStudyActivities(page int) (*models.PaginatedResponse, error
 		Items: activities,
 		Pagination: models.Pagination{
 			CurrentPage:  page,
-			TotalPages:  (total + itemsPerPage - 1) / itemsPerPage,
-			TotalItems:  total,
+			TotalPages:   (total + itemsPerPage - 1) / itemsPerPage,
+			TotalItems:   total,
 			ItemsPerPage: itemsPerPage,
 		},
 	}, nil
@@ -339,8 +359,8 @@ func (s *Service) ListWords(page int) (*models.PaginatedResponse, error) {
 		Items: words,
 		Pagination: models.Pagination{
 			CurrentPage:  page,
-			TotalPages:  (total + 99) / 100,
-			TotalItems:  total,
+			TotalPages:   (total + 99) / 100,
+			TotalItems:   total,
 			ItemsPerPage: 100,
 		},
 	}, nil
@@ -397,8 +417,8 @@ func (s *Service) ListGroups(page int) (*models.PaginatedResponse, error) {
 		Items: groups,
 		Pagination: models.Pagination{
 			CurrentPage:  page,
-			TotalPages:  (total + 99) / 100,
-			TotalItems:  total,
+			TotalPages:   (total + 99) / 100,
+			TotalItems:   total,
 			ItemsPerPage: 100,
 		},
 	}, nil
@@ -457,8 +477,8 @@ func (s *Service) GetGroupWords(id int64, page int) (*models.PaginatedResponse, 
 		Items: words,
 		Pagination: models.Pagination{
 			CurrentPage:  page,
-			TotalPages:  (total + 99) / 100,
-			TotalItems:  total,
+			TotalPages:   (total + 99) / 100,
+			TotalItems:   total,
 			ItemsPerPage: 100,
 		},
 	}, nil
@@ -546,8 +566,8 @@ func (s *Service) GetGroupStudySessions(id int64, page int) (*models.PaginatedRe
 		Items: sessions,
 		Pagination: models.Pagination{
 			CurrentPage:  page,
-			TotalPages:  (total + 99) / 100,
-			TotalItems:  total,
+			TotalPages:   (total + 99) / 100,
+			TotalItems:   total,
 			ItemsPerPage: 100,
 		},
 	}, nil
@@ -555,14 +575,38 @@ func (s *Service) GetGroupStudySessions(id int64, page int) (*models.PaginatedRe
 
 func (s *Service) ListStudySessions(page int) (*models.PaginatedResponse, error) {
 	offset := (page - 1) * 100
+
+	// First, get total count
+	var totalCount int
+	err := s.db.QueryRow(`
+		SELECT COUNT(DISTINCT ss.id)
+		FROM study_sessions ss
+	`).Scan(&totalCount)
+	if err != nil {
+		return nil, err
+	}
+
+	// If no records exist, return empty response with pagination
+	if totalCount == 0 {
+		return &models.PaginatedResponse{
+			Items: []interface{}{},
+			Pagination: models.Pagination{
+				CurrentPage:  page,
+				TotalPages:   0,
+				TotalItems:   0,
+				ItemsPerPage: 100,
+			},
+		}, nil
+	}
+
 	rows, err := s.db.Query(`
 		SELECT ss.id, sa.name as activity_name, g.name as group_name,
 			   ss.created_at as start_time,
 			   strftime('%Y-%m-%dT%H:%M:%SZ', datetime(ss.created_at, '+10 minutes')) as end_time,
 			   COUNT(wri.word_id) as review_items_count
 		FROM study_sessions ss
-		JOIN study_activities sa ON ss.study_activity_id = sa.id
-		JOIN groups g ON ss.group_id = g.id
+		LEFT JOIN study_activities sa ON ss.study_activity_id = sa.id
+		LEFT JOIN groups g ON ss.group_id = g.id
 		LEFT JOIN word_review_items wri ON ss.id = wri.study_session_id
 		GROUP BY ss.id
 		ORDER BY ss.created_at DESC
@@ -584,8 +628,14 @@ func (s *Service) ListStudySessions(page int) (*models.PaginatedResponse, error)
 			reviewCount  sql.NullInt64
 		)
 
-		err := rows.Scan(&session.ID, &activityName, &groupName,
-			&startTime, &endTimeStr, &reviewCount)
+		err := rows.Scan(
+			&session.ID,
+			&activityName,
+			&groupName,
+			&startTime,
+			&endTimeStr,
+			&reviewCount,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -619,8 +669,8 @@ func (s *Service) ListStudySessions(page int) (*models.PaginatedResponse, error)
 		Items: sessions,
 		Pagination: models.Pagination{
 			CurrentPage:  page,
-			TotalPages:  (total + 99) / 100,
-			TotalItems:  total,
+			TotalPages:   (total + 99) / 100,
+			TotalItems:   total,
 			ItemsPerPage: 100,
 		},
 	}, nil
@@ -628,7 +678,7 @@ func (s *Service) ListStudySessions(page int) (*models.PaginatedResponse, error)
 
 func (s *Service) GetStudySession(id int64) (*models.StudySessionResponse, error) {
 	fmt.Printf("Getting study session with ID: %d\n", id)
-	
+
 	var session models.StudySessionResponse
 	var (
 		activityName sql.NullString
@@ -637,7 +687,7 @@ func (s *Service) GetStudySession(id int64) (*models.StudySessionResponse, error
 		endTimeStr   sql.NullString
 		reviewCount  sql.NullInt64
 	)
-	
+
 	query := `
 		SELECT ss.id, sa.name, g.name,
 			   ss.created_at,
@@ -650,8 +700,8 @@ func (s *Service) GetStudySession(id int64) (*models.StudySessionResponse, error
 		WHERE ss.id = ?
 		GROUP BY ss.id
 	`
-	fmt.Printf("Executing query: %s\n", query)
-	
+	// fmt.Printf("Executing query: %s\n", query)
+
 	err := s.db.QueryRow(query, id).Scan(
 		&session.ID,
 		&activityName,
@@ -735,8 +785,8 @@ func (s *Service) GetStudySessionWords(id int64, page int) (*models.PaginatedRes
 		Items: words,
 		Pagination: models.Pagination{
 			CurrentPage:  page,
-			TotalPages:  (total + 99) / 100,
-			TotalItems:  total,
+			TotalPages:   (total + 99) / 100,
+			TotalItems:   total,
 			ItemsPerPage: 100,
 		},
 	}, nil
@@ -780,4 +830,24 @@ func (s *Service) FullReset() error {
 		DELETE FROM groups;
 	`)
 	return err
-} 
+}
+
+func (s *Service) initSchema() error {
+	// Read schema from migrations file
+	schema, err := os.ReadFile("db/migrations/0001_init.sql")
+	if err != nil {
+		return fmt.Errorf("failed to read schema file: %v", err)
+	}
+
+	// Execute schema
+	_, err = s.db.Exec(string(schema))
+	if err != nil {
+		return fmt.Errorf("failed to execute schema: %v", err)
+	}
+
+	return nil
+}
+
+func (s *Service) seedData() error {
+	return s.seeder.SeedFromJSON("db/seeds")
+}

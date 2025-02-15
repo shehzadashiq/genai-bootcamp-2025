@@ -28,11 +28,12 @@ type StudySession struct {
 }
 
 type StudyActivity struct {
-	ID            int64     `json:"id"`
-	Name          string    `json:"name"`
-	ThumbnailURL  *string   `json:"thumbnail_url,omitempty"`
-	Description   *string   `json:"description,omitempty"`
-	CreatedAt     time.Time `json:"created_at"`
+	ID           int64     `json:"id"`
+	Name         string    `json:"name"`
+	URL          *string   `json:"url,omitempty"`
+	ThumbnailURL *string   `json:"thumbnail_url,omitempty"`
+	Description  *string   `json:"description,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 type WordReviewItem struct {
@@ -52,7 +53,7 @@ type Pagination struct {
 // Study Activities database methods
 func (db *DB) GetStudyActivities(limit, offset int) ([]*StudyActivity, error) {
 	query := `
-		SELECT id, name, thumbnail_url, description, created_at
+		SELECT id, name, url, thumbnail_url, description, created_at
 		FROM study_activities
 		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?
@@ -68,19 +69,24 @@ func (db *DB) GetStudyActivities(limit, offset int) ([]*StudyActivity, error) {
 	for rows.Next() {
 		activity := &StudyActivity{}
 		var (
+			url         sql.NullString
 			thumbnailURL sql.NullString
-			description  sql.NullString
+			description sql.NullString
 			createdAt   sql.NullTime
 		)
 		err := rows.Scan(
 			&activity.ID,
 			&activity.Name,
+			&url,
 			&thumbnailURL,
 			&description,
 			&createdAt,
 		)
 		if err != nil {
 			return nil, err
+		}
+		if url.Valid {
+			activity.URL = &url.String
 		}
 		if thumbnailURL.Valid {
 			activity.ThumbnailURL = &thumbnailURL.String
@@ -110,16 +116,18 @@ func (db *DB) CountStudyActivities() (int, error) {
 func (db *DB) GetStudyActivity(id int64) (*StudyActivity, error) {
 	var (
 		activity StudyActivity
+		url         sql.NullString
 		thumbnailURL sql.NullString
-		description  sql.NullString
-		createdAt    sql.NullTime
+		description sql.NullString
+		createdAt   sql.NullTime
 	)
 	err := db.QueryRow(`
-		SELECT id, name, thumbnail_url, description, created_at
+		SELECT id, name, url, thumbnail_url, description, created_at
 		FROM study_activities WHERE id = ?
 	`, id).Scan(
 		&activity.ID,
 		&activity.Name,
+		&url,
 		&thumbnailURL,
 		&description,
 		&createdAt,
@@ -131,6 +139,9 @@ func (db *DB) GetStudyActivity(id int64) (*StudyActivity, error) {
 		return nil, err
 	}
 
+	if url.Valid {
+		activity.URL = &url.String
+	}
 	if thumbnailURL.Valid {
 		activity.ThumbnailURL = &thumbnailURL.String
 	}
