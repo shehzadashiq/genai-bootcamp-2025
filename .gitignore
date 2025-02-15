@@ -6,3 +6,4 @@ lang_portal/backend_python/logs/*
 *.log
 lang_portal/frontend/node_modules/*
 lang_portal/frontend/.vite/*
+**/__pycache__/

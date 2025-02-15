@@ -16,6 +16,7 @@ func RegisterGroupsRoutes(r *gin.RouterGroup, svc *service.Service) {
 		groups.GET("/:id", h.GetGroup)
 		groups.GET("/:id/words", h.GetGroupWords)
 		groups.GET("/:id/study_sessions", h.GetGroupStudySessions)
+		groups.POST("/:id/words", h.AddWordsToGroup)
 	}
 }
 
@@ -80,4 +81,31 @@ func (h *Handler) GetGroupStudySessions(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, sessions)
-} 
+}
+
+// AddWordsRequest represents the request body for adding words to a group
+type AddWordsRequest struct {
+	WordIDs []int64 `json:"word_ids" binding:"required"`
+}
+
+func (h *Handler) AddWordsToGroup(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group id"})
+		return
+	}
+
+	var req AddWordsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	err = h.svc.AddWordsToGroup(id, req.WordIDs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(http.StatusOK)
+}

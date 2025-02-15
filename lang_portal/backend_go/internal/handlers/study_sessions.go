@@ -10,14 +10,22 @@ import (
 )
 
 func RegisterStudySessionsRoutes(r *gin.RouterGroup, svc *service.Service) {
+	fmt.Printf("Registering study session routes\n")
 	h := NewHandler(svc)
 	sessions := r.Group("/study_sessions")
 	{
+		fmt.Printf("Adding GET route for study sessions list\n")
 		sessions.GET("", h.ListStudySessions)
+		fmt.Printf("Adding GET route for single study session\n")
 		sessions.GET("/:id", h.GetStudySession)
+		fmt.Printf("Adding GET route for study session words\n")
 		sessions.GET("/:id/words", h.GetStudySessionWords)
+		fmt.Printf("Adding POST route for word review\n")
 		sessions.POST("/:id/words/:word_id/review", h.ReviewWord)
+		fmt.Printf("Adding POST route for creating study session\n")
+		sessions.POST("", h.CreateStudySession)
 	}
+	fmt.Printf("Finished registering study session routes\n")
 }
 
 func (h *Handler) ListStudySessions(c *gin.Context) {
@@ -104,4 +112,33 @@ func (h *Handler) ReviewWord(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, review)
-} 
+}
+
+// CreateStudySessionRequest represents the request body for creating a study session
+type CreateStudySessionRequest struct {
+	GroupID      int64  `json:"group_id" binding:"required"`
+	ActivityName string `json:"activity_name" binding:"required"`
+}
+
+func (h *Handler) CreateStudySession(c *gin.Context) {
+	fmt.Printf("CreateStudySession handler called with method: %s, path: %s\n", c.Request.Method, c.Request.URL.Path)
+
+	var req CreateStudySessionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		fmt.Printf("Error binding JSON: %v\n", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	fmt.Printf("Creating study session with group_id: %d, activity_name: %s\n", req.GroupID, req.ActivityName)
+
+	session, err := h.svc.CreateStudySessionWithActivity(req.GroupID, req.ActivityName)
+	if err != nil {
+		fmt.Printf("Error creating study session: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	fmt.Printf("Successfully created study session: %+v\n", session)
+	c.JSON(http.StatusCreated, session)
+}
