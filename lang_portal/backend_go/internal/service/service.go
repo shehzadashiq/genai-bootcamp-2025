@@ -3,14 +3,17 @@ package service
 import (
 	"database/sql"
 	"fmt"
+	"lang_portal/internal/db/seeder"
 	"lang_portal/internal/models"
+	"os"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
 type Service struct {
-	db *models.DB
+	db     *models.DB
+	seeder *seeder.Seeder
 }
 
 // NewService creates a new service with the given database path
@@ -19,7 +22,24 @@ func NewService(dbPath string) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %v", err)
 	}
-	return &Service{db: models.NewDB(db)}, nil
+
+	modelDB := models.NewDB(db)
+	svc := &Service{
+		db:     modelDB,
+		seeder: seeder.NewSeeder(modelDB),
+	}
+
+	// Initialize database schema
+	if err := svc.initSchema(); err != nil {
+		return nil, fmt.Errorf("failed to initialize schema: %v", err)
+	}
+
+	// Seed data from JSON files
+	if err := svc.seedData(); err != nil {
+		return nil, fmt.Errorf("failed to seed data: %v", err)
+	}
+
+	return svc, nil
 }
 
 // NewServiceWithDB creates a new service with an existing database connection
@@ -810,4 +830,24 @@ func (s *Service) FullReset() error {
 		DELETE FROM groups;
 	`)
 	return err
+}
+
+func (s *Service) initSchema() error {
+	// Read schema from migrations file
+	schema, err := os.ReadFile("db/migrations/0001_init.sql")
+	if err != nil {
+		return fmt.Errorf("failed to read schema file: %v", err)
+	}
+
+	// Execute schema
+	_, err = s.db.Exec(string(schema))
+	if err != nil {
+		return fmt.Errorf("failed to execute schema: %v", err)
+	}
+
+	return nil
+}
+
+func (s *Service) seedData() error {
+	return s.seeder.SeedFromJSON("db/seeds")
 }
