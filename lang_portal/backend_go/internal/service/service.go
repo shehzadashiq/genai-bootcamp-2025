@@ -242,7 +242,26 @@ func (s *Service) GetStudyActivitySessions(id int64, page int) (*models.Paginate
 	}, nil
 }
 
-func (s *Service) CreateStudySession(groupID, studyActivityID int64) (*models.StudySessionResponse, error) {
+func (s *Service) CreateStudySessionWithActivity(groupID int64, activityName string) (*models.StudySessionResponse, error) {
+	// First check if the group exists
+	_, err := s.GetGroup(groupID)
+	if err != nil {
+		return nil, fmt.Errorf("group not found: %v", err)
+	}
+
+	// Get the activity ID
+	var activityID int64
+	err = s.db.QueryRow(`
+		SELECT id FROM study_activities WHERE name = ?
+	`, activityName).Scan(&activityID)
+	if err != nil {
+		return nil, fmt.Errorf("activity not found: %v", err)
+	}
+
+	return s.CreateStudySession(groupID, activityID)
+}
+
+func (s *Service) CreateStudySession(groupID int64, studyActivityID int64) (*models.StudySessionResponse, error) {
 	// First check if group exists
 	group, err := s.GetGroup(groupID)
 	if err != nil {
@@ -256,26 +275,28 @@ func (s *Service) CreateStudySession(groupID, studyActivityID int64) (*models.St
 	}
 
 	// Create study session
-	session := &models.StudySession{
-		GroupID:         groupID,
-		StudyActivityID: studyActivityID,
-		CreatedAt:       time.Now(),
-	}
-
-	if err := s.db.CreateStudySession(session); err != nil {
+	now := time.Now()
+	result, err := s.db.Exec(`
+		INSERT INTO study_sessions (group_id, study_activity_id, created_at)
+		VALUES (?, ?, ?)
+	`, groupID, studyActivityID, now)
+	if err != nil {
 		return nil, fmt.Errorf("failed to create study session: %v", err)
 	}
 
-	// Convert to response type
-	timeStr := session.CreatedAt.Format(time.RFC3339)
-	endTimeStr := session.CreatedAt.Add(10 * time.Minute).Format(time.RFC3339)
+	sessionID, err := result.LastInsertId()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get session id: %v", err)
+	}
 
+	// Return the created session
 	return &models.StudySessionResponse{
-		ID:               session.ID,
+		ID:               sessionID,
+		GroupID:         groupID,
 		ActivityName:     activity.Name,
 		GroupName:        group.Name,
-		StartTime:        timeStr,
-		EndTime:          endTimeStr,
+		StartTime:        now.Format(time.RFC3339),
+		EndTime:          now.Add(10 * time.Minute).Format(time.RFC3339),
 		ReviewItemsCount: 0,
 	}, nil
 }
@@ -442,7 +463,7 @@ func (s *Service) GetGroup(id int64) (*models.GroupResponse, error) {
 func (s *Service) GetGroupWords(id int64, page int) (*models.PaginatedResponse, error) {
 	offset := (page - 1) * 100
 	rows, err := s.db.Query(`
-		SELECT w.urdu, w.urdlish, w.english,
+		SELECT w.id, w.urdu, w.urdlish, w.english,
 			   COUNT(CASE WHEN wri2.correct THEN 1 END) as correct_count,
 			   COUNT(CASE WHEN NOT wri2.correct THEN 1 END) as wrong_count
 		FROM words w
@@ -460,7 +481,7 @@ func (s *Service) GetGroupWords(id int64, page int) (*models.PaginatedResponse, 
 	var words []models.WordResponse
 	for rows.Next() {
 		var word models.WordResponse
-		if err := rows.Scan(&word.Urdu, &word.Urdlish, &word.English,
+		if err := rows.Scan(&word.ID, &word.Urdu, &word.Urdlish, &word.English,
 			&word.CorrectCount, &word.WrongCount); err != nil {
 			return nil, err
 		}
@@ -468,7 +489,12 @@ func (s *Service) GetGroupWords(id int64, page int) (*models.PaginatedResponse, 
 	}
 
 	var total int
-	err = s.db.QueryRow("SELECT COUNT(*) FROM words_groups WHERE group_id = ?", id).Scan(&total)
+	err = s.db.QueryRow(`
+		SELECT COUNT(DISTINCT w.id)
+		FROM words w
+		JOIN words_groups wg ON w.id = wg.word_id
+		WHERE wg.group_id = ?
+	`, id).Scan(&total)
 	if err != nil {
 		return nil, err
 	}
@@ -686,10 +712,11 @@ func (s *Service) GetStudySession(id int64) (*models.StudySessionResponse, error
 		startTime    sql.NullTime
 		endTimeStr   sql.NullString
 		reviewCount  sql.NullInt64
+		groupID      sql.NullInt64
 	)
 
 	query := `
-		SELECT ss.id, sa.name, g.name,
+		SELECT ss.id, ss.group_id, sa.name, g.name,
 			   ss.created_at,
 			   strftime('%Y-%m-%dT%H:%M:%SZ', datetime(ss.created_at, '+10 minutes')),
 			   COUNT(wri.word_id)
@@ -700,10 +727,10 @@ func (s *Service) GetStudySession(id int64) (*models.StudySessionResponse, error
 		WHERE ss.id = ?
 		GROUP BY ss.id
 	`
-	// fmt.Printf("Executing query: %s\n", query)
 
 	err := s.db.QueryRow(query, id).Scan(
 		&session.ID,
+		&groupID,
 		&activityName,
 		&groupName,
 		&startTime,
@@ -719,10 +746,9 @@ func (s *Service) GetStudySession(id int64) (*models.StudySessionResponse, error
 		return nil, fmt.Errorf("error getting study session: %v", err)
 	}
 
-	fmt.Printf("Found study session: %+v\n", session)
-	fmt.Printf("Activity name: %+v\n", activityName)
-	fmt.Printf("Group name: %+v\n", groupName)
-
+	if groupID.Valid {
+		session.GroupID = groupID.Int64
+	}
 	if activityName.Valid {
 		session.ActivityName = activityName.String
 	}
@@ -850,4 +876,40 @@ func (s *Service) initSchema() error {
 
 func (s *Service) seedData() error {
 	return s.seeder.SeedFromJSON("db/seeds")
+}
+
+func (s *Service) AddWordsToGroup(groupID int64, wordIDs []int64) error {
+	// First check if the group exists
+	_, err := s.GetGroup(groupID)
+	if err != nil {
+		return err
+	}
+
+	// Add words to words_groups table
+	for _, wordID := range wordIDs {
+		_, err := s.db.Exec(`
+			INSERT INTO words_groups (group_id, word_id)
+			VALUES (?, ?)
+			ON CONFLICT DO NOTHING
+		`, groupID, wordID)
+		if err != nil {
+			return fmt.Errorf("failed to add word %d to group %d: %v", wordID, groupID, err)
+		}
+	}
+
+	// Update word count
+	_, err = s.db.Exec(`
+		UPDATE groups
+		SET word_count = (
+			SELECT COUNT(*)
+			FROM words_groups
+			WHERE group_id = ?
+		)
+		WHERE id = ?
+	`, groupID, groupID)
+	if err != nil {
+		return fmt.Errorf("failed to update word count: %v", err)
+	}
+
+	return nil
 }

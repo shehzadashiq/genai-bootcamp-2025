@@ -30,6 +30,7 @@ type StudyActivityResponse struct {
 
 type StudySessionResponse struct {
 	ID               int64  `json:"id"`
+	GroupID          int64  `json:"group_id"`
 	ActivityName     string `json:"activity_name,omitempty"`
 	GroupName        string `json:"group_name,omitempty"`
 	StartTime        string `json:"start_time,omitempty"`

@@ -1,18 +1,9 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { studySessionsApi } from '@/services/api'
-import WordList from '@/features/words/components/WordList'
 import { StudySessionResponse } from '@/types'
-
-interface StudySession {
-  id: number
-  activity_name?: string
-  group_name?: string
-  start_time?: string
-  end_time?: string
-  review_items_count: number
-}
+import { ActivityRouter } from './ActivityRouter'
 
 export default function StudySessionShow() {
   const { id } = useParams<{ id: string }>()
@@ -49,12 +40,7 @@ export default function StudySessionShow() {
     return () => {
       mounted = false
     }
-  }, [id]) // Only re-run if id changes
-
-  const fetchWords = useCallback(
-    (page: number) => studySessionsApi.getWords(id!, page),
-    [id]
-  )
+  }, [id])
 
   if (loading) {
     return <div>Loading study session details...</div>
@@ -86,34 +72,11 @@ export default function StudySessionShow() {
               <h3 className="font-medium">Group Name</h3>
               <p className="text-muted-foreground">{session.group_name || 'Not available'}</p>
             </div>
-            <div>
-              <h3 className="font-medium">Start Time</h3>
-              <p className="text-muted-foreground">
-                {session.start_time ? new Date(session.start_time).toLocaleString() : 'Not available'}
-              </p>
-            </div>
-            <div>
-              <h3 className="font-medium">End Time</h3>
-              <p className="text-muted-foreground">
-                {session.end_time ? new Date(session.end_time).toLocaleString() : 'Not available'}
-              </p>
-            </div>
-            <div>
-              <h3 className="font-medium">Review Items</h3>
-              <p className="text-muted-foreground">{session.review_items_count}</p>
-            </div>
           </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Words Reviewed</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <WordList fetchWords={fetchWords} />
-        </CardContent>
-      </Card>
+      <ActivityRouter session={session} />
     </div>
   )
 }

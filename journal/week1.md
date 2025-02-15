@@ -2,7 +2,7 @@
 
 ## Backend Portal Implementation in Python
 
-In addition to the Go implementation, I also created a Python equivalent using the following prompt file [Python Prompt]
+In addition to the Go implementation, I also created a Python equivalent using the following prompt file [Python Prompt](../lang_portal/backend_python/prompt_python.md)
 
 ### Working Endpoints
 

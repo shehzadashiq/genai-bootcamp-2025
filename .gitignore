@@ -6,3 +6,9 @@ lang_portal/backend_python/logs/*
 *.log
 lang_portal/frontend/node_modules/*
 lang_portal/frontend/.vite/*
+lang_portal/backend_python/__pycache__/conftest.cpython-312-pytest-8.3.4.pyc
+lang_portal/backend_python/tests/__pycache__/conftest.cpython-312-pytest-8.3.4.pyc
+lang_portal/backend_python/tests/__pycache__/test_api.cpython-312-pytest-8.3.4.pyc
+lang_portal/backend_python/__pycache__/conftest.cpython-312-pytest-8.3.4.pyc
+lang_portal/backend_python/tests/__pycache__/conftest.cpython-312-pytest-8.3.4.pyc
+lang_portal/backend_python/tests/__pycache__/test_api.cpython-312-pytest-8.3.4.pyc
