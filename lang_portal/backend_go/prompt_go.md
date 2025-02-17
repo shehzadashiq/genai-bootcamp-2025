@@ -144,7 +144,7 @@ Returns quick overview statistics.
   "id": 1,
   "name": "Vocabulary Quiz",
   "url": "The full URL of the study activity",
-  "thumbnail_url": "https://example.com/thumbnail.jpg",
+  "thumbnail_url": "/images/thumbnails/vocabulary.svg",
   "description": "Practice your vocabulary with flashcards",
   "created_at": "2025-02-08T17:20:23-05:00"
 }
@@ -375,6 +375,8 @@ This task will initialize a new SQLite database called `words.db` in WAL mode wi
 
 ```bash
 mage initdb
+mage migrate
+mage seed
 ```
 
 ### Migrate Database
@@ -417,3 +419,28 @@ The seed files should contain word data in this format:
 ```
 
 Each seed file will be associated with a word group during import.
+
+## Error Handling
+
+All API endpoints follow a consistent error response format:
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid input parameters",
+    "details": {
+      "field": "word_count",
+      "reason": "must be between 1 and 50"
+    }
+  }
+}
+```
+
+Common error codes:
+
+- `VALIDATION_ERROR` - Invalid input parameters
+- `NOT_FOUND` - Requested resource not found
+- `INTERNAL_ERROR` - Internal server error
+- `CONFLICT` - Resource conflict (e.g., duplicate entry)
+- `BAD_REQUEST` - Malformed request
