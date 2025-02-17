@@ -53,14 +53,10 @@ export default function StudySessionShow() {
 
       // Start the quiz using the current session
       console.log('Starting quiz for session:', id);
-      const startResponse = await vocabularyQuizApi.start({
-        group_id: session.group_id,
-        word_count: 10,
-        difficulty: 'medium'
-      });
+      const startResponse = await vocabularyQuizApi.startQuiz(session.group_id, 10);
 
-      console.log('Started quiz:', startResponse.data);
-      setQuizSessionId(startResponse.data.session_id.toString());
+      console.log('Started quiz:', startResponse);
+      setQuizSessionId(startResponse.session_id.toString());
       setQuizStarted(true);
     } catch (err) {
       console.error('Failed to start quiz:', err);

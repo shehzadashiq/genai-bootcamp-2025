@@ -53,21 +53,28 @@ export const studySessionsApi = {
 };
 
 export const vocabularyQuizApi = {
-  start: (data: { group_id: number; difficulty: string; word_count: number }) =>
-    api.post<{ session_id: number }>('/vocabulary-quiz/start', data),
+  startQuiz: async (groupId: number, wordCount: number = 10) => {
+    const response = await api.post('/vocabulary-quiz/start', {
+      group_id: groupId,
+      word_count: wordCount,
+    });
+    return response.data;
+  },
 
-  getWords: (sessionId: number) =>
-    api.get<{ words: { word: { id: number; urdu: string; urdlish: string; english: string }; options: string[] }[] }>(
-      `/vocabulary-quiz/words/${sessionId}`
-    ),
+  getWords: async (sessionId: number) => {
+    const response = await api.get(`/vocabulary-quiz/words/${sessionId}`);
+    return response;
+  },
 
-  submit: (data: { word_id: number; session_id: number; answer: string; correct: boolean }) =>
-    api.post('/vocabulary-quiz/submit', data),
+  submitAnswer: async (answer: { word_id: number; session_id: number; answer: string; correct: boolean }) => {
+    const response = await api.post('/vocabulary-quiz/answer', answer);
+    return response.data;
+  },
 
-  getScore: (sessionId: number) =>
-    api.get<{ session_id: number; total_words: number; correct_count: number; accuracy: number; difficulty: string }>(
-      `/vocabulary-quiz/score/${sessionId}`
-    ),
+  getScore: async (sessionId: number) => {
+    const response = await api.get(`/vocabulary-quiz/score/${sessionId}`);
+    return response.data;
+  },
 };
 
 export const settingsApi = {

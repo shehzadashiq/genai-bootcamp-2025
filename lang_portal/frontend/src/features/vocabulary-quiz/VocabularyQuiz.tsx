@@ -29,6 +29,11 @@ interface QuizState {
   selectedOption: string | null;
   currentWord: QuizWord | null;
   submitting: boolean;
+  score: {
+    totalWords: number;
+    correctCount: number;
+    accuracy: number;
+  } | null;
 }
 
 type QuizAction =
@@ -40,6 +45,7 @@ type QuizAction =
   | { type: 'SHOW_ANSWER'; payload: string }
   | { type: 'NEXT_WORD' }
   | { type: 'COMPLETE_QUIZ' }
+  | { type: 'SET_SCORE'; payload: { total_words: number; correct_count: number; accuracy: number } }
   | { type: 'RESET' };
 
 const initialState: QuizState = {
@@ -53,6 +59,7 @@ const initialState: QuizState = {
   selectedOption: null,
   currentWord: null,
   submitting: false,
+  score: null,
 };
 
 function quizReducer(state: QuizState, action: QuizAction): QuizState {
@@ -149,6 +156,15 @@ function quizReducer(state: QuizState, action: QuizAction): QuizState {
         ...state,
         isQuizComplete: true,
       };
+    case 'SET_SCORE':
+      return {
+        ...state,
+        score: {
+          totalWords: action.payload.total_words,
+          correctCount: action.payload.correct_count,
+          accuracy: action.payload.accuracy
+        }
+      };
     case 'RESET':
       return initialState;
     default:
@@ -175,56 +191,27 @@ export const VocabularyQuiz: React.FC<VocabularyQuizProps> = ({ sessionId }) => 
       dispatch({ type: 'SET_SESSION_ID', payload: parseInt(sessionId, 10) });
 
       // Get the quiz words
-      const wordsResponse = await vocabularyQuizApi.getWords(parseInt(sessionId, 10));
+      const response = await vocabularyQuizApi.getWords(parseInt(sessionId, 10));
 
       if (!isMounted.current) return;
-      const wordsData = wordsResponse.data;
 
-      console.log('Received quiz words:', {
-        sessionId,
-        wordsData,
-        firstWord: wordsData.words[0],
-        firstWordUrdu: wordsData.words[0]?.word?.urdu,
-        firstWordId: wordsData.words[0]?.word?.id,
-        lastWord: wordsData.words[wordsData.words.length - 1],
-        lastWordUrdu: wordsData.words[wordsData.words.length - 1]?.word?.urdu,
-        lastWordId: wordsData.words[wordsData.words.length - 1]?.word?.id,
-        wordCount: wordsData.words.length,
-        allWordIds: wordsData.words.map(w => w.word.id),
-        allWordUrdus: wordsData.words.map(w => w.word.urdu),
-        allWordEnglish: wordsData.words.map(w => w.word.english)
-      });
+      console.log('Received quiz words:', response);
 
-      if (!wordsData.words || !Array.isArray(wordsData.words)) {
-        throw new Error('No words returned from quiz');
+      const words = response.data;
+      if (!Array.isArray(words)) {
+        throw new Error('Invalid response format from quiz API');
       }
 
-      if (wordsData.words.length === 0) {
+      if (words.length === 0) {
         throw new Error('Quiz returned empty word list');
       }
 
       // Create a deep copy of the words array to prevent reference issues
-      const wordsCopy = wordsData.words.map(word => ({
+      const wordsCopy = words.map(word => ({
         word: { ...word.word },
         options: [...word.options]
       }));
 
-      // Sort words by ID to ensure correct order
-      wordsCopy.sort((a, b) => a.word.id - b.word.id);
-      
-      console.log('Sorted words:', {
-        firstWordId: wordsCopy[0]?.word?.id,
-        firstWordUrdu: wordsCopy[0]?.word?.urdu,
-        firstWordEnglish: wordsCopy[0]?.word?.english,
-        lastWordId: wordsCopy[wordsCopy.length - 1]?.word?.id,
-        lastWordUrdu: wordsCopy[wordsCopy.length - 1]?.word?.urdu,
-        lastWordEnglish: wordsCopy[wordsCopy.length - 1]?.word?.english,
-        allWordIds: wordsCopy.map(w => w.word.id),
-        allWordUrdus: wordsCopy.map(w => w.word.urdu),
-        allWordEnglish: wordsCopy.map(w => w.word.english)
-      });
-
-      // Set words and current word
       dispatch({ type: 'SET_WORDS', payload: wordsCopy });
     } catch (err) {
       if (!isMounted.current) return;
@@ -269,34 +256,27 @@ export const VocabularyQuiz: React.FC<VocabularyQuizProps> = ({ sessionId }) => 
   }, [sessionId, loadQuiz]);
 
   const handleAnswer = async (selectedOption: string) => {
-    if (!state.quizSessionId || !state.currentWord || state.isQuizComplete || state.showAnswer || state.submitting) return;
+    if (!state.currentWord?.word || !state.quizSessionId) return;
 
+    dispatch({ type: 'START_SUBMIT' });
+
+    const isCorrect = selectedOption === state.currentWord.word.english;
     try {
-      dispatch({ type: 'START_SUBMIT' });
-
-      await vocabularyQuizApi.submit({
+      await vocabularyQuizApi.submitAnswer({
         word_id: state.currentWord.word.id,
         session_id: state.quizSessionId,
         answer: selectedOption,
-        correct: selectedOption === state.currentWord.word.english,
+        correct: isCorrect,
       });
-
-      if (!isMounted.current) return;
-
+      
       dispatch({ type: 'SHOW_ANSWER', payload: selectedOption });
     } catch (err) {
-      if (!isMounted.current) return;
-
       console.error('Failed to submit answer:', err);
-      if (axios.isAxiosError(err)) {
-        dispatch({ type: 'SET_ERROR', payload: `Failed to submit answer: ${err.response?.data?.error || err.message}` });
-      } else if (err instanceof Error) {
-        dispatch({ type: 'SET_ERROR', payload: `Failed to submit answer: ${err.message}` });
-      }
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to submit answer' });
     }
   };
 
-  const handleNextWord = () => {
+  const handleNextWord = async () => {
     console.log('handleNextWord:', {
       currentWordIndex: state.currentWordIndex,
       totalWords: state.words.length,
@@ -308,7 +288,17 @@ export const VocabularyQuiz: React.FC<VocabularyQuizProps> = ({ sessionId }) => 
     if (state.currentWordIndex < state.words.length - 1) {
       dispatch({ type: 'NEXT_WORD' });
     } else {
-      dispatch({ type: 'COMPLETE_QUIZ' });
+      try {
+        // Get the final score
+        const score = await vocabularyQuizApi.getScore(state.quizSessionId!);
+        console.log('Got quiz score:', score);
+        dispatch({ type: 'SET_SCORE', payload: score });
+        dispatch({ type: 'COMPLETE_QUIZ' });
+      } catch (err) {
+        console.error('Failed to get quiz score:', err);
+        dispatch({ type: 'SET_ERROR', payload: 'Failed to get quiz score' });
+        dispatch({ type: 'COMPLETE_QUIZ' });
+      }
     }
   };
 
@@ -318,6 +308,7 @@ export const VocabularyQuiz: React.FC<VocabularyQuizProps> = ({ sessionId }) => 
     showAnswer: state.showAnswer,
     isQuizComplete: state.isQuizComplete,
     currentWord: state.currentWord,
+    score: state.score,
   });
 
   if (state.loading) {
@@ -328,12 +319,25 @@ export const VocabularyQuiz: React.FC<VocabularyQuizProps> = ({ sessionId }) => 
     return <div className="text-red-500">{state.error}</div>;
   }
 
-  if (!state.currentWord) {
+  if (!state.currentWord && !state.isQuizComplete) {
     return <div>No words available</div>;
   }
 
   if (state.isQuizComplete) {
-    return <div>Quiz complete!</div>;
+    return (
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold">Quiz Complete!</h2>
+        {state.score ? (
+          <div className="space-y-2">
+            <p>Total Words: {state.score.totalWords}</p>
+            <p>Correct Answers: {state.score.correctCount}</p>
+            <p>Accuracy: {(state.score.accuracy * 100).toFixed(1)}%</p>
+          </div>
+        ) : (
+          <p>Loading score...</p>
+        )}
+      </div>
+    );
   }
 
   return (

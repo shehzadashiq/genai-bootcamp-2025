@@ -841,38 +841,70 @@ func (s *Service) GetStudySession(id int64) (*models.StudySessionResponse, error
 	return &session, nil
 }
 
-func (s *Service) GetStudySessionWords(id int64, page int) (*models.PaginatedResponse, error) {
-	// Get all words for this session
-	rows, err := s.db.Query(`
-		SELECT w.id, w.urdu, w.urdlish, w.english
-		FROM words w
-		INNER JOIN word_review_items wri ON w.id = wri.word_id
-		WHERE wri.study_session_id = ?
-	`, id)
+func (s *Service) GetStudySessionWords(id int64, page int, includeWords bool) (*models.PaginatedResponse, error) {
+	var query string
+	if includeWords {
+		query = `
+			SELECT w.id, w.urdu, w.urdlish, w.english, wri.correct, wri.created_at
+			FROM words w
+			INNER JOIN word_review_items wri ON w.id = wri.word_id
+			WHERE wri.study_session_id = ?
+		`
+	} else {
+		query = `
+			SELECT wri.word_id, wri.correct, wri.created_at
+			FROM word_review_items wri
+			WHERE wri.study_session_id = ?
+		`
+	}
+
+	rows, err := s.db.Query(query, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get study session words: %v", err)
 	}
 	defer rows.Close()
 
-	var words []models.WordResponse
-	for rows.Next() {
-		var word models.WordResponse
-		err := rows.Scan(&word.ID, &word.Urdu, &word.Urdlish, &word.English)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan word: %v", err)
+	if includeWords {
+		var words []models.WordResponse
+		for rows.Next() {
+			var word models.WordResponse
+			var correct bool
+			var createdAt time.Time
+			err := rows.Scan(&word.ID, &word.Urdu, &word.Urdlish, &word.English, &correct, &createdAt)
+			if err != nil {
+				return nil, fmt.Errorf("failed to scan word: %v", err)
+			}
+			words = append(words, word)
 		}
-		words = append(words, word)
+		return &models.PaginatedResponse{
+			Items: words,
+			Pagination: models.Pagination{
+				CurrentPage:  page,
+				TotalPages:   1,
+				TotalItems:   len(words),
+				ItemsPerPage: len(words),
+			},
+		}, nil
+	} else {
+		var items []models.WordReviewItem
+		for rows.Next() {
+			var item models.WordReviewItem
+			err := rows.Scan(&item.WordID, &item.Correct, &item.CreatedAt)
+			if err != nil {
+				return nil, fmt.Errorf("failed to scan word review item: %v", err)
+			}
+			items = append(items, item)
+		}
+		return &models.PaginatedResponse{
+			Items: items,
+			Pagination: models.Pagination{
+				CurrentPage:  page,
+				TotalPages:   1,
+				TotalItems:   len(items),
+				ItemsPerPage: len(items),
+			},
+		}, nil
 	}
-
-	return &models.PaginatedResponse{
-		Items: words,
-		Pagination: models.Pagination{
-			CurrentPage:  page,
-			TotalPages:   1,
-			TotalItems:   len(words),
-			ItemsPerPage: len(words),
-		},
-	}, nil
 }
 
 func (s *Service) ReviewWord(sessionID int64, wordID int64, correct bool) (*models.WordReviewItem, error) {

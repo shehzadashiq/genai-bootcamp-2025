@@ -60,12 +60,12 @@ type QuizAnswer struct {
 
 // RegisterVocabularyQuizRoutes registers all routes for vocabulary quiz
 func RegisterVocabularyQuizRoutes(r *gin.RouterGroup, svc *service.Service) {
-	h := NewHandler(svc)
+	h := &Handler{svc: svc}
 	quiz := r.Group("/vocabulary-quiz")
 	{
 		quiz.POST("/start", h.StartQuiz)
-		quiz.GET("/words/:id", h.GetQuizWords)
-		quiz.POST("/submit", h.SubmitQuizAnswer)
+		quiz.GET("/words/:session_id", h.GetQuizWords)
+		quiz.POST("/answer", h.SubmitQuizAnswer)
 		quiz.GET("/score/:session_id", h.GetQuizScore)
 	}
 }
@@ -145,153 +145,37 @@ func (h *Handler) StartQuiz(c *gin.Context) {
 
 // GetQuizWords returns a list of words for a quiz
 func (h *Handler) GetQuizWords(c *gin.Context) {
-	sessionID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	sessionID, err := strconv.ParseInt(c.Param("session_id"), 10, 64)
 	if err != nil {
-		fmt.Printf("GetQuizWords: Invalid session ID: %v\n", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid session ID"})
-		return
-	}
-
-	fmt.Printf("GetQuizWords: Getting session %d\n", sessionID)
-	// Get session to verify it exists
-	session, err := h.svc.GetStudySession(sessionID)
-	if err != nil {
-		fmt.Printf("GetQuizWords: Session not found: %v\n", err)
-		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Study session not found: %v", err)})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid session id"})
 		return
 	}
 
 	fmt.Printf("GetQuizWords: Getting words for session %d\n", sessionID)
-	// Get all review items for this session
-	reviewItems, err := h.svc.GetStudySessionWords(sessionID, 1) // Get first page
+
+	// Get all words for this session
+	reviewItems, err := h.svc.GetStudySessionWords(sessionID, 1, true) // true to include word data
 	if err != nil {
-		fmt.Printf("GetQuizWords: Failed to get review items: %v\n", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to get review items: %v", err)})
+		fmt.Printf("GetQuizWords: Failed to get words: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	wordResponses := reviewItems.Items.([]models.WordResponse)
-	if len(wordResponses) == 0 {
-		fmt.Printf("GetQuizWords: No words found in session %d\n", sessionID)
-		c.JSON(http.StatusNotFound, gin.H{"error": "No words found in the session"})
-		return
-	}
+	fmt.Printf("GetQuizWords: Found %d words\n", len(wordResponses))
 
-	fmt.Printf("GetQuizWords: Getting all words for group %d\n", session.GroupID)
-	// Get all words from the group to use as options
-	groupWords, err := h.svc.GetGroupWords(session.GroupID, 1)
-	if err != nil {
-		fmt.Printf("GetQuizWords: Failed to get group words: %v\n", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to get group words: %v", err)})
-		return
-	}
-
-	allWords := groupWords.Items.([]models.WordResponse)
 	quizWords := make([]QuizWord, len(wordResponses))
-
-	// Use session ID as random seed to ensure consistent options
-	rand.Seed(sessionID)
-
-	// For each quiz word, generate options
 	for i, word := range wordResponses {
-		// Create a map to track used English translations
-		usedTranslations := make(map[string]bool)
-		usedTranslations[word.English] = true // Mark correct answer as used
-
-		// Get semantically related words based on word type and common terms
-		var relatedWords []models.WordResponse
-		wordLower := strings.ToLower(word.English)
-		
-		// Check for family relationships
-		if strings.Contains(wordLower, "brother") || strings.Contains(wordLower, "sister") ||
-			strings.Contains(wordLower, "mother") || strings.Contains(wordLower, "father") ||
-			strings.Contains(wordLower, "aunt") || strings.Contains(wordLower, "uncle") ||
-			strings.Contains(wordLower, "cousin") || strings.Contains(wordLower, "son") ||
-			strings.Contains(wordLower, "daughter") || strings.Contains(wordLower, "husband") ||
-			strings.Contains(wordLower, "wife") || strings.Contains(wordLower, "parent") ||
-			strings.Contains(wordLower, "child") || strings.Contains(wordLower, "family") {
-			// Find other family-related words
-			for _, w := range allWords {
-				wLower := strings.ToLower(w.English)
-				if (strings.Contains(wLower, "brother") || strings.Contains(wLower, "sister") ||
-					strings.Contains(wLower, "mother") || strings.Contains(wLower, "father") ||
-					strings.Contains(wLower, "aunt") || strings.Contains(wLower, "uncle") ||
-					strings.Contains(wLower, "cousin") || strings.Contains(wLower, "son") ||
-					strings.Contains(wLower, "daughter") || strings.Contains(wLower, "husband") ||
-					strings.Contains(wLower, "wife") || strings.Contains(wLower, "parent") ||
-					strings.Contains(wLower, "child") || strings.Contains(wLower, "family")) &&
-					w.ID != word.ID {
-					relatedWords = append(relatedWords, w)
-				}
-			}
-		} else if strings.HasPrefix(wordLower, "to ") {
-			// For verbs, find other verbs with similar meaning or context
-			for _, w := range allWords {
-				if strings.HasPrefix(strings.ToLower(w.English), "to ") && w.ID != word.ID {
-					relatedWords = append(relatedWords, w)
-				}
-			}
-		} else if strings.Contains(wordLower, "room") || strings.Contains(wordLower, "house") ||
-			strings.Contains(wordLower, "building") || strings.Contains(wordLower, "door") ||
-			strings.Contains(wordLower, "window") || strings.Contains(wordLower, "wall") ||
-			strings.Contains(wordLower, "floor") || strings.Contains(wordLower, "ceiling") {
-			// Find other house/building related words
-			for _, w := range allWords {
-				wLower := strings.ToLower(w.English)
-				if (strings.Contains(wLower, "room") || strings.Contains(wLower, "house") ||
-					strings.Contains(wLower, "building") || strings.Contains(wLower, "door") ||
-					strings.Contains(wLower, "window") || strings.Contains(wLower, "wall") ||
-					strings.Contains(wLower, "floor") || strings.Contains(wLower, "ceiling")) &&
-					w.ID != word.ID {
-					relatedWords = append(relatedWords, w)
-				}
-			}
-		} else if strings.Contains(wordLower, "food") || strings.Contains(wordLower, "drink") ||
-			strings.Contains(wordLower, "eat") || strings.Contains(wordLower, "cook") ||
-			strings.Contains(wordLower, "meal") || strings.Contains(wordLower, "breakfast") ||
-			strings.Contains(wordLower, "lunch") || strings.Contains(wordLower, "dinner") {
-			// Find other food/drink related words
-			for _, w := range allWords {
-				wLower := strings.ToLower(w.English)
-				if (strings.Contains(wLower, "food") || strings.Contains(wLower, "drink") ||
-					strings.Contains(wLower, "eat") || strings.Contains(wLower, "cook") ||
-					strings.Contains(wLower, "meal") || strings.Contains(wLower, "breakfast") ||
-					strings.Contains(wLower, "lunch") || strings.Contains(wLower, "dinner")) &&
-					w.ID != word.ID {
-					relatedWords = append(relatedWords, w)
-				}
-			}
+		// Get incorrect options for this word
+		incorrectOptions, err := h.getIncorrectOptions(&word, wordResponses)
+		if err != nil {
+			fmt.Printf("GetQuizWords: Failed to get incorrect options for word %d: %v\n", word.ID, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
 		}
 
-		// Create a list of options, starting with the correct answer
-		selectedOptions := make([]string, 0, 4)
-		selectedOptions = append(selectedOptions, word.English)
-
-		// Add related options first
-		relatedWords = shuffle(relatedWords)
-		for _, w := range relatedWords {
-			if len(selectedOptions) >= 4 {
-				break
-			}
-			if !usedTranslations[w.English] {
-				selectedOptions = append(selectedOptions, w.English)
-				usedTranslations[w.English] = true
-			}
-		}
-
-		// If we still need more options, add some random ones
-		if len(selectedOptions) < 4 {
-			shuffledWords := shuffle(allWords)
-			for _, w := range shuffledWords {
-				if len(selectedOptions) >= 4 {
-					break
-				}
-				if !usedTranslations[w.English] {
-					selectedOptions = append(selectedOptions, w.English)
-					usedTranslations[w.English] = true
-				}
-			}
-		}
+		// Create final list of options including the correct answer
+		selectedOptions := append([]string{word.English}, incorrectOptions...)
 
 		// Final shuffle of all options
 		rand.Shuffle(len(selectedOptions), func(i, j int) {
@@ -308,10 +192,134 @@ func (h *Handler) GetQuizWords(c *gin.Context) {
 		}
 	}
 
-	fmt.Printf("GetQuizWords: Returning %d words for session %d\n", len(quizWords), sessionID)
-	c.JSON(http.StatusOK, gin.H{
-		"words": quizWords,
-	})
+	c.JSON(http.StatusOK, quizWords)
+}
+
+// GetQuizScore returns the score for a quiz session
+func (h *Handler) GetQuizScore(c *gin.Context) {
+	sessionID, err := strconv.ParseInt(c.Param("session_id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid session id"})
+		return
+	}
+
+	// Get all review items for this session
+	reviewItems, err := h.svc.GetStudySessionWords(sessionID, 1, false) // false since we don't need word data
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	items := reviewItems.Items.([]models.WordReviewItem)
+	correctCount := 0
+	for _, item := range items {
+		if item.Correct {
+			correctCount++
+		}
+	}
+
+	totalWords := len(items)
+	var accuracy float64
+	if totalWords > 0 {
+		accuracy = float64(correctCount) / float64(totalWords)
+	}
+
+	score := QuizScore{
+		SessionID:    sessionID,
+		TotalWords:   totalWords,
+		CorrectCount: correctCount,
+		Accuracy:     accuracy,
+	}
+
+	c.JSON(http.StatusOK, score)
+}
+
+// getIncorrectOptions returns a list of incorrect options for a quiz word
+func (h *Handler) getIncorrectOptions(word *models.WordResponse, allWords []models.WordResponse) ([]string, error) {
+    // Create a map to track used English translations
+    usedTranslations := make(map[string]bool)
+    usedTranslations[word.English] = true // Mark correct answer as used
+
+    // Get semantically related words based on word type and common terms
+    var relatedWords []models.WordResponse
+    wordLower := strings.ToLower(word.English)
+    
+    // Check for family relationships
+    if strings.Contains(wordLower, "brother") || strings.Contains(wordLower, "sister") ||
+        strings.Contains(wordLower, "mother") || strings.Contains(wordLower, "father") ||
+        strings.Contains(wordLower, "aunt") || strings.Contains(wordLower, "uncle") ||
+        strings.Contains(wordLower, "cousin") || strings.Contains(wordLower, "son") ||
+        strings.Contains(wordLower, "daughter") || strings.Contains(wordLower, "husband") ||
+        strings.Contains(wordLower, "wife") || strings.Contains(wordLower, "parent") ||
+        strings.Contains(wordLower, "child") || strings.Contains(wordLower, "family") {
+        // Find other family-related words
+        for _, w := range allWords {
+            wLower := strings.ToLower(w.English)
+            if (strings.Contains(wLower, "brother") || strings.Contains(wLower, "sister") ||
+                strings.Contains(wLower, "mother") || strings.Contains(wLower, "father") ||
+                strings.Contains(wLower, "aunt") || strings.Contains(wLower, "uncle") ||
+                strings.Contains(wLower, "cousin") || strings.Contains(wLower, "son") ||
+                strings.Contains(wLower, "daughter") || strings.Contains(wLower, "husband") ||
+                strings.Contains(wLower, "wife") || strings.Contains(wLower, "parent") ||
+                strings.Contains(wLower, "child") || strings.Contains(wLower, "family")) &&
+                w.ID != word.ID {
+                relatedWords = append(relatedWords, w)
+            }
+        }
+    } else if strings.HasPrefix(wordLower, "to ") {
+        // For verbs, find other verbs
+        for _, w := range allWords {
+            if strings.HasPrefix(strings.ToLower(w.English), "to ") && w.ID != word.ID {
+                relatedWords = append(relatedWords, w)
+            }
+        }
+    } else if strings.Contains(wordLower, "room") || strings.Contains(wordLower, "house") ||
+        strings.Contains(wordLower, "building") || strings.Contains(wordLower, "door") ||
+        strings.Contains(wordLower, "window") || strings.Contains(wordLower, "wall") ||
+        strings.Contains(wordLower, "floor") || strings.Contains(wordLower, "ceiling") {
+        // Find other house/building related words
+        for _, w := range allWords {
+            wLower := strings.ToLower(w.English)
+            if (strings.Contains(wLower, "room") || strings.Contains(wLower, "house") ||
+                strings.Contains(wLower, "building") || strings.Contains(wLower, "door") ||
+                strings.Contains(wLower, "window") || strings.Contains(wLower, "wall") ||
+                strings.Contains(wLower, "floor") || strings.Contains(wLower, "ceiling")) &&
+                w.ID != word.ID {
+                relatedWords = append(relatedWords, w)
+            }
+        }
+    }
+
+    // Create a list of incorrect options
+    incorrectOptions := make([]string, 0, 3)
+
+    // Add related options first
+    relatedWords = shuffle(relatedWords)
+    for _, w := range relatedWords {
+        if len(incorrectOptions) >= 3 {
+            break
+        }
+        if !usedTranslations[w.English] {
+            incorrectOptions = append(incorrectOptions, w.English)
+            usedTranslations[w.English] = true
+        }
+    }
+
+    // If we still need more options, add some random ones
+    if len(incorrectOptions) < 3 {
+        shuffledWords := shuffle(allWords)
+        for _, w := range shuffledWords {
+            if len(incorrectOptions) >= 3 {
+                break
+            }
+            if !usedTranslations[w.English] {
+                incorrectOptions = append(incorrectOptions, w.English)
+                usedTranslations[w.English] = true
+            }
+        }
+    }
+
+    return incorrectOptions, nil
 }
 
 // isNoun checks if a word is likely a noun based on common patterns
@@ -441,39 +449,4 @@ func (h *Handler) SubmitQuizAnswer(c *gin.Context) {
 		"correct":     reviewItem.Correct,
 		"created_at":  reviewItem.CreatedAt,
 	})
-}
-
-// GetQuizScore returns the score for a quiz session
-func (h *Handler) GetQuizScore(c *gin.Context) {
-	sessionID, err := strconv.ParseInt(c.Param("session_id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid session id"})
-		return
-	}
-
-	// Get all review items for this session
-	reviewItems, err := h.svc.GetStudySessionWords(sessionID, 1) // Get first page
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	items := reviewItems.Items.([]models.WordResponse)
-	correctCount := 0
-	for _, item := range items {
-		if item.CorrectCount > item.WrongCount {
-			correctCount++
-		}
-	}
-
-	accuracy := float64(correctCount) / float64(len(items)) * 100
-
-	score := QuizScore{
-		SessionID:    sessionID,
-		TotalWords:   len(items),
-		CorrectCount: correctCount,
-		Accuracy:     accuracy,
-	}
-
-	c.JSON(http.StatusOK, score)
 }
