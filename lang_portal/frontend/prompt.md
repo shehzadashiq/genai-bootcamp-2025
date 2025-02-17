@@ -1,26 +1,5 @@
 # Frontend Technical Specifications
 
-## Pages
-
-### Dashboard `/dashboard`
-
-#### Purpose
-
-The purpose of this page is to provide a summary of learning and act as the default page when a user visit the web-app
-
-## Business Goal
-
-A language learning school wants to build a prototype of learning portal which will act as three things:
-
-- Inventory of possible vocabulary that can be learned
-- Act as a record store, providing correct and wrong score on practice vocabulary
-- A unified launchpad to launch different learning apps
-
-You have been tasked with creating the frontend API of the application.
-The fractional CTO has made strong recommendation that you settle on a frontend stack that is being commonly adopted and optimized for AI prototyping services.
-
-The frontend application should powered by your backend API.
-
 ## Technical Requirements
 
 The technical stack should be the following
@@ -85,6 +64,27 @@ The Backend API has the following guidelines
 - There will no authentication or authorization
 - Everything be treated as a single user
 
+## Pages
+
+### Dashboard `/dashboard`
+
+#### Purpose
+
+The purpose of this page is to provide a summary of learning and act as the default page when a user visit the web-app
+
+## Business Goal
+
+A language learning school wants to build a prototype of learning portal which will act as three things:
+
+- Inventory of possible vocabulary that can be learned
+- Act as a record store, providing correct and wrong score on practice vocabulary
+- A unified launchpad to launch different learning apps
+
+You have been tasked with creating the frontend API of the application.
+The fractional CTO has made strong recommendation that you settle on a frontend stack that is being commonly adopted and optimized for AI prototyping services.
+
+The frontend application should powered by your backend API.
+
 #### Components
 
 - Last Study Session
@@ -129,10 +129,10 @@ of study activities with a thumbnail and its name, to either launch or view the 
 
 - GET /api/study_activities
 
-
 ### Study Activity Show `/study_activities/:id`
 
 #### Purpose
+
 The purpose of this page is to show the details of a study activity and its past study sessions.
 It also allows you to create a new study session for this activity.
 
@@ -168,7 +168,7 @@ The purpose of this page is to launch a study activity.
   - select field for group
   - launch now button
 
-## Behaviour
+#### Behaviour
 
 After the form is submitted a new tab opens with the study activity based on its URL provided in the database.
 
@@ -203,6 +203,7 @@ The purpose of this page is to show all words in our database.
 ### Word Show `/words/:id`
 
 #### Purpose
+
 The purpose of this page is to show information about a specific word.
 
 #### Components
@@ -261,7 +262,7 @@ The purpose of this page is to show information about a specific group.
 - GET /api/groups/:id/words
 - GET /api/groups/:id/study_sessions
 
-## Study Sessions Index `/study_sessions`
+### Study Sessions Index `/study_sessions`
 
 #### Purpose
 

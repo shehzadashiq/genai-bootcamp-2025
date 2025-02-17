@@ -76,7 +76,7 @@ func (h *Handler) GetStudySessionWords(c *gin.Context) {
 	page := c.DefaultQuery("page", "1")
 	pageNum, _ := strconv.Atoi(page)
 
-	words, err := h.svc.GetStudySessionWords(id, pageNum)
+	words, err := h.svc.GetStudySessionWords(id, pageNum, true)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

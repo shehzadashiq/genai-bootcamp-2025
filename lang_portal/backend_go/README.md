@@ -31,6 +31,9 @@ A Go-based backend service for managing vocabulary learning and study sessions.
     - [Error Responses](#error-responses)
     - [Pagination](#pagination)
     - [Key Endpoints](#key-endpoints)
+      - [Vocabulary Quiz](#vocabulary-quiz)
+      - [Study Progress](#study-progress)
+      - [Words and Groups](#words-and-groups)
       - [Dashboard](#dashboard)
       - [Study Activities](#study-activities)
       - [Words](#words-1)
@@ -67,11 +70,25 @@ The Language Learning Portal backend provides
 
 ## Features
 
-- Vocabulary management with groups
-- Study session tracking
-- Progress monitoring
-- Word review history
-- Dashboard with statistics
+- **Word Management**
+  - Store and manage vocabulary words with Urdu, Urdlish, and English translations
+  - Track word usage and success rates
+  - Group words by difficulty levels
+
+- **Study Activities**
+  - Vocabulary Quiz with multiple-choice questions
+  - Track study progress and performance
+  - Real-time scoring and feedback
+
+- **Progress Tracking**
+  - Track study sessions and word reviews
+  - Calculate success rates and progress metrics
+  - View historical performance data
+
+- **Dashboard**
+  - View quick statistics and study progress
+  - Access recent study sessions
+  - Monitor learning achievements
 
 ## Prerequisites
 
@@ -380,6 +397,25 @@ Response includes pagination metadata:
 
 ### Key Endpoints
 
+#### Vocabulary Quiz
+
+- `POST /api/vocabulary-quiz/start` - Start a new quiz session
+- `GET /api/vocabulary-quiz/words/:session_id` - Get quiz words
+- `POST /api/vocabulary-quiz/answer` - Submit an answer
+- `GET /api/vocabulary-quiz/score/:session_id` - Get quiz score
+
+#### Study Progress
+
+- `GET /api/dashboard/study_progress` - View study statistics
+- `GET /api/dashboard/last_study_session` - Get last session details
+- `GET /api/dashboard/quick-stats` - View quick statistics
+
+#### Words and Groups
+
+- `GET /api/words` - List vocabulary words
+- `GET /api/groups` - List word groups
+- `GET /api/groups/:id/words` - Get words in a group
+
 #### Dashboard
 
 - `GET /dashboard/last_study_session` - Latest study session
@@ -524,6 +560,7 @@ go test ./... -cover
 ### SQLite In-Memory Database Concurrency Issues
 
 When running concurrent tests with SQLite in-memory databases, you may encounter these issues:
+
 - "no such table" errors
 - Missing data between operations
 - Inconsistent record counts
@@ -582,3 +619,7 @@ See `TestConcurrentWordReviews` in `internal/service/concurrent_test.go` for a c
 Because sometimes AI does not have all the answers. There is no alternative to good old troubleshooting.
 
 - [How to Install GCC and GDB on Windows Using MSYS2 — Tutorial](https://sajidifti.medium.com/how-to-install-gcc-and-gdb-on-windows-using-msys2-tutorial-0fceb7e66454)
+- [Go Documentation](https://golang.org/doc/)
+- [SQLite Documentation](https://www.sqlite.org/docs.html)
+- [Gin Web Framework](https://gin-gonic.com/docs/)
+- [Mage Build Tool](https://magefile.org/)

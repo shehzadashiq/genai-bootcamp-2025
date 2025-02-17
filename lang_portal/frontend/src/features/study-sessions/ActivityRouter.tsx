@@ -4,9 +4,10 @@ import { StudySessionResponse } from '@/types';
 
 interface ActivityRouterProps {
   session: StudySessionResponse;
+  quizSessionId?: string;
 }
 
-export const ActivityRouter: React.FC<ActivityRouterProps> = ({ session }) => {
+export const ActivityRouter: React.FC<ActivityRouterProps> = ({ session, quizSessionId }) => {
   // Map activity names to their corresponding components
   const activityMap: Record<string, React.FC<{ sessionId: string }>> = {
     'Vocabulary Quiz': VocabularyQuiz,
@@ -24,5 +25,7 @@ export const ActivityRouter: React.FC<ActivityRouterProps> = ({ session }) => {
     );
   }
 
-  return <ActivityComponent sessionId={session.id.toString()} />;
+  // Use the quiz session ID if available, otherwise fall back to the regular session ID
+  const sessionIdToUse = quizSessionId || session.id.toString();
+  return <ActivityComponent sessionId={sessionIdToUse} />;
 };

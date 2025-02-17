@@ -44,7 +44,8 @@ CREATE TABLE IF NOT EXISTS word_review_items (
     correct BOOLEAN NOT NULL,
     created_at DATETIME NOT NULL,
     FOREIGN KEY (word_id) REFERENCES words(id),
-    FOREIGN KEY (study_session_id) REFERENCES study_sessions(id)
+    FOREIGN KEY (study_session_id) REFERENCES study_sessions(id),
+    UNIQUE(study_session_id, word_id)
 );
 
 -- Seed data

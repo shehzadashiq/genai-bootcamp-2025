@@ -97,6 +97,65 @@ go run cmd/server/main.go
 
 The server will start on [http://localhost:8080](http://localhost:8080)
 
+## Development Tasks
+
+Common development tasks can be run using Mage:
+
+```bash
+# Build and run the server
+mage run
+
+# Run database migrations
+mage migrate
+
+# Reset database and run migrations
+mage reset
+
+# Run tests
+mage test
+
+# Run tests with coverage
+mage testWithCoverage
+```
+
+## API Testing
+
+You can test the API endpoints using curl or any HTTP client. Here are some example requests:
+
+### Start a Vocabulary Quiz
+
+```bash
+curl -X POST http://localhost:8080/api/vocabulary-quiz/start \
+  -H "Content-Type: application/json" \
+  -d '{"group_id": 1, "word_count": 10}'
+```
+
+### Get Quiz Words
+
+```bash
+curl http://localhost:8080/api/vocabulary-quiz/words/1
+```
+
+### Submit Quiz Answer
+
+```bash
+curl -X POST http://localhost:8080/api/vocabulary-quiz/answer \
+  -H "Content-Type: application/json" \
+  -d '{"session_id": 1, "word_id": 1, "answer": "hello", "correct": true}'
+```
+
+### Get Quiz Score
+
+```bash
+curl http://localhost:8080/api/vocabulary-quiz/score/1
+```
+
+### Get Study Progress
+
+```bash
+curl http://localhost:8080/api/dashboard/study_progress
+```
+
 ## Available Mage Commands
 
 - `mage initdb` - Creates a new SQLite database
@@ -127,6 +186,43 @@ The SQLite database is stored in `words.db` in the project root. You can inspect
 
 ```bash
 sqlite3 words.db
+```
+
+## Database Management
+
+### View Database Content
+
+```bash
+# Open SQLite shell
+sqlite3 words.db
+
+# Show tables
+.tables
+
+# Show schema for a table
+.schema words
+.schema study_sessions
+.schema word_review_items
+
+# Query data
+SELECT * FROM words LIMIT 5;
+SELECT * FROM study_sessions ORDER BY start_time DESC LIMIT 5;
+SELECT * FROM word_review_items WHERE session_id = 1;
+```
+
+### Reset Database
+
+To reset the database and start fresh:
+
+```bash
+# Delete existing database
+rm words.db*
+
+# Run migrations
+mage migrate
+
+# Seed initial data
+mage seed
 ```
 
 ## Common SQLite commands
@@ -226,3 +322,21 @@ The database includes these main tables:
    ```bash
    curl -X POST http://localhost:8080/api/full_reset
    ```
+
+## Common Issues
+
+### Database Locked
+
+If you see "database is locked" errors:
+
+1. Make sure you don't have the database open in another program
+2. Try closing and reopening the database connection
+3. If persists, delete the .db-shm and .db-wal files
+
+### CGO Issues
+
+If you see CGO-related errors:
+
+1. Ensure CGO is enabled: `set CGO_ENABLED=1` (Windows) or `export CGO_ENABLED=1` (Unix)
+2. Check that GCC is installed and in your PATH
+3. On Windows, verify MSYS2 is properly installed
