@@ -8,10 +8,13 @@ type PaginatedResponse struct {
 }
 
 type DashboardStats struct {
-	SuccessRate        float64 `json:"success_rate"`
-	TotalStudySessions int     `json:"total_study_sessions"`
-	TotalActiveGroups  int     `json:"total_active_groups"`
-	StudyStreakDays    int     `json:"study_streak_days"`
+	TotalWordsStudied   int     `json:"total_words_studied"`
+	CorrectCount        int     `json:"correct_count"`
+	CorrectPercentage   int     `json:"correct_percentage"`
+	TotalAvailableWords int     `json:"total_available_words"`
+	TotalStudySessions  int     `json:"total_study_sessions"`
+	TotalActiveGroups   int     `json:"total_active_groups"`
+	StudyStreakDays     int     `json:"study_streak_days"`
 }
 
 type StudyProgress struct {

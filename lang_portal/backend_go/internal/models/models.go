@@ -20,6 +20,12 @@ type Group struct {
 	Name string `json:"name"`
 }
 
+type QuizConfig struct {
+	GroupID    int64  `json:"group_id" binding:"required"`
+	WordCount  int    `json:"word_count" binding:"required,min=1"`
+	Difficulty string `json:"difficulty" binding:"required,oneof=beginner intermediate advanced"`
+}
+
 type StudySession struct {
 	ID              int64     `json:"id"`
 	GroupID         int64     `json:"group_id"`
@@ -36,6 +42,7 @@ type StudyActivity struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
+// WordReviewItem represents a review of a word in a study session
 type WordReviewItem struct {
 	WordID         int64     `json:"word_id"`
 	StudySessionID int64     `json:"study_session_id"`
@@ -44,9 +51,9 @@ type WordReviewItem struct {
 }
 
 type Pagination struct {
+	TotalItems   int `json:"total_items"`
 	CurrentPage  int `json:"current_page"`
 	TotalPages   int `json:"total_pages"`
-	TotalItems   int `json:"total_items"`
 	ItemsPerPage int `json:"items_per_page"`
 }
 
@@ -58,7 +65,6 @@ func (db *DB) GetStudyActivities(limit, offset int) ([]*StudyActivity, error) {
 		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?
 	`
-
 	rows, err := db.Query(query, limit, offset)
 	if err != nil {
 		return nil, err
@@ -69,10 +75,10 @@ func (db *DB) GetStudyActivities(limit, offset int) ([]*StudyActivity, error) {
 	for rows.Next() {
 		activity := &StudyActivity{}
 		var (
-			url         sql.NullString
+			url          sql.NullString
 			thumbnailURL sql.NullString
-			description sql.NullString
-			createdAt   sql.NullTime
+			description  sql.NullString
+			createdAt    sql.NullTime
 		)
 		err := rows.Scan(
 			&activity.ID,
@@ -115,11 +121,11 @@ func (db *DB) CountStudyActivities() (int, error) {
 
 func (db *DB) GetStudyActivity(id int64) (*StudyActivity, error) {
 	var (
-		activity StudyActivity
-		url         sql.NullString
+		activity     StudyActivity
+		url          sql.NullString
 		thumbnailURL sql.NullString
-		description sql.NullString
-		createdAt   sql.NullTime
+		description  sql.NullString
+		createdAt    sql.NullTime
 	)
 	err := db.QueryRow(`
 		SELECT id, name, url, thumbnail_url, description, created_at
@@ -134,7 +140,7 @@ func (db *DB) GetStudyActivity(id int64) (*StudyActivity, error) {
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("study activity not found")
+			return nil, fmt.Errorf("study activity %d not found", id)
 		}
 		return nil, err
 	}

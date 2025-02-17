@@ -10,6 +10,7 @@ interface Word {
   wrong_count: number;
 }
 
+// Create a base axios instance with common configuration
 const api = axios.create({
   baseURL: 'http://localhost:8080/api',
   headers: {
@@ -49,6 +50,24 @@ export const studySessionsApi = {
   getAll: (page: number = 1) => api.get<PaginatedResponse<StudySessionResponse>>(`/study_sessions?page=${page}`),
   getById: (id: string) => api.get<StudySessionResponse>(`/study_sessions/${id}`),
   getWords: (id: string, page: number = 1) => api.get<PaginatedResponse<Word>>(`/study_sessions/${id}/words?page=${page}`),
+};
+
+export const vocabularyQuizApi = {
+  start: (data: { group_id: number; difficulty: string; word_count: number }) =>
+    api.post<{ session_id: number }>('/vocabulary-quiz/start', data),
+
+  getWords: (sessionId: number) =>
+    api.get<{ words: { word: { id: number; urdu: string; urdlish: string; english: string }; options: string[] }[] }>(
+      `/vocabulary-quiz/words/${sessionId}`
+    ),
+
+  submit: (data: { word_id: number; session_id: number; answer: string; correct: boolean }) =>
+    api.post('/vocabulary-quiz/submit', data),
+
+  getScore: (sessionId: number) =>
+    api.get<{ session_id: number; total_words: number; correct_count: number; accuracy: number; difficulty: string }>(
+      `/vocabulary-quiz/score/${sessionId}`
+    ),
 };
 
 export const settingsApi = {

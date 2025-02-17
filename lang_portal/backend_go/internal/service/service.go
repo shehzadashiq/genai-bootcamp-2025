@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"lang_portal/internal/db/seeder"
 	"lang_portal/internal/models"
-	"os"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -44,7 +43,11 @@ func NewService(dbPath string) (*Service, error) {
 
 // NewServiceWithDB creates a new service with an existing database connection
 func NewServiceWithDB(db *sql.DB) *Service {
-	return &Service{db: models.NewDB(db)}
+	modelDB := models.NewDB(db)
+	return &Service{
+		db:     modelDB,
+		seeder: seeder.NewSeeder(modelDB),
+	}
 }
 
 func (s *Service) Close() error {
@@ -89,11 +92,27 @@ func (s *Service) GetStudyProgress() (*models.StudyProgress, error) {
 func (s *Service) GetQuickStats() (*models.DashboardStats, error) {
 	var stats models.DashboardStats
 
-	// Calculate success rate
+	// Get total words studied and correct count
 	err := s.db.QueryRow(`
-		SELECT COALESCE(AVG(CASE WHEN correct THEN 100.0 ELSE 0.0 END), 0)
+		SELECT 
+			COALESCE(COUNT(*), 0), 
+			COALESCE(SUM(CASE WHEN correct THEN 1 ELSE 0 END), 0)
 		FROM word_review_items
-	`).Scan(&stats.SuccessRate)
+		WHERE study_session_id IN (SELECT id FROM study_sessions WHERE created_at >= datetime('now', '-30 days'))
+	`).Scan(&stats.TotalWordsStudied, &stats.CorrectCount)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate correct percentage
+	if stats.TotalWordsStudied > 0 {
+		stats.CorrectPercentage = int((float64(stats.CorrectCount) / float64(stats.TotalWordsStudied)) * 100)
+	}
+
+	// Get total available words
+	err = s.db.QueryRow(`
+		SELECT COUNT(*) FROM words
+	`).Scan(&stats.TotalAvailableWords)
 	if err != nil {
 		return nil, err
 	}
@@ -262,21 +281,37 @@ func (s *Service) CreateStudySessionWithActivity(groupID int64, activityName str
 }
 
 func (s *Service) CreateStudySession(groupID int64, studyActivityID int64) (*models.StudySessionResponse, error) {
+	// Begin a transaction
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %v", err)
+	}
+	defer tx.Rollback()
+
 	// First check if group exists
-	group, err := s.GetGroup(groupID)
+	_, err = s.GetGroup(groupID)
 	if err != nil {
 		return nil, fmt.Errorf("group not found: %v", err)
 	}
 
+	// Check if group has words
+	groupWords, err := s.GetGroupWords(groupID, 1)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get group words: %v", err)
+	}
+	if groupWords.Items == nil || len(groupWords.Items.([]models.WordResponse)) == 0 {
+		return nil, fmt.Errorf("group has no words")
+	}
+
 	// Then check if study activity exists
-	activity, err := s.GetStudyActivity(studyActivityID)
+	_, err = s.GetStudyActivity(studyActivityID)
 	if err != nil {
 		return nil, fmt.Errorf("study activity not found: %v", err)
 	}
 
 	// Create study session
 	now := time.Now()
-	result, err := s.db.Exec(`
+	result, err := tx.Exec(`
 		INSERT INTO study_sessions (group_id, study_activity_id, created_at)
 		VALUES (?, ?, ?)
 	`, groupID, studyActivityID, now)
@@ -289,16 +324,25 @@ func (s *Service) CreateStudySession(groupID int64, studyActivityID int64) (*mod
 		return nil, fmt.Errorf("failed to get session id: %v", err)
 	}
 
+	// Initialize word review items for all words in the group
+	words := groupWords.Items.([]models.WordResponse)
+	for _, word := range words {
+		_, err = tx.Exec(`
+			INSERT INTO word_review_items (study_session_id, word_id, correct, created_at)
+			VALUES (?, ?, false, CURRENT_TIMESTAMP)
+		`, sessionID, word.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize word review item: %v", err)
+		}
+	}
+
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %v", err)
+	}
+
 	// Return the created session
-	return &models.StudySessionResponse{
-		ID:               sessionID,
-		GroupID:         groupID,
-		ActivityName:     activity.Name,
-		GroupName:        group.Name,
-		StartTime:        now.Format(time.RFC3339),
-		EndTime:          now.Add(10 * time.Minute).Format(time.RFC3339),
-		ReviewItemsCount: 0,
-	}, nil
+	return s.GetStudySession(sessionID)
 }
 
 func (s *Service) GetStudyActivities(page int) (*models.PaginatedResponse, error) {
@@ -404,6 +448,36 @@ func (s *Service) GetWord(id int64) (*models.WordResponse, error) {
 	return &word, nil
 }
 
+func (s *Service) CreateWord(word *models.Word) error {
+	// Begin a transaction
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %v", err)
+	}
+	defer tx.Rollback()
+
+	result, err := tx.Exec(`
+		INSERT INTO words (urdu, urdlish, english)
+		VALUES (?, ?, ?)
+	`, word.Urdu, word.Urdlish, word.English)
+	if err != nil {
+		return fmt.Errorf("failed to create word: %v", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return fmt.Errorf("failed to get word id: %v", err)
+	}
+	word.ID = id
+
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %v", err)
+	}
+
+	return nil
+}
+
 // Groups methods
 func (s *Service) ListGroups(page int) (*models.PaginatedResponse, error) {
 	offset := (page - 1) * 100
@@ -455,7 +529,10 @@ func (s *Service) GetGroup(id int64) (*models.GroupResponse, error) {
 		GROUP BY g.id
 	`, id).Scan(&group.ID, &group.Name, &group.WordCount)
 	if err != nil {
-		return nil, err
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("group not found")
+		}
+		return nil, fmt.Errorf("failed to get group: %v", err)
 	}
 	return &group, nil
 }
@@ -703,8 +780,6 @@ func (s *Service) ListStudySessions(page int) (*models.PaginatedResponse, error)
 }
 
 func (s *Service) GetStudySession(id int64) (*models.StudySessionResponse, error) {
-	fmt.Printf("Getting study session with ID: %d\n", id)
-
 	var session models.StudySessionResponse
 	var (
 		activityName sql.NullString
@@ -739,10 +814,8 @@ func (s *Service) GetStudySession(id int64) (*models.StudySessionResponse, error
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			fmt.Printf("Study session not found: %v\n", err)
 			return nil, fmt.Errorf("study session not found")
 		}
-		fmt.Printf("Error getting study session: %v\n", err)
 		return nil, fmt.Errorf("error getting study session: %v", err)
 	}
 
@@ -765,75 +838,149 @@ func (s *Service) GetStudySession(id int64) (*models.StudySessionResponse, error
 		session.ReviewItemsCount = int(reviewCount.Int64)
 	}
 
-	fmt.Printf("Returning study session: %+v\n", session)
 	return &session, nil
 }
 
 func (s *Service) GetStudySessionWords(id int64, page int) (*models.PaginatedResponse, error) {
-	offset := (page - 1) * 100
+	// Get all words for this session
 	rows, err := s.db.Query(`
-		SELECT w.urdu, w.urdlish, w.english,
-			   COUNT(CASE WHEN wri2.correct THEN 1 END) as correct_count,
-			   COUNT(CASE WHEN NOT wri2.correct THEN 1 END) as wrong_count
-		FROM word_review_items wri
-		JOIN words w ON wri.word_id = w.id
-		LEFT JOIN word_review_items wri2 ON w.id = wri2.word_id
+		SELECT w.id, w.urdu, w.urdlish, w.english
+		FROM words w
+		INNER JOIN word_review_items wri ON w.id = wri.word_id
 		WHERE wri.study_session_id = ?
-		GROUP BY w.id
-		LIMIT 100 OFFSET ?
-	`, id, offset)
+	`, id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get study session words: %v", err)
 	}
 	defer rows.Close()
 
 	var words []models.WordResponse
 	for rows.Next() {
 		var word models.WordResponse
-		if err := rows.Scan(&word.Urdu, &word.Urdlish, &word.English,
-			&word.CorrectCount, &word.WrongCount); err != nil {
-			return nil, err
+		err := rows.Scan(&word.ID, &word.Urdu, &word.Urdlish, &word.English)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan word: %v", err)
 		}
 		words = append(words, word)
-	}
-
-	var total int
-	err = s.db.QueryRow(`
-		SELECT COUNT(DISTINCT word_id) 
-		FROM word_review_items 
-		WHERE study_session_id = ?
-	`, id).Scan(&total)
-	if err != nil {
-		return nil, err
 	}
 
 	return &models.PaginatedResponse{
 		Items: words,
 		Pagination: models.Pagination{
 			CurrentPage:  page,
-			TotalPages:   (total + 99) / 100,
-			TotalItems:   total,
-			ItemsPerPage: 100,
+			TotalPages:   1,
+			TotalItems:   len(words),
+			ItemsPerPage: len(words),
 		},
 	}, nil
 }
 
-func (s *Service) ReviewWord(sessionID, wordID int64, correct bool) (*models.WordReviewItem, error) {
-	now := time.Now()
-	_, err := s.db.Exec(`
-		INSERT INTO word_review_items (word_id, study_session_id, correct, created_at)
-		VALUES (?, ?, ?, ?)
-	`, wordID, sessionID, correct, now)
+func (s *Service) ReviewWord(sessionID int64, wordID int64, correct bool) (*models.WordReviewItem, error) {
+	// Begin a transaction
+	tx, err := s.db.Begin()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to begin transaction: %v", err)
+	}
+	defer tx.Rollback()
+
+	// Insert the review item
+	_, err = tx.Exec(`
+		INSERT INTO word_review_items (word_id, study_session_id, correct, created_at)
+		VALUES (?, ?, ?, datetime('now'))
+		ON CONFLICT(study_session_id, word_id) DO UPDATE SET
+		correct = ?,
+		created_at = datetime('now')
+	`, wordID, sessionID, correct, correct)
+	if err != nil {
+		return nil, fmt.Errorf("failed to review word: %v", err)
 	}
 
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %v", err)
+	}
+
+	// Return the review item
 	return &models.WordReviewItem{
 		WordID:         wordID,
 		StudySessionID: sessionID,
 		Correct:        correct,
-		CreatedAt:      now,
+		CreatedAt:      time.Now(),
 	}, nil
+}
+
+func (s *Service) AddWordsToGroup(groupID int64, wordIDs []int64) error {
+	// Begin a transaction
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %v", err)
+	}
+	defer tx.Rollback()
+
+	// Add each word to the group
+	for _, wordID := range wordIDs {
+		_, err = tx.Exec(`
+			INSERT INTO words_groups (word_id, group_id)
+			VALUES (?, ?)
+		`, wordID, groupID)
+		if err != nil {
+			return fmt.Errorf("failed to add word to group: %v", err)
+		}
+	}
+
+	// Update word count
+	_, err = tx.Exec(`
+		UPDATE groups 
+		SET word_count = (
+			SELECT COUNT(*) 
+			FROM words_groups 
+			WHERE group_id = ?
+		)
+		WHERE id = ?
+	`, groupID, groupID)
+	if err != nil {
+		return fmt.Errorf("failed to update word count: %v", err)
+	}
+
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %v", err)
+	}
+
+	return nil
+}
+
+func (s *Service) AddWordsToStudySession(sessionID int64, wordIDs []int64) error {
+	// Begin a transaction
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %v", err)
+	}
+	defer tx.Rollback()
+
+	// First delete any existing word review items for this session
+	_, err = tx.Exec(`DELETE FROM word_review_items WHERE study_session_id = ?`, sessionID)
+	if err != nil {
+		return fmt.Errorf("failed to clean up existing word review items: %v", err)
+	}
+
+	// Add each word to the study session
+	for _, wordID := range wordIDs {
+		_, err = tx.Exec(`
+			INSERT INTO word_review_items (word_id, study_session_id, correct, created_at)
+			VALUES (?, ?, false, datetime('now'))
+		`, wordID, sessionID)
+		if err != nil {
+			return fmt.Errorf("failed to add word to study session: %v", err)
+		}
+	}
+
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %v", err)
+	}
+
+	return nil
 }
 
 // System methods
@@ -859,16 +1006,85 @@ func (s *Service) FullReset() error {
 }
 
 func (s *Service) initSchema() error {
-	// Read schema from migrations file
-	schema, err := os.ReadFile("db/migrations/0001_init.sql")
+	// Begin transaction
+	tx, err := s.db.Begin()
 	if err != nil {
-		return fmt.Errorf("failed to read schema file: %v", err)
+		return fmt.Errorf("failed to begin transaction: %v", err)
+	}
+	defer tx.Rollback()
+
+	// Create tables
+	schema := []string{
+		`CREATE TABLE IF NOT EXISTS words (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			urdu TEXT NOT NULL,
+			urdlish TEXT NOT NULL,
+			english TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE IF NOT EXISTS groups (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			word_count INTEGER DEFAULT 0,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE IF NOT EXISTS words_groups (
+			word_id INTEGER NOT NULL,
+			group_id INTEGER NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (word_id) REFERENCES words(id),
+			FOREIGN KEY (group_id) REFERENCES groups(id),
+			PRIMARY KEY (word_id, group_id)
+		)`,
+		`CREATE TABLE IF NOT EXISTS study_activities (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			group_id INTEGER NOT NULL,
+			activity_id INTEGER NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (group_id) REFERENCES groups(id)
+		)`,
+		`CREATE TABLE IF NOT EXISTS study_sessions (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			group_id INTEGER NOT NULL,
+			study_activity_id INTEGER NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (group_id) REFERENCES groups(id),
+			FOREIGN KEY (study_activity_id) REFERENCES study_activities(id)
+		)`,
+		`CREATE TABLE IF NOT EXISTS word_review_items (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			word_id INTEGER NOT NULL,
+			study_session_id INTEGER NOT NULL,
+			correct BOOLEAN NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (word_id) REFERENCES words(id),
+			FOREIGN KEY (study_session_id) REFERENCES study_sessions(id)
+		)`,
 	}
 
 	// Execute schema
-	_, err = s.db.Exec(string(schema))
-	if err != nil {
-		return fmt.Errorf("failed to execute schema: %v", err)
+	for _, query := range schema {
+		if _, err := tx.Exec(query); err != nil {
+			return fmt.Errorf("failed to execute schema: %v", err)
+		}
+	}
+
+	// Verify tables were created
+	tables := []string{"words", "groups", "words_groups", "study_activities", "study_sessions", "word_review_items"}
+	for _, table := range tables {
+		var count int
+		err = tx.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?`, table).Scan(&count)
+		if err != nil {
+			return fmt.Errorf("failed to verify table %s: %v", table, err)
+		}
+		if count != 1 {
+			return fmt.Errorf("table %s was not created", table)
+		}
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %v", err)
 	}
 
 	return nil
@@ -876,40 +1092,4 @@ func (s *Service) initSchema() error {
 
 func (s *Service) seedData() error {
 	return s.seeder.SeedFromJSON("db/seeds")
-}
-
-func (s *Service) AddWordsToGroup(groupID int64, wordIDs []int64) error {
-	// First check if the group exists
-	_, err := s.GetGroup(groupID)
-	if err != nil {
-		return err
-	}
-
-	// Add words to words_groups table
-	for _, wordID := range wordIDs {
-		_, err := s.db.Exec(`
-			INSERT INTO words_groups (group_id, word_id)
-			VALUES (?, ?)
-			ON CONFLICT DO NOTHING
-		`, groupID, wordID)
-		if err != nil {
-			return fmt.Errorf("failed to add word %d to group %d: %v", wordID, groupID, err)
-		}
-	}
-
-	// Update word count
-	_, err = s.db.Exec(`
-		UPDATE groups
-		SET word_count = (
-			SELECT COUNT(*)
-			FROM words_groups
-			WHERE group_id = ?
-		)
-		WHERE id = ?
-	`, groupID, groupID)
-	if err != nil {
-		return fmt.Errorf("failed to update word count: %v", err)
-	}
-
-	return nil
 }
