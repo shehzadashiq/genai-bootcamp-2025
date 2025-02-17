@@ -24,6 +24,42 @@ In addition to the Go implementation, I also created a Python equivalent using t
 [http://localhost:8000/api/groups/](http://localhost:8000/api/groups/)
 ![image](https://github.com/user-attachments/assets/e04bd669-bf10-4064-a2bf-41fb8bff6b61)
 
+
+## Word Vocabulary Activity Implementation
+
+[http://localhost:5173/study_activities](http://localhost:5173/study_activities)
+![image](https://github.com/user-attachments/assets/fa194086-d406-4cda-9710-0558b73ed6aa)
+
+[http://localhost:5173/study_activities/1/launch](http://localhost:5173/study_activities/1/launch)
+![image](https://github.com/user-attachments/assets/f3fb6832-91bb-431f-bfe9-956f2fec48a4)
+
+[http://localhost:5173/study_sessions/:id](http://localhost:5173/study_sessions/:id)
+![image](https://github.com/user-attachments/assets/512d6abc-037d-4ae5-a9ed-83580ff1dbef)
+
+### First Question
+
+![image](https://github.com/user-attachments/assets/03efaf16-711b-4d57-8b92-5b4ed3f7f685)
+
+### Correct Answer
+
+![image](https://github.com/user-attachments/assets/4ec49a8c-fc5e-46e7-9b02-5bdba2a51f03)
+
+### Incorrect Answer
+
+![image](https://github.com/user-attachments/assets/0a4953f0-eb29-44a0-a1f7-be1d84417ccb)
+
+### Quiz Summary
+
+Screen showing at the end of a quiz with:
+
+- Total Words
+- Correct Answer
+- Accuracy
+
+![image](https://github.com/user-attachments/assets/cc669eef-82b3-4182-a062-cdd3fdc6a756)
+
+
+
 ### Testing Backend Implementation
 
 I instructed Windsurf to create a test framework for the Python backend.
