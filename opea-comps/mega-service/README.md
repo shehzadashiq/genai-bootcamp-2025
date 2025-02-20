@@ -19,6 +19,27 @@ curl -X POST http://localhost:$MEGA_SERVICE_PORT/v1/example-service \
   -o response.json
 ```
 
+Revised Query
+
+```sh
+curl -X POST http://localhost:$MEGA_SERVICE_PORT/v1/example-service \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "llama3.2:1b",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Hello, how are you?"
+      }
+    ]
+  }' \
+  -o response.json
+```
+
+```sh
+curl -X POST http://localhost:11434/api/chat -d '{"model": "llama3.2:1b", "messages": [{"role": "user", "content": "Hello, how are you?"}], "stream": false, "format": "json"}'
+```
+
 
 ```sh
   curl -X POST http://localhost:$MEGA_SERVICE_PORT/v1/example-service \

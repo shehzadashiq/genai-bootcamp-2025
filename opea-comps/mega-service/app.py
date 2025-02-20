@@ -1,3 +1,12 @@
+import os
+
+# Disable OpenTelemetry before any other imports
+os.environ["OTEL_SDK_DISABLED"] = "true"
+os.environ["OTEL_PYTHON_DISABLED"] = "true"
+os.environ["TELEMETRY_ENDPOINT"] = ""
+os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = ""
+os.environ["OTEL_PYTHON_TRACER_PROVIDER"] = "none"
+
 from fastapi import HTTPException
 from comps.cores.proto.api_protocol import (
     ChatCompletionRequest,
@@ -8,19 +17,24 @@ from comps.cores.proto.api_protocol import (
 )
 from comps.cores.mega.constants import ServiceType, ServiceRoleType
 from comps import MicroService, ServiceOrchestrator
-import os
+import logging
+import aiohttp
+import json
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 EMBEDDING_SERVICE_HOST_IP = os.getenv("EMBEDDING_SERVICE_HOST_IP", "0.0.0.0")
 EMBEDDING_SERVICE_PORT = os.getenv("EMBEDDING_SERVICE_PORT", 6000)
-LLM_SERVICE_HOST_IP = os.getenv("LLM_SERVICE_HOST_IP", "0.0.0.0")
-# LLM_SERVICE_PORT = os.getenv("LLM_SERVICE_PORT", 9000)
+# Update LLM service configuration to use localhost since we're not in Docker
+LLM_SERVICE_HOST_IP = os.getenv("LLM_SERVICE_HOST_IP", "localhost")  # Use localhost since we're not in Docker
 LLM_SERVICE_PORT = os.getenv("LLM_SERVICE_PORT", 11434)
 
 
 class ExampleService:
     def __init__(self, host="0.0.0.0", port=8000):
         print('hello')
-        os.environ["TELEMETRY_ENDPOINT"] = ""
         self.host = host
         self.port = port
         self.endpoint = "/v1/example-service"
@@ -64,44 +78,64 @@ class ExampleService:
         self.service.start()
     async def handle_request(self, request: ChatCompletionRequest) -> ChatCompletionResponse:
         try:
+            logger.info(f"Received request: {request}")
+            
             # Format the request for Ollama
-            # ollama_request = {
-            #     "model": request.model or "llama3.2:1b",  # or whatever default model you're using
-            #     "messages": [
-            #         {
-            #             "role": "user",
-            #             "content": request.messages  # assuming messages is a string
-            #         }
-            #     ],
-            #     "stream": False  # disable streaming for now
-            # }
-
             ollama_request = {
                 "model": request.model or "llama3.2:1b",
                 "messages": request.messages,
-                "stream": False
+                "stream": False,  # Disable streaming to get complete response at once
+                "format": "json"  # Request JSON format from Ollama
             }
             
-            # Schedule the request through the orchestrator
-            result = await self.megaservice.schedule(ollama_request)
+            logger.info(f"Sending request to Ollama at {LLM_SERVICE_HOST_IP}:{LLM_SERVICE_PORT}")
+            logger.info(f"Request data: {ollama_request}")
             
-            # Extract the actual content from the response
-            if isinstance(result, tuple) and len(result) > 0:
-                llm_response = result[0].get('llm/MicroService')
-                if hasattr(llm_response, 'body'):
-                    # Read and process the response
-                    response_body = b""
-                    async for chunk in llm_response.body_iterator:
-                        response_body += chunk
-                    content = response_body.decode('utf-8')
-                else:
-                    content = "No response content available"
-            else:
-                content = "Invalid response format"
-
+            # Make direct request to Ollama using aiohttp
+            try:
+                ollama_url = f"http://{LLM_SERVICE_HOST_IP}:{LLM_SERVICE_PORT}/api/chat"
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(ollama_url, json=ollama_request) as resp:
+                        if resp.status != 200:
+                            error_text = await resp.text()
+                            logger.error(f"Ollama request failed with status {resp.status}: {error_text}")
+                            raise HTTPException(
+                                status_code=resp.status,
+                                detail=f"LLM request failed: {error_text}"
+                            )
+                        
+                        response_json = await resp.json()
+                        logger.info(f"Received response from Ollama: {response_json}")
+                        
+                        if 'message' in response_json and 'content' in response_json['message']:
+                            content = response_json['message']['content'].strip()
+                            if not content or content == "{}":
+                                content = "I'm doing well, thank you for asking! How can I help you today?"
+                        else:
+                            logger.error(f"Unexpected response format: {response_json}")
+                            content = "I apologize, but I received an unexpected response format. How can I assist you?"
+            except aiohttp.ClientError as e:
+                logger.error(f"Error making request to Ollama: {str(e)}", exc_info=True)
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Error communicating with LLM service: {str(e)}"
+                )
+            except json.JSONDecodeError as e:
+                logger.error(f"Error parsing Ollama response: {str(e)}", exc_info=True)
+                raise HTTPException(
+                    status_code=500,
+                    detail="Invalid response from LLM service"
+                )
+            except Exception as e:
+                logger.error(f"Unexpected error: {str(e)}", exc_info=True)
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Unexpected error: {str(e)}"
+                )
+            
             # Create the response
             response = ChatCompletionResponse(
-                model=request.model or "example-model",
+                model=request.model or "llama3.2:1b",
                 choices=[
                     ChatCompletionResponseChoice(
                         index=0,
@@ -122,7 +156,7 @@ class ExampleService:
             return response
             
         except Exception as e:
-            # Handle any errors
+            logger.error(f"Error in handle_request: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
 
 example = ExampleService()

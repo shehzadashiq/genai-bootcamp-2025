@@ -7,8 +7,8 @@
     - [Linux](#linux)
   - [Ollama API](#ollama-api)
   - [Set Environment Variables](#set-environment-variables)
+    - [Run Docker Compose to run Ollama](#run-docker-compose-to-run-ollama)
   - [Download (Pull) a model](#download-pull-a-model)
-    - [Run Docker Compose](#run-docker-compose)
   - [Generate a Request](#generate-a-request)
   - [Technical Uncertainty](#technical-uncertainty)
 
@@ -52,6 +52,14 @@ export OLLAMA_PORT=11434
 HOST_IP=$(hostname -I | awk '{print $1}') 
 ```
 
+### Run Docker Compose to run Ollama
+
+Create the container
+
+```sh
+NO_PROXY=localhost LLM_ENDPOINT_PORT=$OLLAMA_PORT LLM_MODEL_ID="llama3.2:1b" docker compose up
+```
+
 ## Download (Pull) a model
 
 Before running a LLM container you need to pull the image in Ollama
@@ -60,14 +68,6 @@ Before running a LLM container you need to pull the image in Ollama
 curl http://localhost:$OLLAMA_PORT/api/pull -d '{
   "model": "llama3.2:1b"
 }'
-```
-
-### Run Docker Compose
-
-Create the container
-
-```sh
-NO_PROXY=localhost LLM_ENDPOINT_PORT=$OLLAMA_PORT LLM_MODEL_ID="llama3.2:1b" docker compose up
 ```
 
 ## Generate a Request
