@@ -30,12 +30,12 @@ EMBEDDING_SERVICE_PORT = os.getenv("EMBEDDING_SERVICE_PORT", 6000)
 LLM_SERVICE_HOST_IP = os.getenv("LLM_SERVICE_HOST_IP", "localhost")  # Use localhost since we're not in Docker
 LLM_SERVICE_PORT = os.getenv("LLM_SERVICE_PORT", 11434)
 
-# Add guardrails configuration
-GUARDRAILS_ENABLED = True
-BLOCKED_KEYWORDS = [
-    "harmful", "illegal", "inappropriate", "offensive",
-    "dangerous", "malicious", "exploit", "attack"
-]
+# Guardrails service configuration
+GUARDRAILS_SERVICE_HOST_IP = os.getenv("GUARDRAILS_SERVICE_HOST_IP", "guardrails-service")
+GUARDRAILS_SERVICE_PORT = int(os.getenv("GUARDRAILS_PORT", "9090"))
+HOST_IP = os.getenv("host_ip", "localhost")
+LLM_ENDPOINT_PORT = os.getenv("LLM_ENDPOINT_PORT", "8008")
+SAFETY_GUARD_ENDPOINT = os.getenv("SAFETY_GUARD_ENDPOINT", f"http://{HOST_IP}:{LLM_ENDPOINT_PORT}")
 
 class ExampleService:
     def __init__(self, host="0.0.0.0", port=8000):
@@ -54,6 +54,14 @@ class ExampleService:
            use_remote_service=True,
            service_type=ServiceType.EMBEDDING,
         )
+        guardrails = MicroService(
+            name="guardrails",
+            host=GUARDRAILS_SERVICE_HOST_IP,
+            port=GUARDRAILS_SERVICE_PORT,
+            endpoint="/v1/guardrails",  
+            use_remote_service=True,
+            service_type=ServiceType.GUARDRAIL,
+        )
         llm = MicroService(
             name="llm",
             host=LLM_SERVICE_HOST_IP,
@@ -62,8 +70,10 @@ class ExampleService:
             use_remote_service=True,
             service_type=ServiceType.LLM,
         )
-        self.megaservice.add(embedding).add(llm)
-        self.megaservice.flow_to(embedding, llm)
+        self.megaservice.add(embedding).add(guardrails).add(llm)
+        self.megaservice.flow_to(embedding, guardrails)
+        self.megaservice.flow_to(guardrails, llm)
+
         # self.megaservice.add(llm) - Only for one service
     
     def start(self):
@@ -82,75 +92,131 @@ class ExampleService:
 
         self.service.start()
     
-    def check_content_safety(self, messages):
-        """Apply content safety checks to messages"""
-        if not GUARDRAILS_ENABLED:
-            return True, "Content checks disabled"
-            
-        for message in messages:
-            content = message.get('content', '').lower()
-            for keyword in BLOCKED_KEYWORDS:
-                if keyword in content:
-                    return False, f"Content contains blocked keyword: {keyword}"
-        return True, "Content passed safety checks"
-
     async def handle_request(self, request: ChatCompletionRequest) -> ChatCompletionResponse:
         try:
             logger.info(f"Received request: {request}")
             
-            # Apply guardrails
-            is_safe, reason = self.check_content_safety(request.messages)
-            if not is_safe:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Content violates safety guidelines: {reason}"
-                )
-            
-            # Format the request for Ollama
-            ollama_request = {
-                "model": request.model or "llama3.2:1b",
-                "messages": request.messages,
-                "stream": False,  # Disable streaming to get complete response at once
-                "format": "json"  # Request JSON format from Ollama
+            # Format the request for Guardrails
+            messages_text = "\n".join([f"{msg['role']}: {msg['content']}" for msg in request.messages])
+            guardrails_request = {
+                "inputs": messages_text,
+                "parameters": {
+                    "max_input_tokens": int(os.getenv("MAX_INPUT_TOKENS", "2048")),
+                    "max_total_tokens": int(os.getenv("MAX_TOTAL_TOKENS", "4096"))
+                },
+                "safety_guard_endpoint": SAFETY_GUARD_ENDPOINT
             }
             
-            logger.info(f"Sending request to Ollama at {LLM_SERVICE_HOST_IP}:{LLM_SERVICE_PORT}")
-            logger.info(f"Request data: {ollama_request}")
+            logger.info(f"Sending request to Guardrails service")
+            logger.info(f"Request data: {guardrails_request}")
             
-            # Make direct request to Ollama using aiohttp
+            # Make request to Guardrails using aiohttp
             try:
-                ollama_url = f"http://{LLM_SERVICE_HOST_IP}:{LLM_SERVICE_PORT}/api/chat"
+                guardrails_url = f"http://{GUARDRAILS_SERVICE_HOST_IP}:{GUARDRAILS_SERVICE_PORT}/v1/guardrails"
                 async with aiohttp.ClientSession() as session:
-                    async with session.post(ollama_url, json=ollama_request) as resp:
+                    async with session.post(guardrails_url, json=guardrails_request) as resp:
                         if resp.status != 200:
                             error_text = await resp.text()
-                            logger.error(f"Ollama request failed with status {resp.status}: {error_text}")
+                            logger.error(f"Guardrails request failed with status {resp.status}: {error_text}")
                             raise HTTPException(
                                 status_code=resp.status,
-                                detail=f"LLM request failed: {error_text}"
+                                detail=f"Guardrails request failed: {error_text}"
                             )
                         
-                        response_json = await resp.json()
-                        logger.info(f"Received response from Ollama: {response_json}")
+                        guardrails_response = await resp.json()
                         
-                        if 'message' in response_json and 'content' in response_json['message']:
-                            content = response_json['message']['content'].strip()
-                            if not content or content == "{}":
-                                content = "I'm doing well, thank you for asking! How can I help you today?"
-                        else:
-                            logger.error(f"Unexpected response format: {response_json}")
-                            content = "I apologize, but I received an unexpected response format. How can I assist you?"
+                        # Check if content was flagged as unsafe
+                        if not guardrails_response.get("is_safe", False):
+                            raise HTTPException(
+                                status_code=400,
+                                detail=f"Content was flagged as unsafe: {guardrails_response.get('reason', 'Unknown reason')}"
+                            )
+
+                        # Format the request for Ollama
+                        ollama_request = {
+                            "model": request.model or "llama3.2:1b",
+                            "messages": request.messages,
+                            "stream": False,  # Disable streaming to get complete response at once
+                            "format": "json"  # Request JSON format from Ollama
+                        }
+                        
+                        logger.info(f"Sending request to Ollama at {LLM_SERVICE_HOST_IP}:{LLM_SERVICE_PORT}")
+                        logger.info(f"Request data: {ollama_request}")
+                        
+                        # Make direct request to Ollama using aiohttp
+                        try:
+                            ollama_url = f"http://{LLM_SERVICE_HOST_IP}:{LLM_SERVICE_PORT}/api/chat"
+                            async with aiohttp.ClientSession() as session:
+                                async with session.post(ollama_url, json=ollama_request) as resp:
+                                    if resp.status != 200:
+                                        error_text = await resp.text()
+                                        logger.error(f"Ollama request failed with status {resp.status}: {error_text}")
+                                        raise HTTPException(
+                                            status_code=resp.status,
+                                            detail=f"LLM request failed: {error_text}"
+                                        )
+                                    
+                                    response_json = await resp.json()
+                                    logger.info(f"Received response from Ollama: {response_json}")
+                                    
+                                    if 'message' in response_json and 'content' in response_json['message']:
+                                        content = response_json['message']['content'].strip()
+                                        if not content or content == "{}":
+                                            content = "I'm doing well, thank you for asking! How can I help you today?"
+                                    else:
+                                        logger.error(f"Unexpected response format: {response_json}")
+                                        content = "I apologize, but I received an unexpected response format. How can I assist you?"
+                        except aiohttp.ClientError as e:
+                            logger.error(f"Error making request to Ollama: {str(e)}", exc_info=True)
+                            raise HTTPException(
+                                status_code=500,
+                                detail=f"Error communicating with LLM service: {str(e)}"
+                            )
+                        except json.JSONDecodeError as e:
+                            logger.error(f"Error parsing Ollama response: {str(e)}", exc_info=True)
+                            raise HTTPException(
+                                status_code=500,
+                                detail="Invalid response from LLM service"
+                            )
+                        except Exception as e:
+                            logger.error(f"Unexpected error: {str(e)}", exc_info=True)
+                            raise HTTPException(
+                                status_code=500,
+                                detail=f"Unexpected error: {str(e)}"
+                            )
+                        
+                        # Create the response
+                        response = ChatCompletionResponse(
+                            model=request.model or "llama3.2:1b",
+                            choices=[
+                                ChatCompletionResponseChoice(
+                                    index=0,
+                                    message=ChatMessage(
+                                        role="assistant",
+                                        content=content
+                                    ),
+                                    finish_reason="stop"
+                                )
+                            ],
+                            usage=UsageInfo(
+                                prompt_tokens=0,
+                                completion_tokens=0,
+                                total_tokens=0
+                            )
+                        )
+                        
+                        return response
             except aiohttp.ClientError as e:
-                logger.error(f"Error making request to Ollama: {str(e)}", exc_info=True)
+                logger.error(f"Error making request to Guardrails: {str(e)}", exc_info=True)
                 raise HTTPException(
                     status_code=500,
-                    detail=f"Error communicating with LLM service: {str(e)}"
+                    detail=f"Error communicating with Guardrails service: {str(e)}"
                 )
             except json.JSONDecodeError as e:
-                logger.error(f"Error parsing Ollama response: {str(e)}", exc_info=True)
+                logger.error(f"Error parsing Guardrails response: {str(e)}", exc_info=True)
                 raise HTTPException(
                     status_code=500,
-                    detail="Invalid response from LLM service"
+                    detail="Invalid response from Guardrails service"
                 )
             except Exception as e:
                 logger.error(f"Unexpected error: {str(e)}", exc_info=True)
@@ -158,29 +224,6 @@ class ExampleService:
                     status_code=500,
                     detail=f"Unexpected error: {str(e)}"
                 )
-            
-            # Create the response
-            response = ChatCompletionResponse(
-                model=request.model or "llama3.2:1b",
-                choices=[
-                    ChatCompletionResponseChoice(
-                        index=0,
-                        message=ChatMessage(
-                            role="assistant",
-                            content=content
-                        ),
-                        finish_reason="stop"
-                    )
-                ],
-                usage=UsageInfo(
-                    prompt_tokens=0,
-                    completion_tokens=0,
-                    total_tokens=0
-                )
-            )
-            
-            return response
-            
         except Exception as e:
             logger.error(f"Error in handle_request: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))

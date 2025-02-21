@@ -1,3 +1,16 @@
-opea-comps
 fastapi
+uvicorn
+python-multipart
 aiohttp
+python-dotenv
+
+huggingface-hub<=0.24.0
+langchain-community
+langchain-huggingface
+opentelemetry-api
+opentelemetry-exporter-otlp
+opentelemetry-sdk
+prometheus-fastapi-instrumentator
+sentencepiece
+shortuuid
+uvicorn

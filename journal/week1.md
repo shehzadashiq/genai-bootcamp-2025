@@ -43,3 +43,8 @@ After this I ran `huggingface-cli login` and provided the token I had created pr
 ## References
 
 - [Sharing SSH keys between Windows and WSL 2](https://devblogs.microsoft.com/commandline/sharing-ssh-keys-between-windows-and-wsl-2/)
+- [https://www.docker.com/blog/llm-docker-for-local-and-hugging-face-hosting/](https://www.docker.com/blog/llm-docker-for-local-and-hugging-face-hosting/)
+- [https://huggingface.co/meta-llama/LlamaGuard-7b](https://huggingface.co/meta-llama/LlamaGuard-7b)
+- [https://www.reddit.com/r/huggingface/comments/1dgr0g2/where_do_i_get_the_affiliation_code/](https://www.reddit.com/r/huggingface/comments/1dgr0g2/where_do_i_get_the_affiliation_code/)
+- [https://www.docker.com/blog/llm-docker-for-local-and-hugging-face-hosting/](https://www.docker.com/blog/llm-docker-for-local-and-hugging-face-hosting/)
+- [https://github.com/opea-project/GenAIComps/blob/main/comps/guardrails/src/guardrails/README.md](https://github.com/opea-project/GenAIComps/blob/main/comps/guardrails/src/guardrails/README.md)
