@@ -10,5 +10,5 @@ lang_portal/frontend/.vite/*
 **/data/*
 **/.venv/*
 opea-comps/huggingface/token
-opea-comps/.env
 opea-comps/huggingface/hub/*
+opea-comps/.env

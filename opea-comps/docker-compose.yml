@@ -61,7 +61,7 @@ services:
       http_proxy: ${http_proxy}
       https_proxy: ${https_proxy}
       HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN}
-      SAFETY_GUARD_ENDPOINT: "http://${host_ip}:${TGI_PORT}"
+      SAFETY_GUARD_ENDPOINT: "http://tgi-server:80"
       GUARDRAILS_COMPONENT_NAME: ${GUARDRAILS_COMPONENT_NAME}
       host_ip: ${host_ip}
       LLM_ENDPOINT_PORT: ${TGI_PORT:-8080}
@@ -83,7 +83,7 @@ services:
       GUARDRAILS_PORT: 9090
       EMBEDDING_SERVICE_HOST_IP: ${EMBEDDING_SERVICE_HOST_IP:-embedding-service}
       EMBEDDING_SERVICE_PORT: ${EMBEDDING_SERVICE_PORT:-6000}
-      SAFETY_GUARD_ENDPOINT: "http://${host_ip}:${TGI_PORT}"
+      SAFETY_GUARD_ENDPOINT: "http://tgi-server:80"
       host_ip: ${host_ip}
       LLM_ENDPOINT_PORT: ${TGI_PORT:-8080}
     depends_on:
