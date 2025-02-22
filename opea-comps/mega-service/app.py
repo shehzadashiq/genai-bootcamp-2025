@@ -44,6 +44,18 @@ class ExampleService:
         self.port = port
         self.endpoint = "/v1/example-service"
         self.megaservice = ServiceOrchestrator()
+        # Initialize the service right away
+        self.service = MicroService(
+            self.__class__.__name__,
+            service_role=ServiceRoleType.MEGASERVICE,
+            host=self.host,
+            port=self.port,
+            endpoint=self.endpoint,
+            input_datatype=ChatCompletionRequest,
+            output_datatype=ChatCompletionResponse,
+        )
+        # Add route immediately
+        self.service.add_route(self.endpoint, self.handle_request, methods=["POST"])
 
     def add_remote_service(self):
         embedding = MicroService(
@@ -77,19 +89,7 @@ class ExampleService:
         # self.megaservice.add(llm) - Only for one service
     
     def start(self):
-
-        self.service = MicroService(
-            self.__class__.__name__,
-            service_role=ServiceRoleType.MEGASERVICE,
-            host=self.host,
-            port=self.port,
-            endpoint=self.endpoint,
-            input_datatype=ChatCompletionRequest,
-            output_datatype=ChatCompletionResponse,
-        )
-
-        self.service.add_route(self.endpoint, self.handle_request, methods=["POST"])
-
+        """Start the service."""
         self.service.start()
     
     async def handle_request(self, request: ChatCompletionRequest) -> ChatCompletionResponse:
@@ -97,7 +97,7 @@ class ExampleService:
             logger.info(f"Received request: {request}")
             
             # Format the request for Guardrails
-            messages_text = "\n".join([f"{msg['role']}: {msg['content']}" for msg in request.messages])
+            messages_text = "\n".join([f"{msg.role}: {msg.content}" for msg in request.messages])
             guardrails_request = {
                 "inputs": messages_text,
                 "parameters": {
@@ -135,7 +135,7 @@ class ExampleService:
                         # Format the request for Ollama
                         ollama_request = {
                             "model": request.model or "llama3.2:1b",
-                            "messages": request.messages,
+                            "messages": [{"role": msg.role, "content": msg.content} for msg in request.messages],
                             "stream": False,  # Disable streaming to get complete response at once
                             "format": "json"  # Request JSON format from Ollama
                         }
@@ -230,4 +230,11 @@ class ExampleService:
 
 example = ExampleService()
 example.add_remote_service()
-example.start()
+
+# Get the FastAPI app instance
+app = example.service.app
+
+if __name__ == "__main__":
+    example.start()
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

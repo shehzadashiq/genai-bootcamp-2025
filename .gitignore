@@ -8,4 +8,7 @@ lang_portal/frontend/node_modules/*
 lang_portal/frontend/.vite/*
 **/__pycache__/
 **/data/*
+**/.venv/*
+opea-comps/huggingface/token
 opea-comps/.env
+opea-comps/huggingface/hub/*
