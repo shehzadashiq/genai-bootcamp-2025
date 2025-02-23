@@ -10,17 +10,7 @@ HOST_IP=$(hostname -I | awk '{print $1}')
 
 ## Query examples
 
-```sh
-curl -X POST http://localhost:$MEGA_SERVICE_APP_PORT/v1/example-service \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "llama3.2:1b",
-    "messages": "Hello, how are you?"
-  }' \
-  -o response.json
-```
-
-### Revised Query
+Query that can bse sent successfully to our Python Application
 
 ```sh
 curl -X POST http://localhost:8001/v1/example-service \
@@ -87,10 +77,11 @@ Response:
 
 ### Denied Query
 
+According to the [documentation](https://artifacthub.io/packages/helm/test-opea/guardrails-usvc) this query should be blocked
+
 ```sh
 curl -X POST http://localhost:9090/v1/guardrails -H "Content-Type: application/json" -d "{\"text\": \"This is a harmful message.\", \"prompt\": \"Test prompt\"}"
 ```
-
 
 ```sh
 curl http://localhost:9090/v1/guardrails\
@@ -99,8 +90,11 @@ curl http://localhost:9090/v1/guardrails\
   -H 'Content-Type: application/json'
 ```
 
+The service however does not block it.
+
 ## Query to send to python application that sends to Mega Service
 
+We send queries to the Mega Service Python application which forwards it to the local LLM
 
 ### Allowed Query
 
