@@ -5,9 +5,19 @@
 I wrote the backend from scratch in both Python and GoLang. I used windsurf to analyse a modified specification for the backend and then implement it. I implemented the word vocabulary activity too and this works successfully. Getting it to work successfully though was a challenge.
 Please describe your backend API implementation.
 
+### Backend Prompt files
+
+- [Prompt for Go](../lang_portal/backend_go/prompt_go.md)
+- [Prompt for Python](../lang_portal/backend_python/prompt_python.md)
+- [Backend Documentation](../lang_portal/backend_go/DEVELOPMENT.md)
+
 ## Frontend
 
 The frontend was created in windsurf. I used windsurf to analyse both the prompts for the backend and frontend and then generate the implementation. I additionally asked Windsurf to implement themes such as Dark. This caused parts of the GUI to not appear correctly so the theme was modified. A lot of troubleshooting was required as it would go into react loops and not render if e.g. the DB had 0 events. There are further inconsistencies which I aim to address.
+
+### Frontend Prompt File
+
+[Prompt for Frontend](../lang_portal/frontend/prompt.md)
 
 ## Vocab Importer Implementation
 
@@ -15,11 +25,30 @@ I did not do this unfortunately as I focused on getting the backend and OPEA to 
 
 ## OPEA
 
-The Guardrail Comp was added to the program.
+### OPEA Service Components
 
 A container for the guardrails service needs to be added to the [Opea Comps Docker File](../opea-comps/docker-compose.yml)
 
-N.B I have not modified the OLLAMA Port so it uses the default of `11434`
+N.B I have not modified the `OLLAMA Port` so it uses the default of `11434`
+
+The OPEA mega-service consists of the following services.
+
+- ollama-server
+- guardrails-service
+- tgi-server
+
+Build the service using the command `docker-compose build mega-service`
+
+### Troubleshooting
+
+- `docker exec tgi-server env | grep -i hugging`
+- `docker exec tgi-server env`
+
+A [Text Generation Inference (TGI) Server](https://github.com/opea-project/GenAIComps/tree/main/comps/third_parties/tgi) is required to host the GuardRails model.
+
+### Guardrails Services
+
+The Guardrail Comp was added to the program. I also modified the port from `8000` to `8001` as it conflicted with the port for the docker service.
 
 ```yaml
   guardrails-service:

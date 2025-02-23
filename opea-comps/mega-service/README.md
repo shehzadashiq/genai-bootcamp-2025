@@ -2,9 +2,11 @@
 
 ## Set Environment Variables
 
+I also modified the port for the application from `8000` to `8001` as it conflicted with the port for the docker service.
+
 ```sh
-export MEGA_SERVICE_PORT=8000
-export MEGA_SERVICE_APP_PORT=8001
+export MEGA_SERVICE_PORT=8000       # For Docker Service
+export MEGA_SERVICE_APP_PORT=8001   # For Python Application
 HOST_IP=$(hostname -I | awk '{print $1}') 
 ```
 
@@ -32,7 +34,7 @@ curl -X POST http://localhost:11434/api/chat -d '{"model": "llama3.2:1b", "messa
 ```
 
 ```sh
-  curl -X POST http://localhost:$MEGA_SERVICE_PORT/v1/example-service \
+  curl -X POST http://localhost:8001/v1/example-service \
   -H "Content-Type: application/json" \
   -d '{
     "messages": [
@@ -49,6 +51,16 @@ curl -X POST http://localhost:11434/api/chat -d '{"model": "llama3.2:1b", "messa
 
 ## Guardrails Queries
 
+The GuardRail service is running on port `9090`
+
+### Pull Model
+
+Once the Ollama service is up and running you can pull a model with the following curl command
+
+```sh
+curl -X POST http://localhost:11434/api/pull -d '{"name": "llama3.2:1b"}'
+```
+
 ### Test Service
 
 ```sh
@@ -57,7 +69,7 @@ curl http://localhost:9090/v1/health_check\
   -H 'Content-Type: application/json'
 ```
 
-Response:
+#### Response
 
 ```json
 {"Service Title":"opea_service@guardrails","Service Description":"OPEA Microservice Infrastructure"}
@@ -69,7 +81,7 @@ Response:
 curl -X POST http://localhost:9090/v1/guardrails -H "Content-Type: application/json" -d "{\"text\": \"This is a test message\", \"prompt\": \"Test prompt\"}"
 ```
 
-Response:
+#### Response
 
 ```json
 {"downstream_black_list":[],"id":"293dcbdc713a4074892c7d905eb4b426","text":"This is a test message"}
@@ -94,7 +106,7 @@ The service however does not block it.
 
 ## Query to send to python application that sends to Mega Service
 
-We send queries to the Mega Service Python application which forwards it to the local LLM
+We send queries to the Mega Service Python application which forwards it to the local Docker service in which the Guardrails and LLM run.
 
 ### Allowed Query
 
