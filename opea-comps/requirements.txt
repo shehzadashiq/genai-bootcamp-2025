@@ -18,3 +18,5 @@ mypy>=0.910,<1.0.0
 
 # Logging and monitoring
 python-json-logger>=2.0.0,<3.0.0
+
+mamba-ssm
