@@ -1,0 +1,13 @@
+setup.py
+comps/__init__.py
+comps.egg-info/PKG-INFO
+comps.egg-info/SOURCES.txt
+comps.egg-info/dependency_links.txt
+comps.egg-info/requires.txt
+comps.egg-info/top_level.txt
+comps/cores/__init__.py
+comps/cores/mega/__init__.py
+comps/cores/mega/constants.py
+comps/cores/mega/service.py
+comps/cores/proto/__init__.py
+comps/cores/proto/api_protocol.py

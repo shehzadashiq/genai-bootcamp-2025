@@ -1,0 +1,23 @@
+# Explicitly include only what we need
+*
+!mega-service/
+!comps/
+!setup.py
+!requirements.txt
+
+# Then exclude unnecessary files from included directories
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.Python
+**/.env
+**/.venv
+**/.tox
+**/.coverage
+**/.cache
+**/*.log
+**/.git
+**/.gitignore
+**/.idea
+**/.vscode

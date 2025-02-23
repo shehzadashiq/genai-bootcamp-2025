@@ -1,75 +1,50 @@
 # Week 1
 
-## Backend Portal Implementation in Python
+# Backend
 
-In addition to the Go implementation, I also created a Python equivalent using the following prompt file [Python Prompt](../lang_portal/backend_python/prompt_python.md)
+# Frontend
 
-### Working Endpoints
+# OPEA
 
-[http://localhost:8000/api/dashboard/quick-stats/](http://localhost:8000/api/dashboard/quick-stats/)
+The Guardrail Comp was added to the program.
 
-![image](https://github.com/user-attachments/assets/586eb81e-d5ad-4de3-8773-89934767fde7)
+A container for the guardrails service needs to be added to the [Opea Comps Docker File](../opea-comps/docker-compose.yml)
 
-[http://localhost:8000/api/dashboard/last-study-session/](http://localhost:8000/api/dashboard/last-study-session/)
+N.B I have not modified the OLLAMA Port so it uses the default of `11434`
 
-![image](https://github.com/user-attachments/assets/2ff5b4f6-545e-482f-b312-c099622e7068)
+```yaml
+  guardrails-service:
+    image: opea/guardrails:latest
+    container_name: guardrails-service
+    ports:
+      - ${GUARDRAILS_PORT:-7000}:7000
+    environment:
+      no_proxy: ${no_proxy}
+      http_proxy: ${http_proxy}
+      https_proxy: ${https_proxy}
+      LLAMA_GUARD_MODEL: llama-guard
+      OLLAMA_BASE_URL: http://ollama-server:11434
+    depends_on:
+      - ollama-server
+```
 
-[http://localhost:8000/api/dashboard/study-progress/](http://localhost:8000/api/dashboard/study-progress/)
+This container requires a hugging-face token. If a token is not present the following error is shown when you run `docker compose up`
 
-![image](https://github.com/user-attachments/assets/251b5677-3bf9-4a48-bb53-0f8806bdfe3a)
+![image](https://github.com/user-attachments/assets/fd8c6979-5150-458c-8f31-c2ef47adc383)
 
-[http://localhost:8000/api/words/](http://localhost:8000/api/words/)
+To resolve this I generated an API Token on [https://huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) and copied it.
 
-![image](https://github.com/user-attachments/assets/e085ecfa-3e30-4415-a3ec-f8d5b17f218e)
+I then installed the huggingface-cli by running `pip install -U "huggingface_hub[cli]"`
 
-[http://localhost:8000/api/words/1/](http://localhost:8000/api/words/1/)
+After this I ran `huggingface-cli login` and provided the token I had created previously
 
-![image](https://github.com/user-attachments/assets/f769a332-e2cb-4382-a650-c8ed5ebcfd7c)
+![image](https://github.com/user-attachments/assets/f4c94910-c8db-48fb-a1c2-59f3531add8e)
 
-[http://localhost:8000/api/groups/](http://localhost:8000/api/groups/)
+## References
 
-![image](https://github.com/user-attachments/assets/e04bd669-bf10-4064-a2bf-41fb8bff6b61)
-
-## Word Vocabulary Activity Implementation
-
-[http://localhost:5173/study_activities](http://localhost:5173/study_activities)
-
-![image](https://github.com/user-attachments/assets/fa194086-d406-4cda-9710-0558b73ed6aa)
-
-[http://localhost:5173/study_activities/1/launch](http://localhost:5173/study_activities/1/launch)
-
-![image](https://github.com/user-attachments/assets/f3fb6832-91bb-431f-bfe9-956f2fec48a4)
-
-[http://localhost:5173/study_sessions/:id](http://localhost:5173/study_sessions/:id)
-
-![image](https://github.com/user-attachments/assets/512d6abc-037d-4ae5-a9ed-83580ff1dbef)
-
-### First Question
-
-![image](https://github.com/user-attachments/assets/03efaf16-711b-4d57-8b92-5b4ed3f7f685)
-
-### Correct Answer
-
-![image](https://github.com/user-attachments/assets/4ec49a8c-fc5e-46e7-9b02-5bdba2a51f03)
-
-### Incorrect Answer
-
-![image](https://github.com/user-attachments/assets/0a4953f0-eb29-44a0-a1f7-be1d84417ccb)
-
-### Quiz Summary
-
-Screen showing at the end of a quiz with:
-
-- Total Words
-- Correct Answer
-- Accuracy
-
-![image](https://github.com/user-attachments/assets/cc669eef-82b3-4182-a062-cdd3fdc6a756)
-
-### Testing Backend Implementation
-
-I instructed Windsurf to create a test framework for the Python backend.
-
-Here is a successful run of the tests.
-
-![image](https://github.com/user-attachments/assets/dc8faae9-4c94-474c-b1e3-06292c588bc5)
+- [Sharing SSH keys between Windows and WSL 2](https://devblogs.microsoft.com/commandline/sharing-ssh-keys-between-windows-and-wsl-2/)
+- [https://www.docker.com/blog/llm-docker-for-local-and-hugging-face-hosting/](https://www.docker.com/blog/llm-docker-for-local-and-hugging-face-hosting/)
+- [https://huggingface.co/meta-llama/LlamaGuard-7b](https://huggingface.co/meta-llama/LlamaGuard-7b)
+- [https://www.reddit.com/r/huggingface/comments/1dgr0g2/where_do_i_get_the_affiliation_code/](https://www.reddit.com/r/huggingface/comments/1dgr0g2/where_do_i_get_the_affiliation_code/)
+- [https://www.docker.com/blog/llm-docker-for-local-and-hugging-face-hosting/](https://www.docker.com/blog/llm-docker-for-local-and-hugging-face-hosting/)
+- [https://github.com/opea-project/GenAIComps/blob/main/comps/guardrails/src/guardrails/README.md](https://github.com/opea-project/GenAIComps/blob/main/comps/guardrails/src/guardrails/README.md)

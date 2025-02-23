@@ -7,3 +7,8 @@ lang_portal/backend_python/logs/*
 lang_portal/frontend/node_modules/*
 lang_portal/frontend/.vite/*
 **/__pycache__/
+**/data/*
+**/.venv/*
+opea-comps/huggingface/token
+opea-comps/huggingface/hub/*
+opea-comps/.env

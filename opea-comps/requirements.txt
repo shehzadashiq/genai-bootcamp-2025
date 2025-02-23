@@ -1,0 +1,22 @@
+# Core dependencies
+fastapi==0.68.0
+uvicorn==0.15.0
+pydantic==1.8.2
+aiohttp==3.8.0
+
+# Hugging Face dependencies
+huggingface_hub==0.24.0
+huggingface_hub[cli]
+
+# Testing and development
+pytest>=6.0.0,<7.0.0
+pytest-asyncio>=0.15.0,<0.16.0
+httpx>=0.18.0,<0.19.0  # For testing FastAPI applications
+
+# Type checking
+mypy>=0.910,<1.0.0
+
+# Logging and monitoring
+python-json-logger>=2.0.0,<3.0.0
+
+mamba-ssm

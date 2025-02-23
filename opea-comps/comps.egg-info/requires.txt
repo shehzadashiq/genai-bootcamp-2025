@@ -1,0 +1,14 @@
+aiohttp
+fastapi
+huggingface-hub<=0.24.0
+langchain-community
+langchain-huggingface
+opentelemetry-api
+opentelemetry-exporter-otlp
+opentelemetry-sdk
+prometheus-fastapi-instrumentator
+python-dotenv
+python-multipart
+sentencepiece
+shortuuid
+uvicorn
