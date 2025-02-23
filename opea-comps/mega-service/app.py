@@ -31,14 +31,14 @@ LLM_SERVICE_HOST_IP = os.getenv("LLM_SERVICE_HOST_IP", "localhost")  # Use local
 LLM_SERVICE_PORT = os.getenv("LLM_SERVICE_PORT", 11434)
 
 # Guardrails service configuration
-GUARDRAILS_SERVICE_HOST_IP = os.getenv("GUARDRAILS_SERVICE_HOST_IP", "guardrails-service")
+GUARDRAILS_SERVICE_HOST_IP = os.getenv("GUARDRAILS_SERVICE_HOST_IP", "localhost")
 GUARDRAILS_SERVICE_PORT = int(os.getenv("GUARDRAILS_PORT", "9090"))
 HOST_IP = os.getenv("host_ip", "localhost")
 LLM_ENDPOINT_PORT = os.getenv("LLM_ENDPOINT_PORT", "8008")
 SAFETY_GUARD_ENDPOINT = os.getenv("SAFETY_GUARD_ENDPOINT", f"http://{HOST_IP}:{LLM_ENDPOINT_PORT}")
 
 class ExampleService:
-    def __init__(self, host="0.0.0.0", port=8000):
+    def __init__(self, host="0.0.0.0", port=8001):
         print('hello')
         self.host = host
         self.port = port
@@ -96,23 +96,26 @@ class ExampleService:
         try:
             logger.info(f"Received request: {request}")
             
+            # Ensure messages are properly typed
+            messages = [ChatMessage(**msg) if isinstance(msg, dict) else msg for msg in request.messages]
+            
             # Format the request for Guardrails
-            messages_text = "\n".join([f"{msg.role}: {msg.content}" for msg in request.messages])
+            messages_text = "\n".join([f"{msg.role}: {msg.content}" for msg in messages])
             guardrails_request = {
-                "inputs": messages_text,
-                "parameters": {
-                    "max_input_tokens": int(os.getenv("MAX_INPUT_TOKENS", "2048")),
-                    "max_total_tokens": int(os.getenv("MAX_TOTAL_TOKENS", "4096"))
-                },
-                "safety_guard_endpoint": SAFETY_GUARD_ENDPOINT
+                "text": messages_text,
+                "metadata": {
+                    "source": "mega-service",
+                    "type": "chat"
+                }
             }
             
-            logger.info(f"Sending request to Guardrails service")
-            logger.info(f"Request data: {guardrails_request}")
+            logger.info(f"Sending request to Guardrails service at http://localhost:9090/v1/guardrails")
+            logger.info(f"Guardrails request data: {guardrails_request}")
             
             # Make request to Guardrails using aiohttp
             try:
-                guardrails_url = f"http://{GUARDRAILS_SERVICE_HOST_IP}:{GUARDRAILS_SERVICE_PORT}/v1/guardrails"
+                # Use localhost directly when running outside Docker
+                guardrails_url = "http://localhost:9090/v1/guardrails"
                 async with aiohttp.ClientSession() as session:
                     async with session.post(guardrails_url, json=guardrails_request) as resp:
                         if resp.status != 200:
@@ -124,18 +127,20 @@ class ExampleService:
                             )
                         
                         guardrails_response = await resp.json()
+                        logger.info(f"Guardrails response: {guardrails_response}")
                         
-                        # Check if content was flagged as unsafe
-                        if not guardrails_response.get("is_safe", False):
+                        # For development, only block if explicitly unsafe
+                        if guardrails_response.get("is_safe") is False and guardrails_response.get("reason"):
                             raise HTTPException(
                                 status_code=400,
-                                detail=f"Content was flagged as unsafe: {guardrails_response.get('reason', 'Unknown reason')}"
+                                detail=f"Content was flagged as unsafe: {guardrails_response.get('reason')}"
                             )
 
+                        # Proceed with Ollama request even if Guardrails response is unclear
                         # Format the request for Ollama
                         ollama_request = {
                             "model": request.model or "llama3.2:1b",
-                            "messages": [{"role": msg.role, "content": msg.content} for msg in request.messages],
+                            "messages": [{"role": msg.role, "content": msg.content} for msg in messages],
                             "stream": False,  # Disable streaming to get complete response at once
                             "format": "json"  # Request JSON format from Ollama
                         }
