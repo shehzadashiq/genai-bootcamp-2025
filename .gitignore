@@ -13,4 +13,5 @@ opea-comps/huggingface/token
 opea-comps/huggingface/hub/*
 opea-comps/.env
 */node_modules/*
-lang_portal_frontend/node_modules/*
+**/lang_portal_frontend/node_modules/*
+lang_portal_frontend/node_modules/**
