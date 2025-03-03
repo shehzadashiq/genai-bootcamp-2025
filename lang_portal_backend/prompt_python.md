@@ -74,7 +74,8 @@ We have the following tables:
   - id INTEGER PRIMARY KEY AUTOINCREMENT
   - group_id INTEGER NOT NULL
   - study_activity_id INTEGER NOT NULL
-  - created_at DATETIME NOT NULL
+  - start_time DATETIME NOT NULL
+  - end_time DATETIME
   - FOREIGN KEY (group_id) REFERENCES groups(id)
   - FOREIGN KEY (study_activity_id) REFERENCES study_activities(id)
 - word_review_items - a record of word practice
@@ -128,13 +129,9 @@ Returns quick overview statistics.
 ```json
 {
   "success_rate": 80.0,
-  "total_words_studied": 50,
-  "correct_count": 40,
-  "correct_percentage": 80,
-  "total_available_words": 124,
   "total_study_sessions": 4,
   "total_active_groups": 3,
-  "study_streak_days": 4
+  "study_streak": 4
 }
 ```
 
