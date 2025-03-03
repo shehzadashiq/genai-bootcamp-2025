@@ -39,9 +39,9 @@ export default function StudySessionList({ fetchSessions }: StudySessionListProp
         setLoading(true)
         setError(null)
         const response = await fetchSessions(currentPage)
-        const data: StudySessionsResponse = response.data
-        setSessions(data.items)
-        setPagination(data.pagination)
+        const data = response.data
+        setSessions(data.items || [])
+        setPagination(data.pagination || null)
       } catch (error) {
         console.error('Error fetching study sessions:', error)
         setError('Failed to load study sessions')
@@ -53,7 +53,7 @@ export default function StudySessionList({ fetchSessions }: StudySessionListProp
     }
 
     loadSessions()
-  }, [currentPage]) // fetchSessions is stable and doesn't need to be in deps
+  }, [currentPage, fetchSessions])
 
   if (loading) {
     return <div>Loading study sessions...</div>
@@ -63,7 +63,7 @@ export default function StudySessionList({ fetchSessions }: StudySessionListProp
     return <div className="text-red-500">{error}</div>
   }
 
-  if (sessions.length === 0) {
+  if (!sessions || sessions.length === 0) {
     return (
       <div className="text-center py-8">
         <p className="text-muted-foreground mb-4">No study sessions found</p>

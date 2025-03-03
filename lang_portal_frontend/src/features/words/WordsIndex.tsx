@@ -29,16 +29,20 @@ export default function WordsIndex() {
   const [pagination, setPagination] = useState<PaginationInfo | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchWords = async () => {
       try {
+        setLoading(true)
+        setError(null)
         const response = await wordsApi.getAll(currentPage)
-        const data: WordsResponse = response.data
-        setWords(data.items)
-        setPagination(data.pagination)
+        const data = response.data
+        setWords(data.items || [])
+        setPagination(data.pagination || null)
       } catch (error) {
         console.error('Error fetching words:', error)
+        setError('Failed to load words. Please try again later.')
       } finally {
         setLoading(false)
       }
@@ -51,6 +55,21 @@ export default function WordsIndex() {
     return <div>Loading words...</div>
   }
 
+  if (error) {
+    return (
+      <div className="text-center py-8 text-red-500">
+        <p>{error}</p>
+      </div>
+    )
+  }
+
+  const NoWordsMessage = () => (
+    <div className="text-center py-8 text-muted-foreground">
+      <p>No words available</p>
+      <p className="text-sm mt-2">Add some words to get started!</p>
+    </div>
+  )
+
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Words</h1>
@@ -60,61 +79,67 @@ export default function WordsIndex() {
           <CardTitle>Word List</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="relative overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs uppercase bg-muted">
-                <tr>
-                  <th className="px-6 py-3">Urdu</th>
-                  <th className="px-6 py-3">Urdlish</th>
-                  <th className="px-6 py-3">English</th>
-                  <th className="px-6 py-3">Correct</th>
-                  <th className="px-6 py-3">Wrong</th>
-                </tr>
-              </thead>
-              <tbody>
-                {words.map((word) => (
-                  <tr key={word.id} className="border-b">
-                    <td className="px-6 py-4">
-                      <Link
-                        to={`/words/${word.id}`}
-                        className="text-primary hover:underline"
-                      >
-                        {word.urdu}
-                      </Link>
-                    </td>
-                    <td className="px-6 py-4">{word.urdlish}</td>
-                    <td className="px-6 py-4">{word.english}</td>
-                    <td className="px-6 py-4">{word.correct_count}</td>
-                    <td className="px-6 py-4">{word.wrong_count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {pagination && (
-            <div className="mt-4 flex justify-between items-center">
-              <div className="text-sm text-muted-foreground">
-                Showing {words.length} of {pagination.total_items} words
+          {words.length > 0 ? (
+            <>
+              <div className="relative overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="text-xs uppercase bg-muted">
+                    <tr>
+                      <th className="px-6 py-3">Urdu</th>
+                      <th className="px-6 py-3">Urdlish</th>
+                      <th className="px-6 py-3">English</th>
+                      <th className="px-6 py-3">Correct</th>
+                      <th className="px-6 py-3">Wrong</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {words.map((word) => (
+                      <tr key={word.id} className="border-b">
+                        <td className="px-6 py-4">
+                          <Link
+                            to={`/words/${word.id}`}
+                            className="text-primary hover:underline"
+                          >
+                            {word.urdu}
+                          </Link>
+                        </td>
+                        <td className="px-6 py-4">{word.urdlish}</td>
+                        <td className="px-6 py-4">{word.english}</td>
+                        <td className="px-6 py-4">{word.correct_count}</td>
+                        <td className="px-6 py-4">{word.wrong_count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              {pagination.total_pages > 1 && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                    disabled={currentPage === 1}
-                    className="px-3 py-1 border rounded hover:bg-muted disabled:opacity-50"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.min(pagination.total_pages, prev + 1))}
-                    disabled={currentPage === pagination.total_pages}
-                    className="px-3 py-1 border rounded hover:bg-muted disabled:opacity-50"
-                  >
-                    Next
-                  </button>
+              {pagination && (
+                <div className="mt-4 flex justify-between items-center">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {words.length} of {pagination.total_items} words
+                  </div>
+                  {pagination.total_pages > 1 && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1 border rounded hover:bg-muted disabled:opacity-50"
+                      >
+                        Previous
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(pagination.total_pages, prev + 1))}
+                        disabled={currentPage === pagination.total_pages}
+                        className="px-3 py-1 border rounded hover:bg-muted disabled:opacity-50"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
+            </>
+          ) : (
+            <NoWordsMessage />
           )}
         </CardContent>
       </Card>

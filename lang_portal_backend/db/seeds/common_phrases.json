@@ -1,0 +1,20 @@
+[
+    {
+        "urdu": "کیا حال ہے",
+        "urdlish": "kya haal hai",
+        "english": "how are you",
+        "parts": {
+            "type": "phrase",
+            "formality": "informal"
+        }
+    },
+    {
+        "urdu": "شکریہ",
+        "urdlish": "shukriya",
+        "english": "thank you",
+        "parts": {
+            "type": "phrase",
+            "formality": "formal"
+        }
+    }
+]

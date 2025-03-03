@@ -12,6 +12,7 @@ import StudySessionsIndex from '@/features/study-sessions/StudySessionsIndex'
 import StudySessionShow from '@/features/study-sessions/StudySessionShow'
 import Settings from '@/features/settings/Settings'
 import Stats from '@/features/stats/Stats'
+import VocabularyQuiz from '@/features/apps/VocabularyQuiz'
 import { ThemeProvider } from '@/providers/ThemeProvider'
 
 function App() {
@@ -32,6 +33,7 @@ function App() {
           <Route path="study_sessions/:id" element={<StudySessionShow />} />
           <Route path="settings" element={<Settings />} />
           <Route path="stats" element={<Stats />} />
+          <Route path="apps/vocabulary-quiz" element={<VocabularyQuiz />} />
         </Route>
       </Routes>
     </ThemeProvider>

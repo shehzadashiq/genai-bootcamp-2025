@@ -4,12 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { dashboardApi } from '@/services/api'
 
 interface LastStudySession {
-  id: number
-  group_id: number
-  activity_name: string
-  group_name: string
-  start_time: string
-  end_time: string
+  id: number | null
+  group_id: number | null
+  activity_name: string | null
+  group_name: string | null
+  start_time: string | null
+  end_time: string | null
   review_items_count: number
 }
 
@@ -57,10 +57,9 @@ export default function Dashboard() {
     return <div>Loading dashboard...</div>
   }
 
-  const formatDate = (dateStr: string | undefined) => {
+  const formatDate = (dateStr: string | undefined | null) => {
     if (!dateStr) return 'Not available'
     try {
-      // SQLite returns dates in ISO format, so we need to handle them properly
       return new Date(dateStr).toLocaleString()
     } catch (e) {
       console.error('Error formatting date:', e)
@@ -68,108 +67,131 @@ export default function Dashboard() {
     }
   }
 
+  const NoDataMessage = () => (
+    <div className="text-center py-8 text-muted-foreground">
+      <p>No data available</p>
+      <p className="text-sm mt-2">Start a study session to see your progress!</p>
+    </div>
+  )
+
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Dashboard</h1>
 
-      {lastSession && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Last Study Session</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <h3 className="font-medium">Group</h3>
-              <Link
-                to={`/groups/${lastSession.group_id}`}
-                className="text-primary hover:underline"
-              >
-                {lastSession.group_name}
-              </Link>
-            </div>
-            <div>
-              <h3 className="font-medium">Start Time</h3>
-              <p className="text-muted-foreground">
-                {formatDate(lastSession.start_time)}
-              </p>
-            </div>
-            <div>
-              <h3 className="font-medium">End Time</h3>
-              <p className="text-muted-foreground">
-                {formatDate(lastSession.end_time)}
-              </p>
-            </div>
-            <div>
-              <h3 className="font-medium">Activity</h3>
-              <p className="text-muted-foreground">
-                {lastSession.activity_name}
-              </p>
-            </div>
-            <div>
-              <h3 className="font-medium">Words Reviewed</h3>
-              <p className="text-muted-foreground">
-                {lastSession.review_items_count}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {progress && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Study Progress</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <div className="flex justify-between mb-2">
-                <span className="text-sm font-medium">
-                  {progress.total_words_studied} of {progress.total_available_words} words studied
-                </span>
-                <span className="text-sm font-medium">
-                  {Math.round((progress.total_words_studied / progress.total_available_words) * 100)}%
-                </span>
+      <Card>
+        <CardHeader>
+          <CardTitle>Last Study Session</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {lastSession?.id ? (
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-medium">Group</h3>
+                {lastSession.group_id ? (
+                  <Link
+                    to={`/groups/${lastSession.group_id}`}
+                    className="text-primary hover:underline"
+                  >
+                    {lastSession.group_name}
+                  </Link>
+                ) : (
+                  <p className="text-muted-foreground">Not available</p>
+                )}
               </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary"
-                  style={{
-                    width: `${Math.round(
-                      (progress.total_words_studied / progress.total_available_words) * 100
-                    )}%`,
-                  }}
-                />
+              <div>
+                <h3 className="font-medium">Start Time</h3>
+                <p className="text-muted-foreground">
+                  {formatDate(lastSession.start_time)}
+                </p>
+              </div>
+              <div>
+                <h3 className="font-medium">End Time</h3>
+                <p className="text-muted-foreground">
+                  {formatDate(lastSession.end_time)}
+                </p>
+              </div>
+              <div>
+                <h3 className="font-medium">Activity</h3>
+                <p className="text-muted-foreground">
+                  {lastSession.activity_name || 'Not available'}
+                </p>
+              </div>
+              <div>
+                <h3 className="font-medium">Words Reviewed</h3>
+                <p className="text-muted-foreground">
+                  {lastSession.review_items_count}
+                </p>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+            <NoDataMessage />
+          )}
+        </CardContent>
+      </Card>
 
-      {stats && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Stats</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4">
-            <div>
-              <h3 className="font-medium">Success Rate</h3>
-              <p className="text-2xl font-bold">{Math.round(stats.success_rate)}%</p>
+      <Card>
+        <CardHeader>
+          <CardTitle>Study Progress</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {progress && progress.total_available_words > 0 ? (
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm font-medium">
+                    {progress.total_words_studied} of {progress.total_available_words} words studied
+                  </span>
+                  <span className="text-sm font-medium">
+                    {Math.round((progress.total_words_studied / progress.total_available_words) * 100)}%
+                  </span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary"
+                    style={{
+                      width: `${Math.round(
+                        (progress.total_words_studied / progress.total_available_words) * 100
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <h3 className="font-medium">Study Sessions</h3>
-              <p className="text-2xl font-bold">{stats.total_study_sessions}</p>
+          ) : (
+            <NoDataMessage />
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Stats</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {stats && stats.total_study_sessions > 0 ? (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <h3 className="font-medium">Success Rate</h3>
+                <p className="text-2xl font-bold">{Math.round(stats.success_rate)}%</p>
+              </div>
+              <div>
+                <h3 className="font-medium">Study Sessions</h3>
+                <p className="text-2xl font-bold">{stats.total_study_sessions}</p>
+              </div>
+              <div>
+                <h3 className="font-medium">Active Groups</h3>
+                <p className="text-2xl font-bold">{stats.total_active_groups}</p>
+              </div>
+              <div>
+                <h3 className="font-medium">Study Streak</h3>
+                <p className="text-2xl font-bold">{stats.study_streak_days} days</p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-medium">Active Groups</h3>
-              <p className="text-2xl font-bold">{stats.total_active_groups}</p>
-            </div>
-            <div>
-              <h3 className="font-medium">Study Streak</h3>
-              <p className="text-2xl font-bold">{stats.study_streak_days} days</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+            <NoDataMessage />
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
