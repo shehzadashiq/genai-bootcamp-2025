@@ -297,13 +297,13 @@ class VocabularyQuizViewSet(viewsets.ViewSet):
 @csrf_exempt
 def last_study_session(request):
     """Get the last study session."""
-    last_session = StudySession.objects.order_by('-created_at').first()
+    last_session = StudySession.objects.order_by('-start_time').first()
     if last_session:
         serializer = StudySessionSerializer(last_session)
         return Response(serializer.data)
     return Response({
         'id': None,
-        'created_at': None,
+        'start_time': None,
         'group': None,
         'study_activity': None,
         'word_count': 0,
@@ -326,8 +326,8 @@ def study_progress(request):
         
         # Get sessions for this day
         daily_sessions = StudySession.objects.filter(
-            created_at__gte=current_date,
-            created_at__lt=next_date
+            start_time__gte=current_date,
+            start_time__lt=next_date
         )
         
         # Calculate statistics
@@ -340,21 +340,16 @@ def study_progress(request):
             correct=True
         ).count()
         
-        accuracy = (correct_words / total_words * 100) if total_words > 0 else 0
-        
         daily_stats.append({
             'date': current_date.date().isoformat(),
             'total_words': total_words,
             'correct_words': correct_words,
-            'accuracy': round(accuracy, 2)
+            'accuracy': (correct_words / total_words * 100) if total_words > 0 else 0
         })
         
-        current_date = next_date
+        current_date += timedelta(days=1)
     
-    return Response({
-        'daily_stats': daily_stats,
-        'total_days': 7
-    })
+    return Response(daily_stats)
 
 @api_view(['GET'])
 @csrf_exempt
@@ -363,27 +358,41 @@ def quick_stats(request):
     # Get total words studied
     total_words = WordReviewItem.objects.count()
     
-    # Get total study sessions
-    total_sessions = StudySession.objects.count()
-    
-    # Get total groups
-    total_groups = Group.objects.count()
+    # Get completed study sessions (those with end_time set)
+    total_study_sessions = StudySession.objects.filter(end_time__isnull=False).count()
     
     # Calculate overall accuracy
     correct_words = WordReviewItem.objects.filter(correct=True).count()
-    accuracy = (correct_words / total_words * 100) if total_words > 0 else 0
+    success_rate = round((correct_words / total_words * 100), 1) if total_words > 0 else 0
     
-    # Get study time distribution
-    study_activities = StudyActivity.objects.annotate(
-        session_count=Count('studysession')
-    ).values('name', 'session_count')
+    # Get active groups (those with sessions in the last 7 days)
+    seven_days_ago = timezone.now() - timedelta(days=7)
+    total_active_groups = Group.objects.filter(
+        studysession__start_time__gte=seven_days_ago
+    ).distinct().count()
+    
+    # Calculate study streak
+    today = timezone.now().date()
+    study_streak = 0
+    current_date = today
+    
+    while True:
+        has_session = StudySession.objects.filter(
+            start_time__date=current_date,
+            end_time__isnull=False  # Only count completed sessions
+        ).exists()
+        
+        if not has_session:
+            break
+            
+        study_streak += 1
+        current_date -= timedelta(days=1)
     
     return Response({
-        'total_words': total_words,
-        'total_sessions': total_sessions,
-        'total_groups': total_groups,
-        'accuracy': round(accuracy, 2),
-        'study_activities': study_activities
+        'success_rate': success_rate,
+        'total_study_sessions': total_study_sessions,
+        'total_active_groups': total_active_groups,
+        'study_streak': study_streak
     })
 
 @api_view(['POST'])
