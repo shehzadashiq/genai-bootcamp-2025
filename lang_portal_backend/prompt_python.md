@@ -55,6 +55,7 @@ We have the following tables:
 - groups - thematic groups of words
   - id INTEGER PRIMARY KEY AUTOINCREMENT
   - name TEXT NOT NULL UNIQUE
+  - description TEXT
   - word_count INTEGER NOT NULL DEFAULT 0
   - created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 - words_groups - join table for words and groups many-to-many
@@ -74,7 +75,7 @@ We have the following tables:
   - id INTEGER PRIMARY KEY AUTOINCREMENT
   - group_id INTEGER NOT NULL
   - study_activity_id INTEGER NOT NULL
-  - start_time DATETIME NOT NULL
+  - start_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
   - end_time DATETIME
   - FOREIGN KEY (group_id) REFERENCES groups(id)
   - FOREIGN KEY (study_activity_id) REFERENCES study_activities(id)
@@ -82,7 +83,7 @@ We have the following tables:
   - word_id INTEGER NOT NULL
   - study_session_id INTEGER NOT NULL
   - correct BOOLEAN NOT NULL
-  - created_at DATETIME NOT NULL
+  - created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   - FOREIGN KEY (word_id) REFERENCES words(id)
   - FOREIGN KEY (study_session_id) REFERENCES study_sessions(id)
   - UNIQUE(study_session_id, word_id)
