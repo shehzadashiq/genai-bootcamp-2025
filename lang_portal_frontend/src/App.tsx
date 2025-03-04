@@ -13,6 +13,7 @@ import StudySessionShow from '@/features/study-sessions/StudySessionShow'
 import Settings from '@/features/settings/Settings'
 import Stats from '@/features/stats/Stats'
 import VocabularyQuiz from '@/features/apps/VocabularyQuiz'
+import ListeningPractice from '@/features/apps/ListeningPractice'
 import { ThemeProvider } from '@/providers/ThemeProvider'
 
 function App() {
@@ -34,6 +35,7 @@ function App() {
           <Route path="settings" element={<Settings />} />
           <Route path="stats" element={<Stats />} />
           <Route path="apps/vocabulary-quiz" element={<VocabularyQuiz />} />
+          <Route path="apps/listening-practice" element={<ListeningPractice />} />
         </Route>
       </Routes>
     </ThemeProvider>

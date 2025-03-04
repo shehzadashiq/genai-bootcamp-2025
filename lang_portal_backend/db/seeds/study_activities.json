@@ -19,5 +19,19 @@
     "url": "/apps/sentence-builder",
     "thumbnail_url": "/images/thumbnails/sentences.svg",
     "description": "Practice building sentences using the words you've learned."
+  },
+  {
+    "id": 4,
+    "name": "Flashcards",
+    "url": "/apps/flashcards",
+    "thumbnail_url": "/images/thumbnails/flashcards.svg",
+    "description": "Learn and review vocabulary with interactive flashcards."
+  },
+  {
+    "id": 5,
+    "name": "Listening Practice",
+    "url": "/apps/listening-practice",
+    "thumbnail_url": "/images/thumbnails/listening.svg",
+    "description": "Improve your listening comprehension with real-world Urdu audio content."
   }
 ]
