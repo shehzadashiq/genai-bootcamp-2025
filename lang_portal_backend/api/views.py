@@ -8,6 +8,8 @@ from datetime import timedelta
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 import random
+import logging
+import json
 
 from .models import StudySession, StudyActivity, Word, Group, WordReviewItem, WordGroup
 from .serializers import (
@@ -17,6 +19,8 @@ from .serializers import (
     WordSerializer,
     GroupSerializer
 )
+
+logger = logging.getLogger(__name__)
 
 @method_decorator(csrf_exempt, name='dispatch')
 class StudyActivityViewSet(viewsets.ReadOnlyModelViewSet):
@@ -411,3 +415,173 @@ def create_study_activity(request):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     except (Group.DoesNotExist, StudyActivity.DoesNotExist):
         return Response({'error': 'Invalid group_id or activity_id'}, status=status.HTTP_400_BAD_REQUEST)
+
+# Listening Practice Views
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+from services.listening_service import ListeningService
+
+listening_service = ListeningService()
+
+@api_view(['POST'])
+def download_transcript(request):
+    try:
+        logger.info(f"Request data: {request.data}")
+        logger.info(f"Request content type: {request.content_type}")
+        
+        if not isinstance(request.data, dict):
+            logger.error(f"Invalid request data type: {type(request.data)}")
+            return Response(
+                {'error': 'Invalid request format. Expected JSON object with url field'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        video_url = request.data.get('url')
+        if not video_url:
+            logger.error("No URL provided in request")
+            return Response(
+                {'error': 'URL is required. Please provide a valid YouTube URL'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        if not isinstance(video_url, str):
+            logger.error(f"Invalid URL type: {type(video_url)}")
+            return Response(
+                {'error': 'URL must be a string'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        logger.info(f"Extracting video ID from URL: {video_url}")
+        try:
+            video_id = listening_service.extract_video_id(video_url)
+        except ValueError as e:
+            logger.error(f"Invalid YouTube URL: {str(e)}")
+            return Response(
+                {'error': f'Invalid YouTube URL: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        logger.info(f"Getting transcript for video ID: {video_id}")
+        try:
+            transcript = listening_service.get_transcript(video_url)
+        except Exception as e:
+            logger.error(f"Failed to get transcript: {str(e)}")
+            return Response(
+                {'error': f'Failed to get transcript: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        logger.info("Storing transcript")
+        try:
+            listening_service.store_transcript(video_url, transcript)
+        except Exception as e:
+            logger.error(f"Failed to store transcript: {str(e)}")
+            # Continue since we already have the transcript
+            
+        logger.info("Transcript downloaded and stored successfully")
+        return Response({
+            'video_id': video_id,
+            'message': 'Transcript downloaded and stored successfully'
+        })
+    except Exception as e:
+        logger.error(f"Unexpected error in download_transcript: {str(e)}", exc_info=True)
+        return Response(
+            {'error': 'An unexpected error occurred'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@api_view(['POST'])
+def get_listening_questions(request):
+    try:
+        video_url = request.data.get('url')
+        if not video_url:
+            return Response({'error': 'URL is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        result = listening_service.get_questions_for_video(video_url)
+        return Response(result)
+    except Exception as e:
+        logger.error(f"Error in get_listening_questions: {str(e)}", exc_info=True)
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+def get_transcript_and_stats(request):
+    try:
+        video_url = request.data.get('url')
+        if not video_url:
+            return Response({'error': 'URL is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        result = listening_service.get_transcript_with_stats(video_url)
+        return Response(result)
+    except Exception as e:
+        logger.error(f"Error in get_transcript_and_stats: {str(e)}", exc_info=True)
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+def test_bedrock(request):
+    """Test AWS Bedrock connection."""
+    try:
+        service = ListeningService()
+        if not service._runtime:
+            return Response({
+                'status': 'error',
+                'message': 'Bedrock client not initialized',
+                'details': 'Check AWS credentials and Bedrock access'
+            }, status=500)
+            
+        # Test simple prompt
+        body = json.dumps({
+            "prompt": "\n\nHuman: Say hello in Urdu.\n\nAssistant:",
+            "max_tokens_to_sample": 100,
+            "temperature": 0.5,
+            "top_k": 250,
+            "top_p": 0.5,
+            "stop_sequences": ["\n\nHuman:"]
+        })
+        
+        response = service._runtime.invoke_model(
+            modelId='anthropic.claude-v2',
+            body=body.encode(),
+            contentType='application/json',
+            accept='application/json'
+        )
+        
+        response_body = json.loads(response.get('body').read())
+        return Response({
+            'status': 'success',
+            'message': 'Bedrock connection successful',
+            'response': response_body
+        })
+        
+    except Exception as e:
+        return Response({
+            'status': 'error',
+            'message': str(e),
+            'details': 'Error testing Bedrock connection'
+        }, status=500)
+
+@api_view(['POST'])
+def test_hindi_to_urdu(request):
+    """Test Hindi to Urdu conversion using AWS Translate."""
+    try:
+        text = request.data.get('text', '')
+        if not text:
+            return Response({
+                'status': 'error',
+                'message': 'No text provided'
+            }, status=400)
+            
+        service = ListeningService()
+        converted_text = service.convert_hindi_to_urdu(text)
+        
+        return Response({
+            'status': 'success',
+            'original': text,
+            'converted': converted_text
+        })
+        
+    except Exception as e:
+        return Response({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)

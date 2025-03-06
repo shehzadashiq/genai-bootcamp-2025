@@ -23,6 +23,14 @@ urlpatterns = [
     path('study_sessions/<int:pk>/words/', 
          views.StudySessionViewSet.as_view({'get': 'get_words'}),
          name='study_session_words'),
+         
+    # Listening practice endpoints
+    path('listening/download-transcript', views.download_transcript, name='download_transcript'),
+    path('listening/questions', views.get_listening_questions, name='get_listening_questions'),
+    path('listening/transcript', views.get_transcript_and_stats, name='get_transcript_and_stats'),
+    path('listening/test-bedrock', views.test_bedrock, name='test_bedrock'),
+    path('listening/test-hindi-to-urdu', views.test_hindi_to_urdu, name='test_hindi_to_urdu'),
+    
     # Include router URLs at the end
     path('', include(router.urls)),
 ]

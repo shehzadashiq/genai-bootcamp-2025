@@ -71,6 +71,113 @@ The API will be available at `http://localhost:8080/api`
 - `GET /api/groups/<id>/` - Get specific group details
 - `GET /api/groups/<id>/words/` - Get words in a group
 
+### Listening Practice
+- `POST /api/listening/questions` - Generate questions from a YouTube video
+  - Request body: `{ "url": "youtube_video_url" }`
+  - Response: List of questions with options and correct answers
+- `POST /api/listening/test-hindi-to-urdu` - Convert Hindi text to Urdu script
+  - Request body: `{ "text": "hindi_text" }`
+  - Response: `{ "urdu_text": "converted_text" }`
+
+## Listening Practice Feature
+
+### Overview
+The listening practice feature allows users to practice listening comprehension using YouTube videos. The system generates questions based on the video content and provides immediate feedback.
+
+### Features
+- YouTube video integration
+- Automatic question generation
+- Interactive quiz interface
+- Immediate feedback and scoring
+- Progress tracking
+- Hindi to Urdu script conversion support
+
+### Translation System
+
+The Hindi to Urdu translation system uses a dual-approach strategy:
+
+1. Primary Method: AWS Translate
+   - Uses AWS Translate service for accurate translations
+   - Handles complex grammar and idioms
+   - Maintains proper word order
+   - Converts numerals appropriately
+   - Preserves punctuation
+
+2. Fallback Method: Character Mapping
+   - Direct character-to-character mapping
+   - Handles special cases and combined characters
+   - Post-processing for common issues
+
+3. Text Normalization
+   - Proper word spacing
+   - Character combinations
+   - Arabic/Persian to Urdu character normalization
+
+### AWS Configuration
+
+Required AWS IAM permissions:
+- `translate:TranslateText`
+- `bedrock:InvokeModel`
+
+Recommended policy name: "TranslateAndBedrockAccess"
+
+### Frontend Components
+
+The listening practice interface includes:
+1. Video URL input
+2. Question display with multiple choice options
+3. Navigation between questions
+4. Submit functionality on the last question
+5. Results view showing:
+   - Total score
+   - Individual question review
+   - Correct/incorrect answer highlighting
+   - Option to try again
+
+### Error Handling
+
+The system includes comprehensive error handling for:
+1. Invalid YouTube URLs
+2. Translation service failures
+3. Network connectivity issues
+4. Invalid input text formats
+
+### Dependencies
+
+Added dependencies:
+- boto3 (1.34.34)
+- botocore (1.34.34)
+- python-dotenv (1.0.1)
+
+### Environment Variables
+
+Required environment variables:
+```
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_REGION=your_region
+```
+
+### Troubleshooting Translation Issues
+
+1. **AWS Translation Service Issues**
+   - Verify AWS credentials are correct
+   - Check AWS service quotas
+   - Ensure proper IAM permissions
+   - Monitor AWS service health
+
+2. **Character Mapping Issues**
+   - Check input text encoding
+   - Verify character combinations
+   - Review normalization rules
+   - Monitor post-processing results
+
+3. **Performance Optimization**
+   - Cache frequent translations
+   - Monitor API usage
+   - Implement rate limiting
+   - Use batch processing for multiple translations
+
 ## Project Structure
 
 ```text

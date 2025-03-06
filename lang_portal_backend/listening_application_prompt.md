@@ -8,11 +8,19 @@ There are practice listening comprehension examples for language learning tests 
 
 Pull the youtube content, and use that to generate out similar style listening comprehension.
 
+## Japanese Listening Examples on YouTube
+
+- [https://www.youtube.com/watch?v=sY7L5cfCWno&ab_channel=TheNihongoNook](JLPT N5 JAPANESE LISTENING PRACTICE TEST 2024 WITH ANSWERS ちょうかい)
+
 ## Sample Urdu Listening Examples on YouTube
 
 - [https://www.youtube.com/watch?v=l4C4MGhCORg&ab_channel=LearnUrduwithUrduPod101.com](20 Minutes of Urdu Listening Comprehension for Beginner)
 - [https://www.youtube.com/watch?v=ERPpRU9R7l4&list=PLAW1UtJAglQHb_PgJQOoRcufH-pXmSeGU&ab_channel=LearnUrduwithUrduPod101.com](Urdu Listening Practice - At a Pakistani Bookstore)
 - [https://www.youtube.com/watch?v=nkSvWptB2iQ&list=PLAW1UtJAglQHb_PgJQOoRcufH-pXmSeGU&index=2&ab_channel=LearnUrduwithUrduPod101.com](Urdu Listening Practice - At a Pakistani Restaurant)
+- [https://www.youtube.com/watch?v=T_ztWECep-o&ab_channel=Mehfill%28TahirUbaidChaudhry%29](Talaffuz | A Masterclass On Urdu Pronunciation | Session 1 | Tahir Ubaid Chaudhry)
+- [https://www.youtube.com/watch?v=a71y8_fWRcA&ab_channel=LooseTalk](Loose Talk Episode 251 [Subtitle Eng] | Moin Akhtar | Anwar Maqsood | ARY Digital)
+- [https://www.youtube.com/watch?v=lr454mTPTlY&ab_channel=ACNDIGITALNETWORK](Moin Akhtar Interview | Old is Gold)
+- [https://www.youtube.com/watch?v=oJC038O16o8&ab_channel=OnePaperMCQs](urdu class 1 tafheem| hindi urdu)
 
 
 ## Technical Uncertainty
@@ -32,7 +40,7 @@ Pull the youtube content, and use that to generate out similar style listening c
 - Frontend eg. Streamlit.
 - Guardrails
 - (Optional) Speech to Text, (ASR) Transcribe. eg Amazon Transcribe. OpenWhisper
-<!-- - Amazon Bedrock as my local machine is not powerful enough. -->
+- Use Amazon Bedrock for transcription and question generation.
 
 
 # Language Listening App Requirments

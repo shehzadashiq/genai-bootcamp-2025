@@ -56,20 +56,26 @@ export default function ListeningPractice() {
       setError(null)
       setDownloadStatus('Downloading transcript...')
 
+      const requestData = { url: videoUrl }
+      console.log('Sending request with data:', requestData)
+
       // First download and store the transcript
       const downloadResponse = await fetch('http://localhost:8080/api/listening/download-transcript', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ url: videoUrl }),
+        body: JSON.stringify(requestData),
       })
 
       if (!downloadResponse.ok) {
-        throw new Error('Failed to download transcript')
+        const errorData = await downloadResponse.json()
+        console.error('Error response:', errorData)
+        throw new Error(errorData.error || 'Failed to download transcript')
       }
 
       const downloadData: DownloadResponse = await downloadResponse.json()
+      console.log('Download response:', downloadData)
       setDownloadStatus('Transcript downloaded successfully')
 
       // Then fetch questions
@@ -79,14 +85,17 @@ export default function ListeningPractice() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ url: videoUrl }),
+        body: JSON.stringify(requestData),
       })
 
       if (!questionsResponse.ok) {
-        throw new Error('Failed to load questions')
+        const errorData = await questionsResponse.json()
+        console.error('Error response:', errorData)
+        throw new Error(errorData.error || 'Failed to load questions')
       }
 
       const questionsData: QuestionResponse = await questionsResponse.json()
+      console.log('Questions response:', questionsData)
       setQuestions(questionsData.questions)
 
       // Finally fetch transcript and statistics
@@ -96,14 +105,17 @@ export default function ListeningPractice() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ url: videoUrl }),
+        body: JSON.stringify(requestData),
       })
 
       if (!transcriptResponse.ok) {
-        throw new Error('Failed to load transcript')
+        const errorData = await transcriptResponse.json()
+        console.error('Error response:', errorData)
+        throw new Error(errorData.error || 'Failed to load transcript')
       }
 
       const transcriptData: TranscriptResponse = await transcriptResponse.json()
+      console.log('Transcript response:', transcriptData)
       setTranscript(transcriptData.transcript)
       setStatistics(transcriptData.statistics)
       setDownloadStatus('')
