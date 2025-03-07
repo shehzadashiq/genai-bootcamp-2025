@@ -1,14 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Button, TextField, Typography, Paper, FormControl, RadioGroup, FormControlLabel, Radio, CircularProgress } from '@mui/material';
-import BugReportIcon from '@mui/icons-material/BugReport';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import axios from 'axios';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Box, Button, TextField, Typography, Paper, FormControl, RadioGroup, FormControlLabel, Radio, CircularProgress, Alert, Tabs, Tab } from '@mui/material';
+import { useMutation } from '@tanstack/react-query';
+import api from '../../api/config';
 
 interface Question {
   id: number;
-  text?: string;  // For backward compatibility
-  question?: string;  // New field name
+  question: string;
   options: string[];
   correct_answer: string;
   audio_start: number;
@@ -20,435 +17,447 @@ interface QuestionResponse {
   error?: string;
 }
 
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+const TabPanel = (props: TabPanelProps) => {
+  const { children, value, index, ...other } = props;
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`listening-tabpanel-${index}`}
+      aria-labelledby={`listening-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+    </div>
+  );
+};
+
 const ListeningPractice: React.FC = () => {
+  // State management
   const [videoUrl, setVideoUrl] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
   const [showResults, setShowResults] = useState(false);
-  const [showDebug, setShowDebug] = useState(false);
+  const [currentTab, setCurrentTab] = useState(0);
+  const [transcript, setTranscript] = useState<any>(null);
 
+  // API mutations
   const getQuestions = useMutation({
     mutationFn: async (url: string) => {
-      try {
-        setError(null);
-        
-        // First download the transcript
-        const downloadResponse = await axios.post('/api/listening/download-transcript', { url });
-        console.log('Download response:', downloadResponse.data);
-        if (downloadResponse.data.error) {
-          throw new Error(downloadResponse.data.error);
-        }
-        
-        // Then get the questions
-        const questionsResponse = await axios.post<QuestionResponse>('/api/listening/questions', { url });
-        console.log('Raw questions response:', questionsResponse);
-        console.log('Questions response data:', questionsResponse.data);
-        if (questionsResponse.data.error) {
-          throw new Error(questionsResponse.data.error);
-        }
-        
-        if (!questionsResponse.data.questions?.length) {
-          throw new Error('No questions were generated. Please try a different video.');
-        }
-        
-        // Log each question's format
-        questionsResponse.data.questions.forEach((q, i) => {
-          console.log(`Question ${i + 1}:`, {
-            id: q.id,
-            text: q.text,
-            question: q.question,
-            optionsCount: q.options?.length,
-            hasCorrectAnswer: Boolean(q.correct_answer),
-            correctAnswerInOptions: q.options?.includes(q.correct_answer)
-          });
-        });
-        
-        // Get the transcript for display
-        const transcriptResponse = await axios.post('/api/listening/transcript', { url });
-        console.log('Transcript response:', transcriptResponse.data);
-        if (transcriptResponse.data.error) {
-          throw new Error(transcriptResponse.data.error);
-        }
-        
-        return questionsResponse.data;
-      } catch (error) {
-        console.error('Error in getQuestions:', error);
-        setError(error instanceof Error ? error.message : 'An unexpected error occurred');
-        throw error;
-      }
+      console.log('Fetching questions for URL:', url);
+      const response = await api.post<QuestionResponse>('/listening/questions', { url });
+      const data = response.data;
+      console.log('Questions data received:', {
+        totalQuestions: data.questions.length,
+        questions: data.questions,
+        currentIndex: currentQuestionIndex,
+        isLastQuestion: currentQuestionIndex >= data.questions.length - 1
+      });
+      return data;
     },
     onSuccess: (data) => {
       console.log('Questions loaded successfully:', {
-        questionCount: data.questions?.length,
-        firstQuestion: data.questions?.[0]
+        questions: data.questions,
+        currentQuestionIndex,
+        isLastQuestion: currentQuestionIndex >= data.questions.length - 1,
+        hasAnsweredCurrentQuestion: Boolean(selectedAnswers[currentQuestionIndex]),
+        hasAnsweredAllQuestions: data.questions.length > 0 && Object.keys(selectedAnswers).length === data.questions.length
       });
-      // Reset quiz state when new questions are loaded
-      setCurrentQuestionIndex(0);
-      setSelectedAnswers({});
-      setShowResults(false);
     }
   });
 
-  // Debug logging for state changes
-  useEffect(() => {
-    if (getQuestions.data?.questions) {
-      const answeredCount = Object.keys(selectedAnswers).length;
-      const total = getQuestions.data.questions.length;
-      
-      console.log('Quiz State:', {
-        questions: getQuestions.data.questions,
-        currentQuestionIndex,
-        totalQuestions: total,
-        answeredCount,
-        isLastQuestion: currentQuestionIndex === total - 1,
-        hasAnsweredCurrentQuestion: Boolean(selectedAnswers[currentQuestionIndex]),
-        hasAnsweredAllQuestions: answeredCount === total,
-        selectedAnswers
-      });
+  const getTranscript = useMutation({
+    mutationFn: async (url: string) => {
+      console.log('Fetching transcript for URL:', url);
+      const response = await api.post('/listening/transcript', { url });
+      console.log('Transcript data received:', response.data);
+      setTranscript(response.data);
+      return response.data;
     }
-  }, [currentQuestionIndex, selectedAnswers, getQuestions.data]);
+  });
 
-  const handleSubmitUrl = () => {
-    if (!videoUrl.trim()) {
-      setError('Please enter a valid YouTube URL');
-      return;
-    }
-    getQuestions.mutate(videoUrl);
-  };
-
-  const handleAnswerSelect = (value: string) => {
-    console.log('Selecting answer:', {
-      questionIndex: currentQuestionIndex,
-      value,
-      previousAnswers: selectedAnswers
-    });
-    
-    setSelectedAnswers(prev => {
-      const newAnswers = { ...prev, [currentQuestionIndex]: value };
-      console.log('Updated answers:', newAnswers);
-      return newAnswers;
-    });
-  };
-
-  const handleNextQuestion = () => {
-    if (!hasAnsweredCurrentQuestion) {
-      console.log('Cannot proceed: current question not answered');
-      return;
-    }
-    
-    if (currentQuestionIndex < totalQuestions - 1) {
-      console.log('Moving to next question:', currentQuestionIndex + 1);
-      setCurrentQuestionIndex(prev => prev + 1);
-    } else {
-      console.log('Already at last question');
-    }
-  };
-
-  const handlePreviousQuestion = () => {
-    if (currentQuestionIndex > 0) {
-      console.log('Moving to previous question:', currentQuestionIndex - 1);
-      setCurrentQuestionIndex(prev => prev - 1);
-    }
-  };
-
-  const handleSubmit = () => {
-    if (!hasAnsweredAllQuestions) {
-      console.log('Cannot submit: not all questions answered', {
-        answered: answeredQuestionsCount,
-        total: totalQuestions
-      });
-      return;
-    }
-    
-    console.log('Submitting quiz:', {
-      answers: selectedAnswers,
-      questionCount: totalQuestions
-    });
-    setShowResults(true);
-  };
-
-  const calculateScore = () => {
-    if (!getQuestions.data?.questions) return 0;
-    let correct = 0;
-    getQuestions.data.questions.forEach((question, index) => {
-      if (selectedAnswers[index] === question.correct_answer) {
-        correct++;
-      }
-    });
-    return correct;
-  };
-
-  // Compute quiz state
-  const totalQuestions = getQuestions.data?.questions?.length || 0;
-  const currentQuestion = getQuestions.data?.questions?.[currentQuestionIndex];
-  const answeredQuestionsCount = Object.keys(selectedAnswers).length;
-  
+  // Computed state
+  const questions = getQuestions.data?.questions || [];
+  const currentQuestion = questions[currentQuestionIndex];
+  const totalQuestions = questions.length;
   const isLastQuestion = currentQuestionIndex === totalQuestions - 1;
   const hasAnsweredCurrentQuestion = Boolean(selectedAnswers[currentQuestionIndex]);
-  const hasAnsweredAllQuestions = totalQuestions > 0 && answeredQuestionsCount === totalQuestions;
-  
-  const showSubmitButton = isLastQuestion && hasAnsweredAllQuestions;
-  const showNextButton = !isLastQuestion && hasAnsweredCurrentQuestion;
-  const showPreviousButton = currentQuestionIndex > 0;
+  const hasAnsweredAllQuestions = totalQuestions > 0 && Object.keys(selectedAnswers).length === totalQuestions;
 
-  // Debug effect for button state
   useEffect(() => {
-    console.log('Button state:', {
-      isLastQuestion,
-      showSubmitButton,
-      showNextButton,
-      hasAnsweredCurrentQuestion,
-      hasAnsweredAllQuestions,
+    console.log("Question state updated:", {
       currentIndex: currentQuestionIndex,
       totalQuestions,
-      answeredCount: answeredQuestionsCount
+      currentQuestion,
+      selectedAnswer: selectedAnswers[currentQuestionIndex] || "None",
+      showResults,
+      hasAnsweredCurrentQuestion,
     });
-  }, [
+  }, [currentQuestionIndex, selectedAnswers, showResults]);
+
+  useEffect(() => {
+    console.log('Navigation state:', {
+      currentQuestionIndex,
+      totalQuestions,
+      isLastQuestion: currentQuestionIndex === totalQuestions - 1
+    });
+  }, [currentQuestionIndex, totalQuestions]);
+
+  // Debug logging
+  console.log({
+    questions,
+    currentQuestionIndex,
+    currentQuestion,
+    totalQuestions,
     isLastQuestion,
-    showSubmitButton,
-    showNextButton,
     hasAnsweredCurrentQuestion,
     hasAnsweredAllQuestions,
-    currentQuestionIndex,
-    totalQuestions,
-    answeredQuestionsCount
-  ]);
+    selectedAnswers
+  });
 
-  return (
-    <>
-      {/* Fixed Debug Button */}
-      <Box
-        sx={{
-          position: 'fixed',
-          top: 16,
-          right: 16,
-          zIndex: 1000,
-          bgcolor: 'background.paper',
-          borderRadius: 1,
-          boxShadow: 2,
-        }}
+  // Event handlers
+  const handleUrlSubmit = useCallback(() => {
+    if (!videoUrl.trim()) {
+      getQuestions.reset();
+      return;
+    }
+    console.log('Submitting URL:', videoUrl);
+    setCurrentQuestionIndex(0);
+    setSelectedAnswers({});
+    setShowResults(false);
+    getQuestions.mutate(videoUrl);
+    getTranscript.mutate(videoUrl);
+  }, [videoUrl]);
+
+  const handleAnswerSelect = useCallback((answer: string) => {
+    console.log('Answer Selection:', {
+      answer,
+      questionIndex: currentQuestionIndex,
+      totalQuestions,
+      isLastQuestion: currentQuestionIndex >= totalQuestions - 1
+    });
+    setSelectedAnswers(prev => {
+      const newAnswers = { ...prev, [currentQuestionIndex]: answer };
+      console.log('Updated Answers:', {
+        answers: newAnswers,
+        totalAnswered: Object.keys(newAnswers).length,
+        totalQuestions,
+        hasAnsweredAll: Object.keys(newAnswers).length === totalQuestions
+      });
+      return newAnswers;
+    });
+  }, [currentQuestionIndex, totalQuestions]);
+
+  const handleNextQuestion = useCallback(() => {
+    const nextIndex = Math.min(currentQuestionIndex + 1, totalQuestions - 1);
+    console.log('Navigation - Next:', {
+      currentIndex: currentQuestionIndex,
+      nextIndex,
+      totalQuestions,
+      isLastQuestion: nextIndex >= totalQuestions - 1,
+      questions: questions.length,
+      hasAnsweredCurrentQuestion: Boolean(selectedAnswers[currentQuestionIndex])
+    });
+    setCurrentQuestionIndex(nextIndex);
+  }, [currentQuestionIndex, totalQuestions, questions, selectedAnswers]);
+
+  const handlePreviousQuestion = useCallback(() => {
+    const prevIndex = Math.max(currentQuestionIndex - 1, 0);
+    console.log('Navigation - Previous:', {
+      currentIndex: currentQuestionIndex,
+      prevIndex,
+      totalQuestions,
+      questions: questions.length
+    });
+    setCurrentQuestionIndex(prevIndex);
+  }, [currentQuestionIndex, totalQuestions, questions]);
+
+  const handleQuizSubmit = useCallback(() => {
+    setShowResults(true);
+  }, []);
+
+  const calculateScore = useCallback(() => {
+    return questions.reduce((score, question, index) => {
+      return selectedAnswers[index] === question.correct_answer ? score + 1 : score;
+    }, 0);
+  }, [questions, selectedAnswers]);
+
+  // Render functions
+  const renderUrlInput = () => (
+    <Box sx={{ mb: 4 }}>
+      <TextField
+        fullWidth
+        label="YouTube Video URL"
+        value={videoUrl}
+        onChange={(e) => setVideoUrl(e.target.value)}
+        disabled={getQuestions.isPending}
+        error={getQuestions.isError}
+        helperText={getQuestions.isError ? getQuestions.error?.message : ''}
+        sx={{ mb: 2 }}
+      />
+      <Button
+        variant="contained"
+        onClick={handleUrlSubmit}
+        disabled={getQuestions.isPending || !videoUrl.trim()}
       >
-        <Button
-          variant="contained"
-          size="small"
-          color="info"
-          onClick={() => setShowDebug(!showDebug)}
-          startIcon={showDebug ? <ExpandLessIcon /> : <BugReportIcon />}
-        >
-          {showDebug ? 'Hide Debug' : 'Debug'}
-        </Button>
-      </Box>
+        {getQuestions.isPending ? 'Loading Content...' : 'Load Content'}
+      </Button>
+    </Box>
+  );
 
-      {/* Debug Panel - Fixed Position */}
-      {showDebug && (
-        <Box
-          sx={{
-            position: 'fixed',
-            top: 70,
-            right: 16,
-            width: '400px',
-            maxWidth: '90vw',
-            maxHeight: '80vh',
-            overflowY: 'auto',
-            zIndex: 1000,
-            bgcolor: 'background.paper',
-            borderRadius: 1,
-            boxShadow: 3,
-          }}
-        >
-          <Paper 
-            elevation={3}
-            sx={{ 
-              p: 2,
-              bgcolor: '#f5f5f5',
-              border: '1px solid #e0e0e0',
-            }}
-          >
-            <Typography variant="subtitle2" gutterBottom color="primary">
-              Debug Information
-            </Typography>
-            <Box sx={{ 
-              fontFamily: 'monospace',
-              whiteSpace: 'pre-wrap',
-              fontSize: '0.875rem',
-              color: '#37474f'
-            }}>
-              {`Current Index: ${currentQuestionIndex}
+  const renderQuestion = () => {
+    console.log("Rendering Question:", {
+      currentIndex: currentQuestionIndex,
+      totalQuestions,
+      currentQuestion,
+      selectedAnswer: selectedAnswers[currentQuestionIndex] || "None",
+      showResults,
+      hasAnsweredCurrentQuestion,
+    });
+  
+    if (!currentQuestion) return null;
+  
+    return (
+      <Box sx={{ mb: 4 }}>
+        {/* Debug Info Box */}
+        <Paper sx={{ p: 2, mb: 3, bgcolor: '#f5f5f5' }}>
+          <Typography variant="subtitle2" color="textSecondary">Debug Info:</Typography>
+          <Box component="code" sx={{ display: 'block', whiteSpace: 'pre-wrap', fontSize: '0.875rem' }}>
+            {`Current Question: ${currentQuestionIndex + 1}
 Total Questions: ${totalQuestions}
 Is Last Question: ${isLastQuestion}
-Show Submit Button: ${showSubmitButton}
-Show Next Button: ${showNextButton}
 Has Answered Current: ${hasAnsweredCurrentQuestion}
-Has Answered All: ${hasAnsweredAllQuestions}
-Answered Count: ${answeredQuestionsCount}
-Selected Answers: ${JSON.stringify(selectedAnswers, null, 2)}
-Current Question: ${JSON.stringify(currentQuestion, null, 2)}`}
-            </Box>
-          </Paper>
+Selected Answer: ${selectedAnswers[currentQuestionIndex] || "None"}
+Show Results: ${showResults}`}
+          </Box>
+        </Paper>
+
+        <Typography variant="h6" gutterBottom>
+          Question {currentQuestionIndex + 1} of {totalQuestions}
+          Current Index: {currentQuestionIndex}
+          Current Question: {currentQuestion}
+          Selected Answer: {selectedAnswers[currentQuestionIndex]}
+          ShowResults: {showResults}
+          Has Answered Current: {hasAnsweredCurrentQuestion}
+        </Typography>
+  
+        <Typography gutterBottom sx={{ direction: 'rtl', textAlign: 'right', fontSize: '1.2rem', mb: 3 }}>
+          {currentQuestion.question}
+        </Typography>
+
+        <Typography variant="h6" gutterBottom>
+          Question {currentQuestionIndex + 1} of {totalQuestions}
+        </Typography>
+  
+        <FormControl component="fieldset" fullWidth>
+          <RadioGroup
+            value={selectedAnswers[currentQuestionIndex] || ''}
+            onChange={(e) => handleAnswerSelect(e.target.value)}
+          >
+            {currentQuestion.options.map((option, index) => (
+              <FormControlLabel
+                key={index}
+                value={option}
+                control={<Radio />}
+                label={<Typography sx={{ direction: 'rtl', textAlign: 'right' }}>{option}</Typography>}
+                disabled={showResults}
+                sx={{
+                  mb: 1,
+                  p: 1,
+                  borderRadius: 1,
+                  '&:hover': { bgcolor: 'action.hover' },
+                }}
+              />
+            ))}
+          </RadioGroup>
+        </FormControl>
+      </Box>
+    );
+  };
+  
+  
+
+  const renderNavigation = () => {
+    // Force show submit button on last question (4 of 4)
+    const showSubmitButton = currentQuestionIndex === (totalQuestions - 1);
+    
+    return (
+      <Box sx={{ display: 'flex', gap: 2, mb: 4, justifyContent: 'space-between', alignItems: 'center' }}>
+        <Button
+          variant="outlined"
+          onClick={handlePreviousQuestion}
+          disabled={currentQuestionIndex === 0}
+        >
+          Previous
+        </Button>
+        <Typography variant="body2" color="text.secondary">
+          Question {currentQuestionIndex + 1} of {totalQuestions}
+        </Typography>
+        {showSubmitButton ? (
+          <Button
+            variant="contained"
+            onClick={handleQuizSubmit}
+            disabled={!hasAnsweredCurrentQuestion}
+            color="success"
+          >
+            Submit Quiz
+          </Button>
+        ) : (
+          <Button
+            variant="contained"
+            onClick={handleNextQuestion}
+            disabled={!hasAnsweredCurrentQuestion}
+          >
+            Next
+          </Button>
+        )}
+      </Box>
+    );
+  };
+
+  const renderResults = () => {
+    if (!showResults) return null;
+    const score = calculateScore();
+    return (
+      <Paper sx={{ p: 3, mb: 4, bgcolor: 'success.light' }}>
+        <Typography variant="h6" gutterBottom>
+          Quiz Results
+        </Typography>
+        <Typography>
+          Score: {score} out of {totalQuestions} ({Math.round(score / totalQuestions * 100)}%)
+        </Typography>
+        <Button
+          variant="contained"
+          onClick={() => {
+            setVideoUrl('');
+            setCurrentQuestionIndex(0);
+            setSelectedAnswers({});
+            setShowResults(false);
+            getQuestions.reset();
+          }}
+          sx={{ mt: 2 }}
+        >
+          Try Another Video
+        </Button>
+      </Paper>
+    );
+  };
+
+  const renderTranscript = () => {
+    if (!transcript) return null;
+    return (
+      <Paper sx={{ p: 3, mb: 4 }}>
+        <Typography variant="body1" component="pre" sx={{ 
+          whiteSpace: 'pre-wrap',
+          direction: 'rtl',
+          textAlign: 'right',
+          fontFamily: 'inherit'
+        }}>
+          {transcript.transcript}
+        </Typography>
+      </Paper>
+    );
+  };
+
+  const renderStatistics = () => {
+    if (!transcript) return null;
+    return (
+      <Paper sx={{ p: 3, mb: 4 }}>
+        <Typography variant="h6" gutterBottom>Statistics</Typography>
+        <Typography>Duration: {transcript.total_duration}s</Typography>
+        <Typography>Word Count: {transcript.word_count}</Typography>
+        <Typography>Average Words per Minute: {transcript.words_per_minute}</Typography>
+      </Paper>
+    );
+  };
+
+  const renderDebugInfo = () => (
+    <Paper sx={{ p: 2 }}>
+      <Typography variant="h6" gutterBottom>Debug Information</Typography>
+      <pre style={{ whiteSpace: 'pre-wrap', overflow: 'auto', backgroundColor: '#f5f5f5', padding: '1rem', borderRadius: '4px' }}>
+        {JSON.stringify({
+          currentIndex: currentQuestionIndex,
+          totalQuestions,
+          currentQuestion: currentQuestion ? {
+            question: currentQuestion.question,
+            options: currentQuestion.options
+          } : null,
+          selectedAnswer: selectedAnswers[currentQuestionIndex] || "None",
+          showResults,
+          hasAnsweredCurrentQuestion,
+          isLastQuestion
+        }, null, 2)}
+      </pre>
+    </Paper>
+  );
+
+  // Main render
+  return (
+    <Box sx={{ maxWidth: 800, mx: 'auto', p: 3 }}>
+      <Typography variant="h4" gutterBottom>
+        Urdu Listening Practice
+      </Typography>
+
+      {renderUrlInput()}
+
+      {(getQuestions.isPending || getTranscript.isPending) && (
+        <Box sx={{ textAlign: 'center', my: 4 }}>
+          <CircularProgress />
+          <Typography sx={{ mt: 2 }}>
+            Loading content...
+          </Typography>
         </Box>
       )}
 
-      <Box sx={{ maxWidth: 800, mx: 'auto', p: 3 }}>
-        <Typography variant="h4" gutterBottom>
-          Urdu Listening Practice
-        </Typography>
+      {(getQuestions.isError || getTranscript.isError) && (
+        <Alert severity="error" sx={{ mb: 4 }}>
+          {getQuestions.error?.message || getTranscript.error?.message || 'Failed to load content'}
+        </Alert>
+      )}
 
-        {/* URL Input Section */}
-        <Box sx={{ mb: 4 }}>
-          <TextField
-            fullWidth
-            label="YouTube Video URL"
-            value={videoUrl}
-            onChange={(e) => setVideoUrl(e.target.value)}
-            error={Boolean(error)}
-            helperText={error || ''}
-            sx={{ mb: 2 }}
-          />
-          <Button
-            variant="contained"
-            onClick={handleSubmitUrl}
-            disabled={getQuestions.isPending}
-          >
-            {getQuestions.isPending ? 'Loading...' : 'Generate Questions'}
-          </Button>
+      {getQuestions.isSuccess && questions.length > 0 && (
+        <Box sx={{ width: '100%', mb: 4 }}>
+          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+            <Tabs 
+              value={currentTab} 
+              onChange={(_, newValue) => setCurrentTab(newValue)}
+              aria-label="listening practice tabs"
+            >
+              <Tab label="Questions" />
+              <Tab label="Transcript" />
+              <Tab label="Statistics" />
+              <Tab label="Debug Info" />
+            </Tabs>
+          </Box>
+          <TabPanel value={currentTab} index={0}>
+            {renderQuestion()}
+            {renderNavigation()}
+            {renderResults()}
+          </TabPanel>
+          <TabPanel value={currentTab} index={1}>
+            {renderTranscript()}
+          </TabPanel>
+          <TabPanel value={currentTab} index={2}>
+            {renderStatistics()}
+          </TabPanel>
+          <TabPanel value={currentTab} index={3}>
+            {renderDebugInfo()}
+          </TabPanel>
         </Box>
+      )}
 
-        {/* Loading State */}
-        {getQuestions.isPending && (
-          <Box sx={{ textAlign: 'center', my: 4 }}>
-            <CircularProgress />
-            <Typography sx={{ mt: 2 }}>
-              Generating questions...
-            </Typography>
-          </Box>
-        )}
-
-        {/* Quiz Section */}
-        {getQuestions.data?.questions && !showResults && (
-          <Box sx={{ mt: 4 }}>
-            {/* Question Display */}
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Question {currentQuestionIndex + 1}:
-              </Typography>
-              <Typography paragraph>
-                {currentQuestion?.question}
-              </Typography>
-
-              {/* Options */}
-              {currentQuestion && (
-                <FormControl component="fieldset" fullWidth>
-                  <RadioGroup
-                    value={selectedAnswers[currentQuestionIndex] || ''}
-                    onChange={(e) => handleAnswerSelect(e.target.value)}
-                  >
-                    {currentQuestion.options.map((option, index) => (
-                      <FormControlLabel
-                        key={index}
-                        value={option}
-                        control={<Radio />}
-                        label={option}
-                        sx={{
-                          mb: 1,
-                          p: 1,
-                          borderRadius: 1,
-                          '&:hover': {
-                            bgcolor: 'action.hover',
-                          },
-                        }}
-                      />
-                    ))}
-                  </RadioGroup>
-                </FormControl>
-              )}
-            </Paper>
-
-            {/* Navigation Controls */}
-            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Button
-                variant="outlined"
-                onClick={handlePreviousQuestion}
-                disabled={!showPreviousButton}
-              >
-                Previous
-              </Button>
-
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="body2" color="text.secondary">
-                  Question {currentQuestionIndex + 1} of {totalQuestions}
-                </Typography>
-                {isLastQuestion && !hasAnsweredAllQuestions && (
-                  <Typography variant="caption" color="error.main">
-                    {totalQuestions - answeredQuestionsCount} question(s) unanswered
-                  </Typography>
-                )}
-              </Box>
-
-              {showSubmitButton ? (
-                <Button
-                  variant="contained"
-                  color="success"
-                  onClick={handleSubmit}
-                  disabled={!hasAnsweredAllQuestions}
-                >
-                  Submit Quiz
-                </Button>
-              ) : (
-                <Button
-                  variant="contained"
-                  onClick={handleNextQuestion}
-                  disabled={!hasAnsweredCurrentQuestion}
-                >
-                  Next
-                </Button>
-              )}
-            </Box>
-          </Box>
-        )}
-
-        {/* Results Section */}
-        {showResults && getQuestions.data?.questions && (
-          <Box sx={{ mt: 4 }}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h5" gutterBottom>
-                Quiz Results
-              </Typography>
-              <Typography variant="h6" color="primary">
-                Score: {calculateScore()} out of {totalQuestions}
-              </Typography>
-              
-              {getQuestions.data.questions.map((question, index) => (
-                <Box key={index} sx={{ mt: 3, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-                  <Typography variant="subtitle1" gutterBottom>
-                    Question {index + 1}: {question.question}
-                  </Typography>
-                  <Typography color={selectedAnswers[index] === question.correct_answer ? 'success.main' : 'error.main'}>
-                    Your Answer: {selectedAnswers[index]}
-                  </Typography>
-                  <Typography color="success.main">
-                    Correct Answer: {question.correct_answer}
-                  </Typography>
-                </Box>
-              ))}
-              
-              <Button
-                variant="contained"
-                onClick={() => {
-                  setShowResults(false);
-                  setSelectedAnswers({});
-                  setCurrentQuestionIndex(0);
-                  setVideoUrl('');
-                }}
-                sx={{ mt: 3 }}
-              >
-                Try Another Video
-              </Button>
-            </Paper>
-          </Box>
-        )}
-      </Box>
-    </>
+      {getQuestions.isSuccess && questions.length === 0 && (
+        <Alert severity="warning">
+          No questions could be generated for this video. Please try another video.
+        </Alert>
+      )}
+    </Box>
   );
 };
 

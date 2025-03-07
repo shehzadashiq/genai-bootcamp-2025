@@ -49,6 +49,8 @@ export default function ListeningPractice() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [downloadStatus, setDownloadStatus] = useState<string>('')
+  const [showResults, setShowResults] = useState(false)
+  const [score, setScore] = useState(0)
 
   const handleSubmitUrl = async () => {
     try {
@@ -226,53 +228,111 @@ export default function ListeningPractice() {
               <Card>
                 <CardHeader>
                   <CardTitle>
-                    Question {currentQuestionIndex + 1} of {questions.length}
+                    {showResults ? 'Quiz Results' : `Question ${currentQuestionIndex + 1} of ${questions.length}`}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div>
-                    <h3 className="font-semibold mb-2">
-                      {questions[currentQuestionIndex].question}
-                    </h3>
-                    <p className="text-muted-foreground italic">
-                      Transcript: {questions[currentQuestionIndex].text}
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    {questions[currentQuestionIndex].options.map((option, index) => (
-                      <label
-                        key={index}
-                        className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
+                  {showResults ? (
+                    <div className="space-y-6">
+                      <div className="text-xl font-bold text-center">
+                        Your Score: {score} out of {questions.length}
+                      </div>
+                      <div className="space-y-4">
+                        {questions.map((question, index) => (
+                          <div key={index} className={`p-4 rounded-lg ${selectedAnswers[index] === question.correct_answer ? 'bg-green-100' : 'bg-red-100'}`}>
+                            <h3 className="font-semibold mb-2">{question.question}</h3>
+                            <p className="text-sm text-muted-foreground mb-2">Transcript: {question.text}</p>
+                            <div className="flex justify-between">
+                              <div>
+                                <p className="text-sm font-medium">Your answer: {selectedAnswers[index]}</p>
+                                {selectedAnswers[index] !== question.correct_answer && (
+                                  <p className="text-sm font-medium text-green-600">Correct answer: {question.correct_answer}</p>
+                                )}
+                              </div>
+                              <div className="flex items-center">
+                                {selectedAnswers[index] === question.correct_answer ? (
+                                  <span className="text-green-600">✓</span>
+                                ) : (
+                                  <span className="text-red-600">✗</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <Button
+                        onClick={() => {
+                          setShowResults(false)
+                          setCurrentQuestionIndex(0)
+                          setSelectedAnswers({})
+                          setScore(0)
+                        }}
                       >
-                        <input
-                          type="radio"
-                          name="answer"
-                          value={option}
-                          checked={selectedAnswers[currentQuestionIndex] === option}
-                          onChange={() => handleAnswerSelect(option)}
-                          className="h-4 w-4"
-                        />
-                        <span>{option}</span>
-                      </label>
-                    ))}
-                  </div>
+                        Try Again
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <h3 className="font-semibold mb-2">
+                          {questions[currentQuestionIndex].question}
+                        </h3>
+                        <p className="text-muted-foreground italic">
+                          Transcript: {questions[currentQuestionIndex].text}
+                        </p>
+                      </div>
 
-                  <div className="flex justify-between pt-4">
-                    <Button
-                      variant="outline"
-                      onClick={handlePreviousQuestion}
-                      disabled={currentQuestionIndex === 0}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      onClick={handleNextQuestion}
-                      disabled={currentQuestionIndex === questions.length - 1}
-                    >
-                      Next
-                    </Button>
-                  </div>
+                      <div className="space-y-2">
+                        {questions[currentQuestionIndex].options.map((option, index) => (
+                          <label
+                            key={index}
+                            className="flex items-center space-x-2 p-2 rounded hover:bg-muted cursor-pointer"
+                          >
+                            <input
+                              type="radio"
+                              name="answer"
+                              value={option}
+                              checked={selectedAnswers[currentQuestionIndex] === option}
+                              onChange={() => handleAnswerSelect(option)}
+                              className="h-4 w-4"
+                            />
+                            <span>{option}</span>
+                          </label>
+                        ))}
+                      </div>
+
+                      <div className="flex justify-between pt-4">
+                        <Button
+                          variant="outline"
+                          onClick={handlePreviousQuestion}
+                          disabled={currentQuestionIndex === 0}
+                        >
+                          Previous
+                        </Button>
+                        {currentQuestionIndex === questions.length - 1 ? (
+                          <Button
+                            onClick={() => {
+                              const newScore = questions.reduce((acc, question, index) => {
+                                return acc + (selectedAnswers[index] === question.correct_answer ? 1 : 0)
+                              }, 0)
+                              setScore(newScore)
+                              setShowResults(true)
+                            }}
+                            disabled={!selectedAnswers[currentQuestionIndex]}
+                          >
+                            Submit
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={handleNextQuestion}
+                            disabled={!selectedAnswers[currentQuestionIndex]}
+                          >
+                            Next
+                          </Button>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             )}

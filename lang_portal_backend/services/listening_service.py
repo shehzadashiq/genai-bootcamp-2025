@@ -31,9 +31,9 @@ class ListeningService:
         'च': 'چ', 'छ': 'چھ', 'ज': 'ج', 'झ': 'جھ', 'ञ': 'نج',
         'ट': 'ٹ', 'ठ': 'ٹھ', 'ड': 'ڈ', 'ढ': 'ڈھ', 'ण': 'ن',
         'त': 'ت', 'थ': 'تھ', 'द': 'د', 'ध': 'دھ', 'न': 'ن',
-        'प': 'प', 'फ': 'फ', 'ब': 'ب', 'भ': 'بھ', 'म': 'م',
-        'य': 'ی', 'र': 'ر', 'ल': 'ल', 'व': 'و',
-        'श': 'श', 'ष': 'श', 'स': 'स', 'ह': 'ہ',
+        'प': 'پ', 'फ': 'फ', 'ब': 'ب', 'भ': 'بھ', 'म': 'م',
+        'य': 'ی', 'र': 'ر', 'ल': 'ل', 'व': 'و',
+        'श': 'ش', 'ष': 'श', 'स': 'س', 'ह': 'ہ',
         
         # Matras (vowel signs)
         'ा': 'ا', 'ि': '', 'ी': 'ی',
@@ -255,7 +255,7 @@ class ListeningService:
                 'ल': 'ل',
                 'व': 'و',
                 'श': 'ش',
-                'ष': 'ش',
+                'ष': 'श',
                 'स': 'س',
                 'ह': 'ہ',
                 'ा': 'ا',
@@ -338,6 +338,7 @@ Important Rules:
 4. Options should be plausible but clearly distinguishable
 5. Include exact timestamps from the segments for audio reference
 6. Each question must correspond to a specific segment and use its timestamps
+7. CRITICAL: The correct_answer MUST EXACTLY match one of the options
 
 Here is the transcript with timestamps:
 
@@ -348,12 +349,12 @@ Generate a JSON array of {num_questions} questions. Each question must have this
   "id": (number),
   "question": "(question text in Urdu script)",
   "options": ["(option 1 in Urdu)", "(option 2 in Urdu)", "(option 3 in Urdu)", "(option 4 in Urdu)"],
-  "correct_answer": "(correct option in Urdu - must match exactly one of the options)",
+  "correct_answer": "(correct option in Urdu - must match EXACTLY one of the options)",
   "audio_start": (start time in seconds, from the segment),
   "audio_end": (end time in seconds, start + duration)
 }}
 
-Return ONLY the JSON array, no other text. Ensure all text is in Urdu script."""
+Return ONLY the JSON array, no other text. Ensure all text is in Urdu script and the correct_answer matches EXACTLY one of the options."""
 
             logger.info("Calling Bedrock with Claude model...")
             # Call Bedrock with Claude model
@@ -387,22 +388,50 @@ Return ONLY the JSON array, no other text. Ensure all text is in Urdu script."""
                     questions = json.loads(json_str)
                     logger.info(f"Successfully parsed {len(questions)} questions from response")
                     
-                    # Validate question format
-                    for q in questions:
-                        if not all(k in q for k in ['id', 'question', 'options', 'correct_answer', 'audio_start', 'audio_end']):
-                            logger.error("Invalid question format in response")
-                            return self.generate_questions(transcript)
-                        if not isinstance(q['options'], list) or len(q['options']) != 4:
-                            logger.error("Invalid options format in response")
-                            return self.generate_questions(transcript)
-                        if q['correct_answer'] not in q['options']:
-                            logger.error("Correct answer not in options")
-                            return self.generate_questions(transcript)
+                    # Validate question format and fix any issues
+                    validated_questions = []
+                    for i, q in enumerate(questions):
+                        try:
+                            # Validate required fields
+                            if not all(k in q for k in ['id', 'question', 'options', 'correct_answer', 'audio_start', 'audio_end']):
+                                logger.error(f"Question {i+1} missing required fields")
+                                continue
+                                
+                            # Validate options
+                            if not isinstance(q['options'], list) or len(q['options']) != 4:
+                                logger.error(f"Question {i+1} has invalid options format")
+                                continue
+                                
+                            # Validate correct answer
+                            if q['correct_answer'] not in q['options']:
+                                # Try to find the closest match
+                                for opt in q['options']:
+                                    if opt.strip() == q['correct_answer'].strip():
+                                        q['correct_answer'] = opt
+                                        break
+                                if q['correct_answer'] not in q['options']:
+                                    logger.error(f"Question {i+1} correct answer not in options")
+                                    continue
+                                    
+                            # Add to validated questions
+                            validated_questions.append(q)
+                            logger.info(f"Question {i+1} format: {list(q.keys())}")
+                            logger.info(f"Question {i+1} options count: {len(q['options'])}")
+                            logger.info(f"Question {i+1} correct answer in options: {q['correct_answer'] in q['options']}")
                             
-                    return questions
+                        except Exception as e:
+                            logger.error(f"Error validating question {i+1}: {e}")
+                            continue
                     
+                    if validated_questions:
+                        logger.info(f"Generated {len(validated_questions)} questions")
+                        return validated_questions
+                    else:
+                        logger.error("No valid questions after validation")
+                        return self.generate_questions(transcript)
+                        
                 except json.JSONDecodeError as e:
-                    logger.error(f"Failed to parse JSON response: {e}")
+                    logger.error(f"Failed to parse questions JSON: {e}")
                     return self.generate_questions(transcript)
             else:
                 logger.error("No JSON array found in response")
