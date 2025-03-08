@@ -5,6 +5,7 @@ import re
 from datetime import datetime
 from typing import List, Dict, Optional
 from youtube_transcript_api import YouTubeTranscriptApi
+import boto3
 from .vector_store_service import VectorStoreService
 from .language_service import LanguageService
 
@@ -15,12 +16,21 @@ class ListeningService:
     _cache_dir = "transcript_cache"
     _vector_store = None
     _language_service = None
+    _runtime = None
     
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(ListeningService, cls).__new__(cls)
             cls._vector_store = VectorStoreService()
             cls._language_service = LanguageService()
+            
+            # Initialize AWS Bedrock client
+            try:
+                cls._runtime = boto3.client('bedrock-runtime')
+                logger.info("Successfully initialized Bedrock runtime client")
+            except Exception as e:
+                logger.error(f"Failed to initialize Bedrock runtime client: {e}")
+                cls._runtime = None
             
             # Create cache directory if it doesn't exist
             if not os.path.exists(cls._cache_dir):

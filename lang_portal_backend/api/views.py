@@ -529,19 +529,23 @@ def test_bedrock(request):
                 'details': 'Check AWS credentials and Bedrock access'
             }, status=500)
             
-        # Test simple prompt
+        # Test simple prompt using Claude 3 format
         body = json.dumps({
-            "prompt": "\n\nHuman: Say hello in Urdu.\n\nAssistant:",
-            "max_tokens_to_sample": 100,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "Say hello in Urdu."
+                }
+            ],
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 100,
             "temperature": 0.5,
             "top_k": 250,
-            "top_p": 0.5,
-            "stop_sequences": ["\n\nHuman:"]
+            "top_p": 0.5
         })
         
         response = service._runtime.invoke_model(
-            # modelId='anthropic.claude-3-haiku-20240307-v1:0',
-            modelId = "amazon.nova-lite-v1:0",
+            modelId='anthropic.claude-3-haiku-20240307-v1:0',
             body=body.encode(),
             contentType='application/json',
             accept='application/json'
