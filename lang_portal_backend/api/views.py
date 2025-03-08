@@ -540,7 +540,8 @@ def test_bedrock(request):
         })
         
         response = service._runtime.invoke_model(
-            modelId='anthropic.claude-v2',
+            # modelId='anthropic.claude-3-haiku-20240307-v1:0',
+            modelId = "amazon.nova-lite-v1:0",
             body=body.encode(),
             contentType='application/json',
             accept='application/json'

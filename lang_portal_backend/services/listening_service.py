@@ -31,14 +31,14 @@ class ListeningService:
         'च': 'چ', 'छ': 'چھ', 'ज': 'ج', 'झ': 'جھ', 'ञ': 'نج',
         'ट': 'ٹ', 'ठ': 'ٹھ', 'ड': 'ڈ', 'ढ': 'ڈھ', 'ण': 'ن',
         'त': 'ت', 'थ': 'تھ', 'द': 'د', 'ध': 'دھ', 'न': 'ن',
-        'प': 'پ', 'फ': 'फ', 'ब': 'ب', 'भ': 'بھ', 'म': 'م',
+        'प': 'پ', 'फ': 'ف', 'ब': 'ب', 'भ': 'بھ', 'म': 'م',
         'य': 'ی', 'र': 'ر', 'ल': 'ل', 'व': 'و',
-        'श': 'ش', 'ष': 'श', 'स': 'س', 'ह': 'ہ',
+        'श': 'ش', 'ष': 'ش', 'स': 'س', 'ह': 'ہ',
         
         # Matras (vowel signs)
         'ा': 'ا', 'ि': '', 'ी': 'ی',
-        'ु': '', 'ू': 'व', 'े': 'ے',
-        'ै': 'ے', 'ो': 'व', 'ौ': 'व',
+        'ु': '', 'ू': 'و', 'े': 'ے',
+        'ै': 'ے', 'ो': 'و', 'ौ': 'व',
         '्': '',  # Halant
         
         # Numerals
@@ -329,7 +329,9 @@ class ListeningService:
             logger.info(f"Prepared context with {len(urdu_segments)} segments")
             
             # Prompt for Claude model
-            prompt = f"""You are an expert in Urdu language teaching. I will provide you with transcript segments from an Urdu audio/video. Generate {num_questions} multiple-choice questions that test listening comprehension.
+            system_prompt = """You are an expert in Urdu language teaching. Generate multiple-choice questions that test listening comprehension from provided transcript segments."""
+
+            user_prompt = f"""Generate {num_questions} multiple-choice questions based on these transcript segments.
 
 Important Rules:
 1. Write ALL text (questions, options, everything) in Urdu script ONLY - no Roman Urdu or English
@@ -359,16 +361,25 @@ Return ONLY the JSON array, no other text. Ensure all text is in Urdu script and
             logger.info("Calling Bedrock with Claude model...")
             # Call Bedrock with Claude model
             body = json.dumps({
-                "prompt": f"\n\nHuman: {prompt}\n\nAssistant: Here are the questions in JSON format:",
-                "max_tokens_to_sample": 2000,
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": 2000,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": system_prompt
+                    },
+                    {
+                        "role": "user",
+                        "content": user_prompt
+                    }
+                ],
                 "temperature": 0.7,
-                "top_k": 250,
-                "top_p": 0.7,
-                "stop_sequences": ["\n\nHuman:"]
+                "top_p": 0.7
             })
             
             response = self._runtime.invoke_model(
-                modelId='anthropic.claude-v2',
+                # modelId='anthropic.claude-3-haiku-20240307-v1:0',
+                modelId = "amazon.nova-lite-v1:0",
                 body=body.encode(),
                 contentType='application/json',
                 accept='application/json'

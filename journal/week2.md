@@ -22,11 +22,11 @@ This week is focused on Multi-modalities so we should attempt to work with vario
   - Character
 
 ### Video Translation Task (Optional)
-Transcribe the audio and translate the transcript. Eg. OpenWhisper
-Generate a subtitle file from the transcript
-How would align the timing of words?
 
-ASL Finger Spelling (Optional , Bonus Points)
+- Transcribe the audio and translate the transcript. Eg. OpenWhisper
+- Generate a subtitle file from the transcript
+- How would align the timing of words?
+
+### ASL Finger Spelling (Optional , Bonus Points)
+
 Try and find an existing Jupyter Notebook online that use OpenCV, MediaPipe that does ASL Fingerspelling. Demonstrate that you were able to get running by recording a video with your voice.
-
-
