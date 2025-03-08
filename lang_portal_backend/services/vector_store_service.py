@@ -1,20 +1,20 @@
 from typing import List, Dict, Optional
 import logging
 import os
-import math
-import sqlite3
 import json
 from datetime import datetime
-import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
+import chromadb
+from chromadb.utils import embedding_functions
 from .language_service import LanguageService
 
 logger = logging.getLogger(__name__)
 
 class VectorStoreService:
     _instance = None
-    _db_path = "vector_store.db"
+    _db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "chroma_db")  # Absolute path to ChromaDB directory
     _language_service = None
+    _client = None
+    _collection = None
     
     def __new__(cls):
         if cls._instance is None:
@@ -24,119 +24,80 @@ class VectorStoreService:
                 cls._init_db()
                 logger.info("Vector store initialized successfully")
             except Exception as e:
-                logger.error(f"Error initializing vector store: {e}")
+                logger.error(f"Error initializing ChromaDB: {e}")
                 raise
         return cls._instance
     
     @classmethod
     def _init_db(cls):
-        """Initialize SQLite database."""
+        """Initialize ChromaDB database."""
         try:
-            with sqlite3.connect(cls._db_path) as conn:
-                cursor = conn.cursor()
-                # Create table for transcript chunks
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS transcript_chunks (
-                        id TEXT PRIMARY KEY,
-                        video_id TEXT NOT NULL,
-                        text TEXT NOT NULL,
-                        vector BLOB NOT NULL,
-                        metadata TEXT NOT NULL,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
-                # Create index on video_id for faster deletion
-                cursor.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_video_id 
-                    ON transcript_chunks(video_id)
-                """)
-                conn.commit()
-                logger.info("Database initialized successfully")
+            # Ensure directory exists with correct permissions
+            os.makedirs(cls._db_path, exist_ok=True)
+            
+            # Initialize ChromaDB with persistence
+            cls._client = chromadb.PersistentClient(path=cls._db_path)
+            
+            # Get or create collection for transcript chunks
+            cls._collection = cls._client.get_or_create_collection(
+                name="transcript_chunks",
+                embedding_function=embedding_functions.DefaultEmbeddingFunction(),
+                metadata={"description": "Urdu transcript chunks for semantic search"}
+            )
+            
+            logger.info(f"ChromaDB initialized successfully at {cls._db_path}")
         except Exception as e:
-            logger.error(f"Error initializing database: {e}")
+            logger.error(f"Error initializing ChromaDB: {e}")
             raise
-    
-    def _get_bigrams(self, text: str) -> List[str]:
-        """Get character bigrams from text."""
-        chars = list(text)
-        return [''.join(pair) for pair in zip(chars, chars[1:])]
-    
-    def _vectorize_text(self, text: str) -> np.ndarray:
-        """Convert text to a dense vector using character bigrams."""
-        try:
-            # Get bigrams
-            bigrams = self._get_bigrams(text)
-            if not bigrams:
-                return np.array([])
-                
-            # Count frequencies
-            from collections import Counter
-            counter = Counter(bigrams)
-            total = len(bigrams)
-            
-            # Create normalized frequency vector
-            unique_bigrams = sorted(counter.keys())
-            vector = np.array([counter[bigram]/total for bigram in unique_bigrams])
-            
-            # Normalize vector
-            norm = np.linalg.norm(vector)
-            if norm > 0:
-                vector = vector / norm
-                
-            return vector
-            
-        except Exception as e:
-            logger.error(f"Error vectorizing text: {e}")
-            return np.array([])
     
     def add_transcript(self, video_id: str, transcript: List[Dict]) -> bool:
         """Add transcript chunks to vector store."""
         try:
-            with sqlite3.connect(self._db_path) as conn:
-                cursor = conn.cursor()
+            # Process each segment
+            ids = []
+            texts = []
+            metadatas = []
+            
+            for i, segment in enumerate(transcript):
+                text = segment.get('text', '').strip()
+                if not text:
+                    continue
                 
-                # Process each segment
-                for i, segment in enumerate(transcript):
-                    text = segment.get('text', '').strip()
-                    if not text:
-                        continue
-                    
-                    # Convert Hindi to Urdu if needed
-                    if not any(ord(char) >= 0x0600 and ord(char) <= 0x06FF for char in text):
-                        text = self._language_service.convert_hindi_to_urdu(text)
-                    
-                    # Create document record
-                    doc_id = f"{video_id}_{i}"
-                    vector = self._vectorize_text(text)
-                    
-                    # Prepare metadata
-                    metadata = {
-                        'video_id': video_id,
-                        'start_time': segment.get('start', 0),
-                        'end_time': segment.get('start', 0) + segment.get('duration', 0),
-                        'language': segment.get('language', 'ur'),
-                        'timestamp': datetime.utcnow().isoformat()
-                    }
-                    
-                    # Store in database
-                    cursor.execute(
-                        """
-                        INSERT OR REPLACE INTO transcript_chunks 
-                        (id, video_id, text, vector, metadata)
-                        VALUES (?, ?, ?, ?, ?)
-                        """,
-                        (
-                            doc_id,
-                            video_id,
-                            text,
-                            vector.tobytes(),
-                            json.dumps(metadata)
-                        )
-                    )
+                # Convert Hindi to Urdu if needed
+                if not any(ord(char) >= 0x0600 and ord(char) <= 0x06FF for char in text):
+                    text = self._language_service.convert_hindi_to_urdu(text)
                 
-                conn.commit()
-                logger.info(f"Added transcript chunks for video {video_id}")
+                # Create document record
+                doc_id = f"{video_id}_{i}"
+                
+                # Prepare metadata
+                metadata = {
+                    'video_id': video_id,
+                    'start_time': str(segment.get('start', 0)),  # ChromaDB requires string values
+                    'end_time': str(segment.get('start', 0) + segment.get('duration', 0)),
+                    'language': segment.get('language', 'ur'),
+                    'timestamp': datetime.utcnow().isoformat()
+                }
+                
+                ids.append(doc_id)
+                texts.append(text)
+                metadatas.append(metadata)
+            
+            if ids:
+                # Delete existing chunks for this video
+                self.delete_video_chunks(video_id)
+                
+                # Add new chunks
+                self._collection.add(
+                    ids=ids,
+                    documents=texts,
+                    metadatas=metadatas
+                )
+                
+                logger.info(f"Added {len(ids)} transcript chunks for video {video_id}")
                 return True
+            
+            return False
                 
         except Exception as e:
             logger.error(f"Error adding transcript: {e}")
@@ -151,39 +112,23 @@ class VectorStoreService:
             # Convert query to Urdu
             urdu_query = self._language_service.convert_hindi_to_urdu(query)
             
-            # Vectorize query
-            query_vector = self._vectorize_text(urdu_query)
-            if query_vector.size == 0:
-                return []
+            # Search using ChromaDB
+            results = self._collection.query(
+                query_texts=[urdu_query],
+                n_results=k
+            )
             
-            # Get all chunks from database
-            with sqlite3.connect(self._db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT id, text, vector, metadata FROM transcript_chunks")
-                chunks = cursor.fetchall()
+            # Format results
+            formatted_results = []
+            if results and results['documents']:
+                for i, doc in enumerate(results['documents'][0]):  # First query results
+                    formatted_results.append({
+                        'text': doc,
+                        'metadata': results['metadatas'][0][i],
+                        'similarity_score': float(results['distances'][0][i]) if 'distances' in results else 1.0
+                    })
             
-            if not chunks:
-                return []
-            
-            # Calculate similarities
-            results = []
-            for chunk_id, text, vector_bytes, metadata_json in chunks:
-                vector = np.frombuffer(vector_bytes).reshape(1, -1)
-                query_vector_reshaped = query_vector.reshape(1, -1)
-                
-                if vector.shape[1] != query_vector_reshaped.shape[1]:
-                    continue  # Skip if vectors have different dimensions
-                
-                similarity = cosine_similarity(query_vector_reshaped, vector)[0][0]
-                results.append({
-                    'text': text,
-                    'metadata': json.loads(metadata_json),
-                    'similarity_score': float(similarity)
-                })
-            
-            # Sort by similarity and get top k
-            results.sort(key=lambda x: x['similarity_score'], reverse=True)
-            return results[:k]
+            return formatted_results
             
         except Exception as e:
             logger.error(f"Error searching transcripts: {e}")
@@ -192,21 +137,21 @@ class VectorStoreService:
     def delete_video_chunks(self, video_id: str) -> bool:
         """Delete all chunks for a specific video."""
         try:
-            with sqlite3.connect(self._db_path) as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "DELETE FROM transcript_chunks WHERE video_id = ?",
-                    (video_id,)
+            # ChromaDB doesn't support direct filtering in delete, so we need to find IDs first
+            results = self._collection.get(
+                where={"video_id": video_id}
+            )
+            
+            if results and results['ids']:
+                self._collection.delete(
+                    ids=results['ids']
                 )
-                conn.commit()
-                
-                if cursor.rowcount > 0:
-                    logger.info(f"Deleted {cursor.rowcount} chunks for video {video_id}")
-                    return True
-                else:
-                    logger.warning(f"No chunks found for video {video_id}")
-                    return False
-                
+                logger.info(f"Deleted {len(results['ids'])} chunks for video {video_id}")
+                return True
+            
+            logger.warning(f"No chunks found for video {video_id}")
+            return False
+            
         except Exception as e:
             logger.error(f"Error deleting chunks: {e}")
             return False
