@@ -586,3 +586,39 @@ def test_hindi_to_urdu(request):
             'status': 'error',
             'message': str(e)
         }, status=500)
+
+@api_view(['POST'])
+def search_transcripts(request):
+    """Search through stored transcripts using semantic search."""
+    try:
+        if not request.data.get('query'):
+            return Response({
+                'status': 'error',
+                'message': 'Query is required'
+            }, status=400)
+            
+        query = request.data['query']
+        k = request.data.get('k', 5)  # Number of results to return
+        
+        # Get ListeningService instance to handle Hindi-Urdu conversion if needed
+        service = ListeningService()
+        
+        # Convert query to Urdu script if it's in Hindi
+        # This ensures consistent search regardless of input script
+        urdu_query = service.convert_hindi_to_urdu(query)
+        
+        # Search using vector store
+        vector_store = VectorStoreService()
+        results = vector_store.search_transcripts(urdu_query, k=k)
+        
+        return Response({
+            'status': 'success',
+            'results': results
+        })
+        
+    except Exception as e:
+        logger.error(f"Error searching transcripts: {e}")
+        return Response({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)

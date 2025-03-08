@@ -57,3 +57,6 @@ Pull the youtube content, and use that to generate out similar style listening c
 - youtube-transcript-api
 - chromadb
 - streamlit
+- langchain
+- faiss-cpu
+- sentence-transformers

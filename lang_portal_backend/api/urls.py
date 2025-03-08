@@ -28,6 +28,7 @@ urlpatterns = [
     path('listening/download-transcript', views.download_transcript, name='download_transcript'),
     path('listening/questions', views.get_listening_questions, name='get_listening_questions'),
     path('listening/transcript', views.get_transcript_and_stats, name='get_transcript_and_stats'),
+    path('listening/search', views.search_transcripts, name='search_transcripts'),
     path('listening/test-bedrock', views.test_bedrock, name='test_bedrock'),
     path('listening/test-hindi-to-urdu', views.test_hindi_to_urdu, name='test_hindi_to_urdu'),
     
