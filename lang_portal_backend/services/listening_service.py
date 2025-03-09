@@ -4,10 +4,11 @@ import os
 import re
 from datetime import datetime
 from typing import List, Dict, Optional
-from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
 import boto3
 from .vector_store_service import VectorStoreService
 from .language_service import LanguageService
+from config import guardrails_config
 
 logger = logging.getLogger(__name__)
 
@@ -78,46 +79,112 @@ class ListeningService:
             # Try to get from cache first
             cached_data = self._read_cache(video_id)
             if cached_data:
+                logger.info(f"Using cached transcript for video {video_id}")
                 return cached_data["transcript"]
             
-            # Fetch transcript from YouTube
-            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-            
-            # Try to get Urdu transcript first
+            # Fetch transcript list from YouTube
             try:
-                transcript = transcript_list.find_transcript(['ur'])
-                logger.info("Found Urdu transcript")
-            except:
-                # If no Urdu transcript, try Hindi
+                transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+            except (TranscriptsDisabled, NoTranscriptFound) as e:
+                logger.error(f"No transcripts available for video {video_id}: {e}")
+                return []
+            
+            # Get available transcript languages
+            try:
+                # Get all available transcripts
+                available_transcripts = transcript_list._manually_created_transcripts.copy()
+                available_transcripts.update(transcript_list._generated_transcripts)
+                logger.info(f"Available transcript languages: {[t.language_code for t in available_transcripts.values()]}")
+            except Exception as e:
+                logger.error(f"Error getting available transcripts: {e}")
+                return []
+            
+            transcript = None
+            # Try to get Hindi transcript (including auto-generated)
+            try:
+                # Look for Hindi transcripts
+                hindi_transcripts = [t for t in available_transcripts.values() if t.language_code == 'hi']
+                if hindi_transcripts:
+                    # Prefer manually created over auto-generated
+                    transcript = next((t for t in hindi_transcripts if not t.is_generated), None)
+                    if transcript:
+                        logger.info("Found manual Hindi transcript")
+                    else:
+                        # Use auto-generated if no manual transcript
+                        transcript = hindi_transcripts[0]
+                        logger.info("Found auto-generated Hindi transcript")
+            except Exception as e:
+                logger.debug(f"Error getting Hindi transcript: {e}")
+            
+            # If no Hindi transcript, try Urdu
+            if not transcript:
                 try:
-                    transcript = transcript_list.find_transcript(['hi'])
-                    logger.info("Found Hindi transcript")
-                except:
-                    # If no Hindi transcript, get any available transcript
-                    transcript = transcript_list.find_transcript(['en'])
-                    logger.info("Using fallback transcript")
+                    urdu_transcripts = [t for t in available_transcripts.values() if t.language_code == 'ur']
+                    if urdu_transcripts:
+                        transcript = urdu_transcripts[0]
+                        logger.info("Found Urdu transcript")
+                except Exception as e:
+                    logger.debug(f"No Urdu transcript available: {e}")
+            
+            # If still no transcript, try English as last resort
+            if not transcript:
+                try:
+                    english_transcripts = [t for t in available_transcripts.values() if t.language_code == 'en']
+                    if english_transcripts:
+                        transcript = english_transcripts[0]
+                        logger.info("Using English transcript as fallback")
+                except Exception as e:
+                    logger.debug(f"No English transcript available: {e}")
+                    # Try any available transcript as last resort
+                    if available_transcripts:
+                        transcript = next(iter(available_transcripts.values()))
+                        logger.info(f"Using available transcript in {transcript.language_code}")
+            
+            if not transcript:
+                logger.error("No transcript found in any language")
+                return []
             
             # Get transcript data
-            transcript_data = transcript.fetch()
+            try:
+                transcript_data = transcript.fetch()
+                source_lang = transcript.language_code
+                logger.info(f"Successfully fetched transcript in {source_lang}")
+            except Exception as e:
+                logger.error(f"Error fetching transcript data: {e}")
+                return []
             
-            # Convert Hindi text to Urdu if needed
+            # Convert text to Urdu script if needed
             converted_data = []
             for segment in transcript_data:
                 text = segment.get('text', '').strip()
                 if not text:
                     continue
-                    
+                
                 # Convert if not already in Urdu script
-                if not any(ord(char) >= 0x0600 and ord(char) <= 0x06FF for char in text):
-                    urdu_text = self._language_service.convert_hindi_to_urdu(text)
-                    converted_data.append({**segment, 'text': urdu_text})
+                if source_lang != 'ur':
+                    try:
+                        urdu_text = self._language_service.convert_hindi_to_urdu(text)
+                        converted_data.append({
+                            **segment,
+                            'text': urdu_text,
+                            'original_text': text,
+                            'source_language': source_lang
+                        })
+                    except Exception as e:
+                        logger.error(f"Error converting text to Urdu: {e}")
+                        converted_data.append({**segment, 'text': text})
                 else:
-                    converted_data.append(segment)
+                    converted_data.append({**segment, 'text': text})
+            
+            if not converted_data:
+                logger.error("No valid transcript segments found")
+                return []
             
             # Cache the converted transcript
             cache_data = {
                 "video_id": video_id,
                 "transcript": converted_data,
+                "source_language": source_lang,
                 "timestamp": datetime.utcnow().isoformat()
             }
             self._write_cache(video_id, cache_data)

@@ -97,24 +97,95 @@ class LanguageListeningApp:
         Returns:
             Processed transcript with metadata
         """
-        # Get transcript
-        transcript = YouTubeTranscriptApi.get_transcript(
-            video_id,
-            languages=[language]
-        )
-        
-        # Combine transcript text
-        text = " ".join([entry['text'] for entry in transcript])
-        
-        # Create exercise
-        exercise = {
-            'video_id': video_id,
-            'language': language,
-            'text': text,
-            'transcript': transcript
-        }
-        
-        return exercise
+        try:
+            # Get transcript list
+            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+            
+            transcript = None
+            # Try to get Hindi transcript (including auto-generated)
+            try:
+                # Get all available transcripts
+                available_transcripts = transcript_list._manually_created_transcripts.copy()
+                available_transcripts.update(transcript_list._generated_transcripts)
+                
+                # Look for Hindi transcripts
+                hindi_transcripts = [t for t in available_transcripts.values() if t.language_code == 'hi']
+                if hindi_transcripts:
+                    # Prefer manually created over auto-generated
+                    transcript = next((t for t in hindi_transcripts if not t.is_generated), None)
+                    if transcript:
+                        print("Found manual Hindi transcript")
+                    else:
+                        # Use auto-generated if no manual transcript
+                        transcript = hindi_transcripts[0]
+                        print("Found auto-generated Hindi transcript")
+            except Exception as e:
+                print(f"Error getting Hindi transcript: {e}")
+            
+            # If no Hindi transcript, try Urdu
+            if not transcript:
+                try:
+                    urdu_transcripts = [t for t in available_transcripts.values() if t.language_code == 'ur']
+                    if urdu_transcripts:
+                        transcript = urdu_transcripts[0]
+                        print("Found Urdu transcript")
+                except Exception as e:
+                    print(f"No Urdu transcript available: {e}")
+            
+            # If still no transcript, try English as last resort
+            if not transcript:
+                try:
+                    english_transcripts = [t for t in available_transcripts.values() if t.language_code == 'en']
+                    if english_transcripts:
+                        transcript = english_transcripts[0]
+                        print("Using English transcript as fallback")
+                except Exception as e:
+                    print(f"No English transcript available: {e}")
+                    # Try any available transcript as last resort
+                    if available_transcripts:
+                        transcript = next(iter(available_transcripts.values()))
+                        print(f"Using available transcript in {transcript.language_code}")
+            
+            if not transcript:
+                raise Exception("No transcript found in any language")
+            
+            # Get transcript data
+            transcript_data = transcript.fetch()
+            source_lang = transcript.language_code
+            
+            # Convert to Urdu if needed
+            if source_lang != 'ur':
+                processed_transcript = []
+                for entry in transcript_data:
+                    text = entry['text'].strip()
+                    if text:
+                        try:
+                            urdu_text = self.convert_hindi_to_urdu(text)
+                            processed_transcript.append({
+                                **entry,
+                                'text': urdu_text,
+                                'original_text': text,
+                                'source_language': source_lang
+                            })
+                        except Exception as e:
+                            print(f"Error converting text to Urdu: {e}")
+                            processed_transcript.append(entry)
+            else:
+                processed_transcript = transcript_data
+            
+            # Create exercise
+            exercise = {
+                'video_id': video_id,
+                'language': 'ur',  # Target language is always Urdu
+                'source_language': source_lang,
+                'transcript': processed_transcript
+            }
+            
+            return exercise
+            
+        except Exception as e:
+            print(f"Error fetching transcript: {e}")
+            raise e
 
     def generate_audio(
         self,
@@ -217,18 +288,31 @@ class LanguageListeningApp:
         # Fetch transcript
         exercise = self.fetch_youtube_transcript(video_id, language)
         
-        # Generate questions
-        questions = self.question_generator.generate_questions(
-            exercise['text'],
-            language=language
+        # Combine all transcript segments into full text
+        full_text = " ".join(
+            segment['text'].strip()
+            for segment in exercise['transcript']
+            if segment.get('text', '').strip()
         )
-        exercise['questions'] = questions
+        exercise['full_text'] = full_text
         
-        # Generate audio
-        audio = self.generate_audio(exercise['text'], language)
-        exercise['audio'] = base64.b64encode(audio).decode()
-        
-        return exercise
+        try:
+            # Generate questions
+            questions = self.question_generator.generate_questions(
+                full_text,
+                language=language
+            )
+            exercise['questions'] = questions
+            
+            # Generate audio
+            audio = self.generate_audio(full_text, language)
+            exercise['audio'] = base64.b64encode(audio).decode()
+            
+            return exercise
+            
+        except Exception as e:
+            print(f"Error creating exercise: {str(e)}")
+            raise ValueError(f"Failed to create exercise: {str(e)}")
 
     def display_exercise(self, exercise: Dict):
         """
@@ -238,7 +322,16 @@ class LanguageListeningApp:
             exercise: Exercise to display
         """
         st.write("## Exercise Text")
-        st.write(exercise['text'])
+        # Display full text if available, otherwise fall back to first segment
+        if 'full_text' in exercise:
+            st.write(exercise['full_text'])
+        else:
+            segments_text = " ".join(
+                segment['text'].strip()
+                for segment in exercise['transcript']
+                if segment.get('text', '').strip()
+            )
+            st.write(segments_text)
         
         st.write("## Audio")
         st.audio(
@@ -247,18 +340,58 @@ class LanguageListeningApp:
         )
         
         st.write("## Questions")
-        for i, q in enumerate(exercise['questions']):
-            st.write(f"### Question {i+1}")
-            st.write(q['question'])
+        if 'questions' in exercise:
+            for i, q in enumerate(exercise['questions']):
+                st.write(f"### Question {i+1}")
+                st.write(q['question'])
+                
+                # Display options
+                for option in q['options']:
+                    st.write(option)
+                
+                # Add answer button
+                if st.button(f"Show Answer {i+1}"):
+                    st.write(f"Correct Answer: {q['options'][int(q['correct_answer'])]}")
+                    st.write(f"Explanation: {q['explanation']}")
+        else:
+            st.error("No questions available for this exercise.")
+
+    def practice_exercise(
+        self,
+        text: str,
+        language: str = 'ur'
+    ) -> Dict:
+        """
+        Create a practice exercise from a given text.
+        
+        Args:
+            text: Text to practice
+            language: Target language code
             
-            # Display options
-            for j, option in enumerate(q['options']):
-                st.write(f"{option}")
+        Returns:
+            Complete exercise with transcript, audio, and questions
+        """
+        try:
+            # Generate questions
+            questions = self.question_generator.generate_questions(
+                text,
+                language=language
+            )
             
-            # Add answer button
-            if st.button(f"Show Answer {i+1}"):
-                st.write(f"Correct Answer: {q['options'][int(q['correct_answer'])]}")
-                st.write(f"Explanation: {q['explanation']}")
+            # Generate audio
+            audio = self.generate_audio(text, language)
+            
+            exercise = {
+                'text': text,
+                'questions': questions,
+                'audio': base64.b64encode(audio).decode()
+            }
+            
+            return exercise
+            
+        except Exception as e:
+            print(f"Error creating exercise: {str(e)}")
+            raise ValueError(f"Failed to create exercise: {str(e)}")
 
 def main():
     """Main Streamlit application."""
@@ -292,17 +425,7 @@ def main():
             
             if st.button("Generate Exercise"):
                 with st.spinner("Generating exercise..."):
-                    # Generate questions
-                    questions = app.question_generator.generate_questions(text)
-                    
-                    # Generate audio
-                    audio = app.generate_audio(text)
-                    
-                    exercise = {
-                        'text': text,
-                        'questions': questions,
-                        'audio': base64.b64encode(audio).decode()
-                    }
+                    exercise = app.practice_exercise(text)
                     st.session_state.current_exercise = exercise
                     
             if st.session_state.current_exercise:

@@ -4,9 +4,11 @@ Question generator for language listening exercises using Amazon Bedrock.
 from typing import Dict, List, Optional, Tuple, Union
 import boto3
 import json
+import re
 from config import aws_config, app_config
 from langchain_core.language_models import BaseLLM
 from langchain_aws.chat_models import BedrockChat
+from langchain_core.messages import HumanMessage, SystemMessage
 
 class QuestionGenerator:
     def __init__(self):
@@ -21,7 +23,7 @@ class QuestionGenerator:
             region_name=aws_config.AWS_REGION
         )
         
-        # Initialize Bedrock LLM
+        # Initialize Bedrock LLM with specific parameters for question generation
         self.llm = BedrockChat(
             client=self.bedrock_runtime,  # Use runtime client for inference
             model_id=aws_config.BEDROCK_MODEL_ID,
@@ -53,36 +55,67 @@ class QuestionGenerator:
         if num_questions is None:
             num_questions = app_config.QUESTIONS_PER_EXERCISE
             
+        # System message to enforce JSON format
+        system_message = SystemMessage(content="""You are a language learning question generator. 
+Always respond with valid JSON containing multiple choice questions.
+Each question must have exactly 4 options labeled A) through D).
+The correct_answer must be a number 0-3 corresponding to the index of the correct option.
+Include a clear explanation for each correct answer.""")
+            
         # Prepare prompt for Bedrock
-        prompt = f"""Generate {num_questions} multiple choice listening comprehension questions in {language} based on this text:
+        prompt = f"""Create {num_questions} multiple choice questions in {language} based on this text:
 
 {text}
 
-For each question:
-1. Create a clear, focused question
-2. Provide {app_config.OPTIONS_PER_QUESTION} possible answers
-3. Mark the correct answer
-4. Include an explanation
-
-Format as JSON with this structure:
+Return ONLY a JSON object with this EXACT structure:
 {{
     "questions": [
         {{
-            "question": "Question text",
-            "options": ["A) Option 1", "B) Option 2", "C) Option 3", "D) Option 4"],
-            "correct_answer": "Index of correct option (0-3)",
-            "explanation": "Why this is the correct answer"
+            "question": "Question text here",
+            "options": [
+                "A) First option",
+                "B) Second option",
+                "C) Third option",
+                "D) Fourth option"
+            ],
+            "correct_answer": 0,
+            "explanation": "Explanation for why the first option (index 0) is correct"
         }}
     ]
-}}"""
+}}
+
+Requirements:
+1. MUST be valid JSON
+2. Each question MUST have exactly 4 options
+3. Options MUST be labeled A) through D)
+4. correct_answer MUST be a number 0-3
+5. All text MUST be in {language}
+6. DO NOT include any text outside the JSON"""
 
         try:
             # Generate questions using LangChain Bedrock integration
-            from langchain_core.messages import HumanMessage
-            response = self.llm.invoke([HumanMessage(content=prompt)])
+            response = self.llm.invoke([
+                system_message,
+                HumanMessage(content=prompt)
+            ])
             
-            # Parse response as JSON
-            questions = json.loads(response.content)['questions']
+            # Clean the response to ensure it's valid JSON
+            content = response.content.strip()
+            # Remove any text before the first {
+            content = content[content.find('{'):]
+            # Remove any text after the last }
+            content = content[:content.rfind('}')+1]
+            
+            try:
+                # Parse response as JSON
+                questions = json.loads(content)['questions']
+            except (json.JSONDecodeError, KeyError) as e:
+                # If JSON parsing fails, try to extract JSON using regex
+                json_match = re.search(r'\{[\s\S]*\}', content)
+                if json_match:
+                    questions = json.loads(json_match.group(0))['questions']
+                else:
+                    raise ValueError("Could not extract valid JSON from response")
             
             # Validate questions
             success, message = self.validate_questions(questions)
@@ -91,10 +124,10 @@ Format as JSON with this structure:
                 
             return questions
             
-        except json.JSONDecodeError:
-            raise ValueError("Failed to parse question generation response as JSON")
-        except KeyError:
-            raise ValueError("Question generation response missing required fields")
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Failed to parse question generation response as JSON: {str(e)}")
+        except KeyError as e:
+            raise ValueError(f"Question generation response missing required fields: {str(e)}")
         except Exception as e:
             raise ValueError(f"Question generation failed: {str(e)}")
 
@@ -119,18 +152,33 @@ Format as JSON with this structure:
         for i, q in enumerate(questions):
             # Check required fields
             if not all(field in q for field in required_fields):
-                return False, f"Question {i+1} missing required fields"
+                missing = required_fields - set(q.keys())
+                return False, f"Question {i+1} missing fields: {', '.join(missing)}"
                 
             # Validate options
+            if not isinstance(q['options'], list):
+                return False, f"Question {i+1} options must be a list"
+                
             if len(q['options']) != app_config.OPTIONS_PER_QUESTION:
-                return False, f"Question {i+1} has wrong number of options"
+                return False, f"Question {i+1} must have exactly {app_config.OPTIONS_PER_QUESTION} options"
+                
+            # Validate option format
+            for j, opt in enumerate(q['options']):
+                if not opt.startswith(f"{chr(65+j)}) "):  # A), B), C), D)
+                    return False, f"Question {i+1} option {j+1} must start with '{chr(65+j)}) '"
                 
             # Validate correct answer
             try:
                 correct_idx = int(q['correct_answer'])
                 if not 0 <= correct_idx < len(q['options']):
-                    return False, f"Question {i+1} has invalid correct_answer index"
+                    return False, f"Question {i+1} correct_answer must be between 0 and {len(q['options'])-1}"
             except (ValueError, TypeError):
-                return False, f"Question {i+1} has invalid correct_answer format"
+                return False, f"Question {i+1} correct_answer must be a number"
+                
+            # Validate text fields
+            if not q['question'].strip():
+                return False, f"Question {i+1} has empty question text"
+            if not q['explanation'].strip():
+                return False, f"Question {i+1} has empty explanation"
                 
         return True, "Questions validated successfully"
