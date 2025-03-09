@@ -25,7 +25,8 @@ Pull the youtube content, and use that to generate out similar style listening c
 
 ## Technical Uncertainty
 
-- Don’t know Urdu
+- Videos with Urdu Transcripts are extremely limited and hard to find
+- Videos with Hindi Transcripts do not translate well to Urdu script
 - Accessing or storing documents as vector store with Sqlite3
 - TSS (Text-to-Speech Synthesis) might not exist for Urdu OR might not be good enough.
 - ASR (Automatic Speech Recognition) might not exist for Urdu OR might not be good enough.

@@ -290,3 +290,229 @@ If you're still experiencing issues:
 2. Write tests for new features
 3. Update documentation when making changes
 4. Use meaningful commit messages
+
+# Language Learning Portal
+
+A comprehensive language learning platform with a focus on Urdu listening comprehension, powered by AWS services and Streamlit.
+
+## Features
+
+### Core Components
+1. **YouTube Integration**
+   - Transcript extraction using youtube-transcript-api
+   - Video preview and metadata display
+   - Support for Hindi and Urdu transcripts
+   - Automatic Hindi to Urdu script conversion
+
+2. **Vector Store Integration**
+   - ChromaDB for exercise storage
+   - Bedrock embeddings for semantic search
+   - Metadata filtering by language and user
+   - CRUD operations for exercises
+
+3. **Question Generation**
+   - Bedrock-based question generator
+   - Multiple choice format with explanations
+   - Configurable number of questions and options
+   - Question validation and formatting
+
+4. **Audio Generation**
+   - Amazon Polly integration for TTS
+   - Hindi-Urdu script conversion
+   - Fallback character mapping system
+   - Audio caching in session state
+
+## Getting Started
+
+### Prerequisites
+- Python 3.8+
+- AWS Account with access to:
+  - Amazon Bedrock
+  - Amazon Polly
+  - Amazon Translate
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd lang_portal_backend
+```
+
+2. Create and activate a virtual environment:
+```bash
+python -m venv venv
+.\venv\Scripts\activate  # Windows
+source venv/bin/activate  # Linux/Mac
+```
+
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+4. Configure AWS credentials:
+Create a `.env` file with:
+```
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_REGION=your_region
+```
+
+### Running the Application
+
+Start the Streamlit app:
+```bash
+streamlit run listening_app.py
+```
+
+The app will be available at `http://localhost:8501`
+
+## Usage Guide
+
+### 1. YouTube Exercise Mode
+- Enter a YouTube video ID
+- System will:
+  1. Extract transcript (prioritizes Hindi, falls back to Urdu/English)
+  2. Convert Hindi script to Urdu if needed
+  3. Generate multiple-choice questions
+  4. Create audio using TTS
+
+### 2. Practice Mode
+- Enter custom text
+- System generates:
+  1. Multiple-choice questions
+  2. Audio playback
+  3. Interactive exercise interface
+
+### 3. My Exercises
+- View saved exercises
+- Search by similarity
+- Track progress
+
+## Architecture
+
+### 1. Transcript Handling
+```python
+# Priority order:
+1. Manual Hindi transcript
+2. Auto-generated Hindi transcript
+3. Urdu transcript
+4. English transcript (fallback)
+```
+
+### 2. Script Conversion
+```python
+# Two-tier approach:
+1. AWS Translate (hi → ur)
+2. Fallback: Character mapping system
+```
+
+### 3. Vector Store
+```python
+# ChromaDB configuration:
+- Collection name: "exercises"
+- Embedding: Bedrock (titan-embed-text-v1)
+- Persistence: Local directory
+```
+
+## Troubleshooting
+
+### 1. Transcript Issues
+- **No transcript found**
+  - Check video ID is correct
+  - Verify video has captions enabled
+  - Try a different language option
+
+- **Hindi to Urdu conversion fails**
+  - Check AWS credentials
+  - Verify AWS Translate quota
+  - System will use character mapping fallback
+
+### 2. Audio Generation
+- **Polly fails**
+  - Check AWS credentials
+  - Verify supported text length
+  - System will use gTTS fallback
+
+### 3. Question Generation
+- **JSON parsing error**
+  - Check text length is within limits
+  - Verify Bedrock model availability
+  - Review text for unsupported characters
+
+### 4. Vector Store
+- **ChromaDB errors**
+  - Check persistence directory permissions
+  - Verify embedding function is working
+  - Ensure sufficient disk space
+
+## Configuration
+
+### 1. AWS Services
+```python
+# Required permissions:
+- bedrock:InvokeModel
+- translate:TranslateText
+- polly:SynthesizeSpeech
+```
+
+### 2. Application Settings
+```python
+# config.py
+QUESTIONS_PER_EXERCISE = 5
+OPTIONS_PER_QUESTION = 4
+TRANSLATION_FALLBACK = True
+POLLY_VOICE_ID = "Aditi"
+```
+
+### 3. Vector Store Settings
+```python
+# vector_store_config.py
+COLLECTION_NAME = "exercises"
+PERSIST_DIRECTORY = "./chroma_db"
+SIMILARITY_THRESHOLD = 0.7
+```
+
+## Project Structure
+```
+lang_portal_backend/
+├── services/
+│   ├── listening_service.py    # YouTube & transcript handling
+│   ├── language_service.py     # Script conversion
+│   └── vector_store_service.py # ChromaDB integration
+├── config.py                   # Configuration settings
+├── listening_app.py            # Streamlit application
+├── question_generator.py       # Bedrock integration
+├── vector_store.py            # Vector store setup
+└── requirements.txt           # Dependencies
+```
+
+## Dependencies
+```
+# Core
+streamlit>=1.24.0
+chromadb>=0.4.0
+langchain>=0.0.300
+youtube-transcript-api>=0.6.1
+
+# AWS
+boto3>=1.34.0
+botocore>=1.34.0
+
+# Audio
+gTTS>=2.3.2
+
+# Utils
+python-dotenv>=1.0.0
+```
+
+## Contributing
+1. Fork the repository
+2. Create a feature branch
+3. Commit changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+MIT License
