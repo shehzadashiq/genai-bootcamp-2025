@@ -34,42 +34,21 @@ class GuardrailsConfig:
     # Language detection confidence threshold
     LANGUAGE_CONFIDENCE_THRESHOLD: float = 0.8
 
-@dataclass
 class AWSConfig:
-    # AWS Credentials
-    AWS_ACCESS_KEY_ID: str = field(
-        default_factory=lambda: os.getenv('AWS_ACCESS_KEY_ID', '')
-    )
-    AWS_SECRET_ACCESS_KEY: str = field(
-        default_factory=lambda: os.getenv('AWS_SECRET_ACCESS_KEY', '')
-    )
-    AWS_REGION: str = field(
-        default_factory=lambda: os.getenv('AWS_REGION', 'us-east-1')
-    )
+    """AWS service configuration."""
+    AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+    AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
     
-    # Bedrock settings
-    BEDROCK_MODEL_ID: str = field(
-        default_factory=lambda: os.getenv(
-            'BEDROCK_MODEL_ID', 
-            'anthropic.claude-v2'
-        )
-    )
-    BEDROCK_EMBEDDING_MODEL: str = field(
-        default_factory=lambda: os.getenv(
-            'BEDROCK_EMBEDDING_MODEL',
-            'amazon.titan-embed-text-v1'
-        )
-    )
+    # Bedrock models
+    BEDROCK_MODEL_ID = os.getenv('BEDROCK_MODEL_ID', 'anthropic.claude-v2').strip('"')  # Strip quotes if present
+    BEDROCK_EMBEDDING_MODEL = os.getenv('BEDROCK_EMBEDDING_MODEL', 'amazon.titan-embed-text-v1').strip('"')
     
     # Polly settings
-    POLLY_VOICE_ID: str = field(
-        default_factory=lambda: os.getenv('POLLY_VOICE_ID', 'Arya')
-    )
+    POLLY_VOICE_ID = os.getenv('POLLY_VOICE_ID', 'Arya')
     
     # Translation settings
-    TRANSLATION_FALLBACK: bool = field(
-        default_factory=lambda: os.getenv('TRANSLATION_FALLBACK', 'True').lower() == 'true'
-    )
+    TRANSLATION_FALLBACK: bool = os.getenv('TRANSLATION_FALLBACK', 'True').lower() == 'true'
 
 @dataclass
 class VectorStoreConfig:
@@ -77,6 +56,9 @@ class VectorStoreConfig:
     COLLECTION_NAME: str = 'listening_exercises'
     SIMILARITY_METRIC: str = 'cosine'
     EMBEDDING_DIMENSION: int = 1536  # Titan embedding dimension
+    PERSIST_DIRECTORY: str = field(
+        default_factory=lambda: os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vector_store')
+    )
     
     # Search settings
     DEFAULT_SEARCH_LIMIT: int = 5

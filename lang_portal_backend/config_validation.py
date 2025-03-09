@@ -23,82 +23,91 @@ class ConfigValidationError(Exception):
     pass
 
 def validate_aws_credentials() -> Tuple[bool, str]:
-    """Validate AWS credentials and permissions."""
+    """
+    Validate AWS credentials and permissions.
+    Tests access to required services: Bedrock and Translate.
+    Polly is optional.
+    """
     try:
-        # Check AWS credentials
-        sts = boto3.client(
-            'sts',
-            aws_access_key_id=aws_config.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=aws_config.AWS_SECRET_ACCESS_KEY,
+        # Initialize service clients
+        bedrock = boto3.client(
+            'bedrock',  # Use base bedrock client for model listing
             region_name=aws_config.AWS_REGION
         )
-        sts.get_caller_identity()
-        
-        # Test Bedrock access
-        bedrock = boto3.client(
+        bedrock_runtime = boto3.client(
             'bedrock-runtime',
             region_name=aws_config.AWS_REGION
         )
-        bedrock.list_foundation_models()
-        
-        # Test Polly access
-        polly = boto3.client(
-            'polly',
-            region_name=aws_config.AWS_REGION
-        )
-        polly.describe_voices()
-        
-        # Test Translate access
         translate = boto3.client(
             'translate',
             region_name=aws_config.AWS_REGION
         )
+        
+        # Test Bedrock access (required)
+        bedrock.list_foundation_models()
+        
+        # Test Translate access (required)
         translate.list_languages()
         
-        return True, "AWS credentials and permissions validated"
+        return True, "AWS credentials validated successfully"
     except ClientError as e:
-        return False, f"AWS validation failed: {str(e)}"
+        error_code = e.response['Error']['Code']
+        error_msg = e.response['Error']['Message']
+        return False, f"AWS validation failed: {error_code} - {error_msg}"
 
 def validate_bedrock_models() -> Tuple[bool, str]:
     """Validate Bedrock model configurations."""
     try:
+        # Initialize Bedrock client
         bedrock = boto3.client(
-            'bedrock-runtime',
+            'bedrock',  # Use base bedrock client for model listing
             region_name=aws_config.AWS_REGION
         )
         
-        # Check if models exist
-        models = bedrock.list_foundation_models()
-        available_models = [m['modelId'] for m in models['models']]
+        # List available models
+        response = bedrock.list_foundation_models()
         
+        # Extract model IDs from response
+        available_models = [
+            m['modelId'] for m in response.get('modelSummaries', [])
+        ]
+        
+        # Check if configured models are available
         if aws_config.BEDROCK_MODEL_ID not in available_models:
-            return False, f"Bedrock model {aws_config.BEDROCK_MODEL_ID} not available"
+            return False, f"Configured Bedrock model {aws_config.BEDROCK_MODEL_ID} not found in available models"
             
         if aws_config.BEDROCK_EMBEDDING_MODEL not in available_models:
-            return False, f"Bedrock embedding model {aws_config.BEDROCK_EMBEDDING_MODEL} not available"
+            return False, f"Configured embedding model {aws_config.BEDROCK_EMBEDDING_MODEL} not found in available models"
             
-        return True, "Bedrock models validated"
+        return True, "Bedrock models validated successfully"
+        
     except ClientError as e:
-        return False, f"Bedrock validation failed: {str(e)}"
+        error_code = e.response['Error']['Code']
+        error_msg = e.response['Error']['Message']
+        return False, f"Bedrock model validation failed: {error_code} - {error_msg}"
 
 def validate_polly_voice() -> Tuple[bool, str]:
-    """Validate Polly voice configuration."""
+    """
+    Validate Polly voice configuration.
+    This is optional - if Polly is not available, we'll use alternative TTS.
+    """
     try:
         polly = boto3.client(
             'polly',
             region_name=aws_config.AWS_REGION
         )
+        voices = polly.describe_voices()
         
-        # Check if voice exists and supports Urdu
-        voices = polly.describe_voices(LanguageCode='ur-PK')
-        available_voices = [v['Id'] for v in voices['Voices']]
-        
-        if aws_config.POLLY_VOICE_ID not in available_voices:
-            return False, f"Polly voice {aws_config.POLLY_VOICE_ID} not available for Urdu"
+        voice_ids = [v['Id'] for v in voices['Voices']]
+        if aws_config.POLLY_VOICE_ID not in voice_ids:
+            return False, f"Configured voice {aws_config.POLLY_VOICE_ID} not found"
             
-        return True, "Polly voice validated"
+        return True, "Polly voice validated successfully"
     except ClientError as e:
-        return False, f"Polly validation failed: {str(e)}"
+        if e.response['Error']['Code'] == 'AccessDeniedException':
+            print("Warning: Polly access not available. Will use alternative TTS.")
+            return True, "Polly not available, using alternative TTS"
+        return False, f"Polly validation failed: {e.response['Error']['Message']}"
 
 def validate_translation_setup() -> Tuple[bool, str]:
     """
@@ -183,29 +192,35 @@ def validate_app_config() -> Tuple[bool, str]:
     except Exception as e:
         return False, f"Application validation failed: {str(e)}"
 
-def validate_all_configs() -> List[Dict[str, str]]:
+def validate_all_configs() -> Dict[str, Tuple[bool, str]]:
     """
-    Validate all configurations and return list of validation results.
-    Each result contains 'component', 'status', and 'message'.
+    Validate all configurations.
+    Returns a dictionary of validation results.
     """
-    validations = [
-        ('AWS Credentials', validate_aws_credentials),
-        ('Bedrock Models', validate_bedrock_models),
-        ('Polly Voice', validate_polly_voice),
-        ('Translation Setup', validate_translation_setup),
-        ('Guardrails', validate_guardrails_config),
-        ('Vector Store', validate_vector_store_config),
-        ('Application', validate_app_config)
-    ]
+    validators = {
+        'aws_credentials': validate_aws_credentials,
+        'bedrock_models': validate_bedrock_models,
+        'polly_voice': validate_polly_voice,
+        'translation': validate_translation_setup,
+        'guardrails': validate_guardrails_config,
+        'vector_store': validate_vector_store_config,
+        'app_config': validate_app_config
+    }
     
-    results = []
-    for component, validator in validations:
-        success, message = validator()
-        results.append({
-            'component': component,
-            'status': 'valid' if success else 'invalid',
-            'message': message
-        })
+    results = {}
+    for name, validator in validators.items():
+        try:
+            success, message = validator()
+            results[name] = (success, message)
+            
+            # Stop on critical failures (except Polly)
+            if not success and name != 'polly_voice':
+                break
+                
+        except Exception as e:
+            results[name] = (False, str(e))
+            if name != 'polly_voice':
+                break
     
     return results
 
@@ -214,8 +229,8 @@ if __name__ == '__main__':
     results = validate_all_configs()
     print("\nConfiguration Validation Results:")
     print("=================================")
-    for result in results:
-        status_color = '\033[92m' if result['status'] == 'valid' else '\033[91m'
-        print(f"\n{result['component']}:")
-        print(f"Status: {status_color}{result['status']}\033[0m")
-        print(f"Message: {result['message']}")
+    for name, (success, message) in results.items():
+        status_color = '\033[92m' if success else '\033[91m'
+        print(f"\n{name.capitalize().replace('_', ' ')}:")
+        print(f"Status: {status_color}{('Valid' if success else 'Invalid')}\033[0m")
+        print(f"Message: {message}")

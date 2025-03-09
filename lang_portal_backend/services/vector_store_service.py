@@ -1,17 +1,19 @@
-from typing import List, Dict, Optional
-import logging
+"""
+Vector store service implementation using ChromaDB.
+"""
 import os
-import json
-from datetime import datetime
+import logging
+from typing import List, Dict, Any, Optional
 import chromadb
 from chromadb.utils import embedding_functions
+from config import vector_store_config, aws_config
+from datetime import datetime
 from .language_service import LanguageService
 
 logger = logging.getLogger(__name__)
 
 class VectorStoreService:
     _instance = None
-    _db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "chroma_db")  # Absolute path to ChromaDB directory
     _language_service = None
     _client = None
     _collection = None
@@ -21,7 +23,7 @@ class VectorStoreService:
             cls._instance = super(VectorStoreService, cls).__new__(cls)
             try:
                 cls._language_service = LanguageService()
-                cls._init_db()
+                cls.initialize()
                 logger.info("Vector store initialized successfully")
             except Exception as e:
                 logger.error(f"Error initializing ChromaDB: {e}")
@@ -29,23 +31,43 @@ class VectorStoreService:
         return cls._instance
     
     @classmethod
-    def _init_db(cls):
+    def initialize(cls) -> None:
         """Initialize ChromaDB database."""
         try:
-            # Ensure directory exists with correct permissions
-            os.makedirs(cls._db_path, exist_ok=True)
+            # Ensure persistence directory exists
+            os.makedirs(vector_store_config.PERSIST_DIRECTORY, exist_ok=True)
             
             # Initialize ChromaDB with persistence
-            cls._client = chromadb.PersistentClient(path=cls._db_path)
-            
-            # Get or create collection for transcript chunks
-            cls._collection = cls._client.get_or_create_collection(
-                name="transcript_chunks",
-                embedding_function=embedding_functions.DefaultEmbeddingFunction(),
-                metadata={"description": "Urdu transcript chunks for semantic search"}
+            cls._client = chromadb.PersistentClient(
+                path=vector_store_config.PERSIST_DIRECTORY,
+                settings={
+                    "anonymized_telemetry": False,
+                    "allow_reset": False,
+                    "is_persistent": True
+                }
             )
             
-            logger.info(f"ChromaDB initialized successfully at {cls._db_path}")
+            # Initialize embedding function for Bedrock
+            embedding_function = embedding_functions.BedrockEmbeddingFunction(
+                aws_access_key_id=aws_config.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=aws_config.AWS_SECRET_ACCESS_KEY,
+                aws_region=aws_config.AWS_REGION,
+                model_id=aws_config.BEDROCK_EMBEDDING_MODEL
+            )
+            
+            # Get or create collection with specific settings
+            cls._collection = cls._client.get_or_create_collection(
+                name=vector_store_config.COLLECTION_NAME,
+                embedding_function=embedding_function,
+                metadata={
+                    "hnsw:space": vector_store_config.SIMILARITY_METRIC,
+                    "hnsw:construction_ef": 100,  # Higher value = better accuracy, slower construction
+                    "hnsw:search_ef": 100,  # Higher value = better accuracy, slower search
+                    "dimension": vector_store_config.EMBEDDING_DIMENSION
+                }
+            )
+            
+            logger.info(f"ChromaDB initialized successfully at {vector_store_config.PERSIST_DIRECTORY}")
         except Exception as e:
             logger.error(f"Error initializing ChromaDB: {e}")
             raise
