@@ -4,11 +4,13 @@ lang_portal/backend_python/venv/*
 lang_portal/backend_python/logs/debug.log
 lang_portal/backend_python/logs/*
 *.log
-lang_portal/frontend/node_modules/*
-lang_portal/frontend/.vite/*
+lang_portal_frontend/node_modules/
+lang_portal_frontend/node_modules/.vite/deps_temp_*/
 **/__pycache__/
 **/data/*
 **/.venv/*
 opea-comps/huggingface/token
 opea-comps/huggingface/hub/*
 opea-comps/.env
+lang_portal_frontend/node_modules/
+

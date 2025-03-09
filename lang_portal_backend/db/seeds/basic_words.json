@@ -1,0 +1,902 @@
+[
+    {
+        "urdu": "میں",
+        "urdlish": "main",
+        "english": "I",
+        "parts": {
+            "type": "pronoun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "آپ",
+        "urdlish": "aap",
+        "english": "you",
+        "parts": {
+            "type": "pronoun",
+            "formality": "formal"
+        }
+    },
+    {
+        "urdu": "تم",
+        "urdlish": "tum",
+        "english": "you",
+        "parts": {
+            "type": "pronoun",
+            "formality": "informal"
+        }
+    },
+    {
+        "urdu": "ہے",
+        "urdlish": "hai",
+        "english": "is",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "نہیں",
+        "urdlish": "nahin",
+        "english": "no/not",
+        "parts": {
+            "type": "negative",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "کیا",
+        "urdlish": "kya",
+        "english": "what",
+        "parts": {
+            "type": "question",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "ہاں",
+        "urdlish": "haan",
+        "english": "yes",
+        "parts": {
+            "type": "affirmative",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "اور",
+        "urdlish": "aur",
+        "english": "and",
+        "parts": {
+            "type": "conjunction",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "کو",
+        "urdlish": "ko",
+        "english": "to",
+        "parts": {
+            "type": "preposition",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "کا",
+        "urdlish": "ka",
+        "english": "of",
+        "parts": {
+            "type": "possessive",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "یہ",
+        "urdlish": "yeh",
+        "english": "this",
+        "parts": {
+            "type": "demonstrative",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "وہ",
+        "urdlish": "woh",
+        "english": "that/he/she",
+        "parts": {
+            "type": "pronoun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "سے",
+        "urdlish": "se",
+        "english": "from",
+        "parts": {
+            "type": "preposition",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "پر",
+        "urdlish": "par",
+        "english": "on",
+        "parts": {
+            "type": "preposition",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "میرا",
+        "urdlish": "mera",
+        "english": "my",
+        "parts": {
+            "type": "possessive",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "ہم",
+        "urdlish": "hum",
+        "english": "we",
+        "parts": {
+            "type": "pronoun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "کیوں",
+        "urdlish": "kyun",
+        "english": "why",
+        "parts": {
+            "type": "question",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "کب",
+        "urdlish": "kab",
+        "english": "when",
+        "parts": {
+            "type": "question",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "کہاں",
+        "urdlish": "kahan",
+        "english": "where",
+        "parts": {
+            "type": "question",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "کون",
+        "urdlish": "kaun",
+        "english": "who",
+        "parts": {
+            "type": "question",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "کیسے",
+        "urdlish": "kaise",
+        "english": "how",
+        "parts": {
+            "type": "question",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "شکریہ",
+        "urdlish": "shukriya",
+        "english": "thank you",
+        "parts": {
+            "type": "courtesy",
+            "formality": "formal"
+        }
+    },
+    {
+        "urdu": "مہربانی",
+        "urdlish": "meherbani",
+        "english": "please",
+        "parts": {
+            "type": "courtesy",
+            "formality": "formal"
+        }
+    },
+    {
+        "urdu": "معاف",
+        "urdlish": "maaf",
+        "english": "sorry",
+        "parts": {
+            "type": "courtesy",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "ٹھیک",
+        "urdlish": "theek",
+        "english": "okay",
+        "parts": {
+            "type": "response",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "کرنا",
+        "urdlish": "karna",
+        "english": "to do",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "ہونا",
+        "urdlish": "hona",
+        "english": "to be/happen",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "جانا",
+        "urdlish": "jana",
+        "english": "to go",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "آنا",
+        "urdlish": "ana",
+        "english": "to come",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "دیکھنا",
+        "urdlish": "dekhna",
+        "english": "to see/watch",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "لینا",
+        "urdlish": "lena",
+        "english": "to take",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "دینا",
+        "urdlish": "dena",
+        "english": "to give",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "کھانا",
+        "urdlish": "khana",
+        "english": "to eat",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "پینا",
+        "urdlish": "peena",
+        "english": "to drink",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "سونا",
+        "urdlish": "sona",
+        "english": "to sleep",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "جاگنا",
+        "urdlish": "jagna",
+        "english": "to wake up",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "بولنا",
+        "urdlish": "bolna",
+        "english": "to speak",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "سننا",
+        "urdlish": "sunna",
+        "english": "to listen/hear",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "سمجھنا",
+        "urdlish": "samajhna",
+        "english": "to understand",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "پڑھنا",
+        "urdlish": "parhna",
+        "english": "to read/study",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "لکھنا",
+        "urdlish": "likhna",
+        "english": "to write",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "سوچنا",
+        "urdlish": "sochna",
+        "english": "to think",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "ملنا",
+        "urdlish": "milna",
+        "english": "to meet/get",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "رکھنا",
+        "urdlish": "rakhna",
+        "english": "to put/keep",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "چلنا",
+        "urdlish": "chalna",
+        "english": "to walk/go",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "بیٹھنا",
+        "urdlish": "baithna",
+        "english": "to sit",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "کھڑا ہونا",
+        "urdlish": "khara hona",
+        "english": "to stand",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "روکنا",
+        "urdlish": "rukna",
+        "english": "to stop",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "بنانا",
+        "urdlish": "banana",
+        "english": "to make",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "کھیلنا",
+        "urdlish": "khelna",
+        "english": "to play",
+        "parts": {
+            "type": "verb",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "کرسی",
+        "urdlish": "kursi",
+        "english": "chair",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "میز",
+        "urdlish": "mez",
+        "english": "table",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "بستر",
+        "urdlish": "bistar",
+        "english": "bed",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "المماری",
+        "urdlish": "almari",
+        "english": "cupboard",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "دراز",
+        "urdlish": "daraz",
+        "english": "drawer",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "فرش",
+        "urdlish": "farsh",
+        "english": "floor",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "چھت",
+        "urdlish": "chhat",
+        "english": "ceiling",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "دیوار",
+        "urdlish": "deewar",
+        "english": "wall",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "کھڑکی",
+        "urdlish": "khirki",
+        "english": "window",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "دروازہ",
+        "urdlish": "darwaza",
+        "english": "door",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "چابی",
+        "urdlish": "chabi",
+        "english": "key",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "تالا",
+        "urdlish": "tala",
+        "english": "lock",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "موبائل",
+        "urdlish": "mobile",
+        "english": "mobile phone",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "ٹی وی",
+        "urdlish": "TV",
+        "english": "television",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "کمپیوٹر",
+        "urdlish": "computer",
+        "english": "computer",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "پنکھا",
+        "urdlish": "pankha",
+        "english": "fan",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "بلب",
+        "urdlish": "bulb",
+        "english": "light bulb",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "گھڑی",
+        "urdlish": "ghari",
+        "english": "clock/watch",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "برتن",
+        "urdlish": "bartan",
+        "english": "utensil",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "پلیٹ",
+        "urdlish": "plate",
+        "english": "plate",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "کٹوری",
+        "urdlish": "katori",
+        "english": "bowl",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "چمچ",
+        "urdlish": "chamach",
+        "english": "spoon",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "کانٹا",
+        "urdlish": "kanta",
+        "english": "fork",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "چھری",
+        "urdlish": "churi",
+        "english": "knife",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "گلاس",
+        "urdlish": "glass",
+        "english": "glass",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "والد",
+        "urdlish": "walid",
+        "english": "father",
+        "parts": {
+            "type": "noun",
+            "formality": "formal"
+        }
+    },
+    {
+        "urdu": "ابو",
+        "urdlish": "abbu",
+        "english": "father",
+        "parts": {
+            "type": "noun",
+            "formality": "informal"
+        }
+    },
+    {
+        "urdu": "والدہ",
+        "urdlish": "walida",
+        "english": "mother",
+        "parts": {
+            "type": "noun",
+            "formality": "formal"
+        }
+    },
+    {
+        "urdu": "امی",
+        "urdlish": "ammi",
+        "english": "mother",
+        "parts": {
+            "type": "noun",
+            "formality": "informal"
+        }
+    },
+    {
+        "urdu": "بھائی",
+        "urdlish": "bhai",
+        "english": "brother",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "بہن",
+        "urdlish": "behan",
+        "english": "sister",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "بیٹا",
+        "urdlish": "beta",
+        "english": "son",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "بیٹی",
+        "urdlish": "beti",
+        "english": "daughter",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "دادا",
+        "urdlish": "dada",
+        "english": "paternal grandfather",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "دادی",
+        "urdlish": "dadi",
+        "english": "paternal grandmother",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "نانا",
+        "urdlish": "nana",
+        "english": "maternal grandfather",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "نانی",
+        "urdlish": "nani",
+        "english": "maternal grandmother",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "چچا",
+        "urdlish": "chacha",
+        "english": "paternal uncle",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "چچی",
+        "urdlish": "chachi",
+        "english": "paternal aunt (uncle's wife)",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "پھوپھا",
+        "urdlish": "phuppa",
+        "english": "paternal aunt's husband",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "پھوپھی",
+        "urdlish": "phuppi",
+        "english": "paternal aunt",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "ماموں",
+        "urdlish": "mamun",
+        "english": "maternal uncle",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "ممانی",
+        "urdlish": "mumani",
+        "english": "maternal aunt (uncle's wife)",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "خالہ",
+        "urdlish": "khala",
+        "english": "maternal aunt",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "خالو",
+        "urdlish": "khalu",
+        "english": "maternal aunt's husband",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "سسر",
+        "urdlish": "susar",
+        "english": "father-in-law",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "ساس",
+        "urdlish": "saas",
+        "english": "mother-in-law",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "شوہر",
+        "urdlish": "shohar",
+        "english": "husband",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "بیوی",
+        "urdlish": "biwi",
+        "english": "wife",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    },
+    {
+        "urdu": "دیور",
+        "urdlish": "devar",
+        "english": "husband's younger brother",
+        "parts": {
+            "type": "noun",
+            "formality": "neutral"
+        }
+    }
+]
