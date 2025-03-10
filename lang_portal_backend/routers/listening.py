@@ -25,7 +25,7 @@ class QuestionsResponse(BaseModel):
     questions: Optional[List[Question]] = None
     error: Optional[str] = None
 
-@router.post("/api/listening/download-transcript")
+@router.post("/listening/download-transcript")
 async def download_transcript(video: VideoURL) -> TranscriptResponse:
     try:
         video_id = listening_service.extract_video_id(video.url)
@@ -38,7 +38,7 @@ async def download_transcript(video: VideoURL) -> TranscriptResponse:
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.post("/api/listening/questions")
+@router.post("/listening/questions")
 async def get_listening_questions(video: VideoURL) -> QuestionsResponse:
     try:
         result = listening_service.get_questions_for_video(video.url)
@@ -48,7 +48,7 @@ async def get_listening_questions(video: VideoURL) -> QuestionsResponse:
     except Exception as e:
         return QuestionsResponse(error=str(e))
 
-@router.post("/api/listening/transcript")
+@router.post("/listening/transcript")
 async def get_transcript_and_stats(video: VideoURL) -> Dict:
     try:
         result = listening_service.get_transcript_with_stats(video.url)

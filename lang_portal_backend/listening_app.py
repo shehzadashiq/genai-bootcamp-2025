@@ -3,7 +3,6 @@ Language Listening Application with guardrails.
 Integrates YouTube transcripts, AWS services, and vector storage.
 """
 import boto3
-import chromadb
 from youtube_transcript_api import YouTubeTranscriptApi
 from typing import Dict, List, Optional, Tuple
 from guardrails import with_guardrails, LanguageGuardrails
@@ -14,7 +13,7 @@ import base64
 from config import aws_config, vector_store_config, app_config
 from config_validation import validate_all_configs, ConfigValidationError
 from hindi_urdu_converter import HindiUrduConverter
-from vector_store import VectorStore
+from services.vector_store_service import VectorStoreService
 from question_generator import QuestionGenerator
 from gtts import gTTS
 import tempfile
@@ -55,7 +54,7 @@ class LanguageListeningApp:
         
         # Initialize components
         self.guardrails = LanguageGuardrails()
-        self.vector_store = VectorStore()
+        self.vector_store = VectorStoreService()  # Use VectorStoreService directly
         self.question_generator = QuestionGenerator()
         self.converter = HindiUrduConverter()
         

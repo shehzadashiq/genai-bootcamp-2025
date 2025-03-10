@@ -1,3 +1,6 @@
+"""
+API views for the Language Portal Backend.
+"""
 from django.db.models import Count, F, Sum, Case, When, Q
 from django.utils import timezone
 from rest_framework import viewsets, status
@@ -19,6 +22,9 @@ from .serializers import (
     WordSerializer,
     GroupSerializer
 )
+from services.vector_store_service import VectorStoreService
+from services.language_service import LanguageService
+from config import vector_store_config, guardrails_config
 
 logger = logging.getLogger(__name__)
 
@@ -426,96 +432,383 @@ listening_service = ListeningService()
 
 @api_view(['POST'])
 def download_transcript(request):
+    """Download and process transcript from YouTube video."""
     try:
-        logger.info(f"Request data: {request.data}")
-        logger.info(f"Request content type: {request.content_type}")
-        
-        if not isinstance(request.data, dict):
-            logger.error(f"Invalid request data type: {type(request.data)}")
-            return Response(
-                {'error': 'Invalid request format. Expected JSON object with url field'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        video_url = request.data.get('url')
-        if not video_url:
-            logger.error("No URL provided in request")
-            return Response(
-                {'error': 'URL is required. Please provide a valid YouTube URL'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-            
-        if not isinstance(video_url, str):
-            logger.error(f"Invalid URL type: {type(video_url)}")
-            return Response(
-                {'error': 'URL must be a string'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-            
-        logger.info(f"Extracting video ID from URL: {video_url}")
+        # Get video URL or ID from request
+        video_input = request.data.get('url')
+        if not video_input:
+            return Response({
+                'data': {
+                    'status': 'error',
+                    'message': 'Video URL or ID is required',
+                    'code': 'MISSING_URL'
+                }
+            }, status=400)
+
+        # Initialize listening service with AWS permission check
         try:
-            video_id = listening_service.extract_video_id(video_url)
+            listening_service = ListeningService()
         except ValueError as e:
-            logger.error(f"Invalid YouTube URL: {str(e)}")
-            return Response(
-                {'error': f'Invalid YouTube URL: {str(e)}'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            # Handle AWS permission errors
+            if "Missing required AWS permissions" in str(e):
+                logger.error(f"AWS permissions error: {e}")
+                return Response({
+                    'data': {
+                        'status': 'error',
+                        'message': str(e),
+                        'code': 'AWS_PERMISSIONS_ERROR',
+                        'required_permissions': aws_config.REQUIRED_PERMISSIONS
+                    }
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            raise
         
-        logger.info(f"Getting transcript for video ID: {video_id}")
         try:
-            transcript = listening_service.get_transcript(video_url)
-        except Exception as e:
-            logger.error(f"Failed to get transcript: {str(e)}")
-            return Response(
-                {'error': f'Failed to get transcript: {str(e)}'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        logger.info("Storing transcript")
-        try:
-            listening_service.store_transcript(video_url, transcript)
-        except Exception as e:
-            logger.error(f"Failed to store transcript: {str(e)}")
-            # Continue since we already have the transcript
+            # Extract and validate video ID
+            video_id = listening_service.extract_video_id(video_input)
+            if not video_id:
+                logger.warning("Invalid video ID format")
+                return Response({
+                    'data': {
+                        'status': 'error',
+                        'message': 'Invalid video URL or ID format',
+                        'code': 'INVALID_VIDEO_ID'
+                    }
+                }, status=status.HTTP_400_BAD_REQUEST)
             
-        logger.info("Transcript downloaded and stored successfully")
-        return Response({
-            'video_id': video_id,
-            'message': 'Transcript downloaded and stored successfully'
-        })
+            # Get transcript with translations and vector search
+            try:
+                transcript = listening_service.get_transcript(video_id)
+                if not transcript:
+                    raise ValueError("No transcript available for this video")
+                
+                # Return response with metadata
+                logger.info(f"Successfully processed transcript for video {video_id}")
+                return Response({
+                    'data': {
+                        'status': 'success',
+                        'transcript': transcript,
+                        'metadata': {
+                            'video_id': video_id,
+                            'segments': len(transcript),
+                            'languages': list(set(seg['language'] for seg in transcript)),
+                            'has_translations': any(seg.get('has_translation', False) for seg in transcript),
+                            'processed_at': timezone.now().isoformat()
+                        }
+                    }
+                })
+                
+            except (TranscriptsDisabled, NoTranscriptFound) as e:
+                logger.warning(f"YouTube transcript error for video {video_id}: {e}")
+                return Response({
+                    'data': {
+                        'status': 'error',
+                        'message': f'No transcript available: {str(e)}',
+                        'code': 'NO_TRANSCRIPT'
+                    }
+                }, status=status.HTTP_404_NOT_FOUND)
+                
+            except ValueError as e:
+                logger.warning(f"Transcript processing error for video {video_id}: {e}")
+                return Response({
+                    'data': {
+                        'status': 'error',
+                        'message': str(e),
+                        'code': 'TRANSCRIPT_PROCESSING_ERROR'
+                    }
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+        except ValueError as e:
+            logger.warning(f"Value error in download_transcript: {e}")
+            return Response({
+                'data': {
+                    'status': 'error',
+                    'message': str(e),
+                    'code': 'INVALID_VIDEO_ID'
+                }
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
     except Exception as e:
-        logger.error(f"Unexpected error in download_transcript: {str(e)}", exc_info=True)
-        return Response(
-            {'error': 'An unexpected error occurred'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        logger.error(f"Error in download_transcript: {e}")
+        return Response({
+            'data': {
+                'status': 'error',
+                'message': 'An unexpected error occurred',
+                'code': 'INTERNAL_SERVER_ERROR'
+            }
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 def get_listening_questions(request):
+    """Get questions for a YouTube video."""
     try:
-        video_url = request.data.get('url')
-        if not video_url:
-            return Response({'error': 'URL is required'}, status=status.HTTP_400_BAD_REQUEST)
+        # Log request data
+        logger.info(f"Received questions request: {request.data}")
+        
+        # Validate request data
+        url = request.data.get('url')
+        if not url:
+            logger.warning("Missing url in request")
+            return Response({
+                'data': {
+                    'status': 'error',
+                    'message': 'Video URL or ID is required',
+                    'code': 'MISSING_URL'
+                }
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Initialize services
+        try:
+            listening_service = ListeningService()
+        except ValueError as e:
+            # Handle AWS permission errors
+            if "Missing required AWS permissions" in str(e):
+                logger.error(f"AWS permissions error: {e}")
+                return Response({
+                    'data': {
+                        'status': 'error',
+                        'message': str(e),
+                        'code': 'AWS_PERMISSIONS_ERROR',
+                        'required_permissions': aws_config.REQUIRED_PERMISSIONS
+                    }
+                }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            raise
+        
+        try:
+            # Extract and validate video ID
+            video_id = listening_service.extract_video_id(url)
+            if not video_id:
+                logger.warning("Invalid video ID format")
+                return Response({
+                    'data': {
+                        'status': 'error',
+                        'message': 'Invalid video URL or ID format',
+                        'code': 'INVALID_VIDEO_ID'
+                    }
+                }, status=status.HTTP_400_BAD_REQUEST)
             
-        result = listening_service.get_questions_for_video(video_url)
-        return Response(result)
+            # Get questions for the video
+            try:
+                questions = listening_service.get_questions(video_id)
+                if not questions:
+                    logger.warning(f"No questions generated for video {video_id}")
+                    return Response({
+                        'data': {
+                            'status': 'error',
+                            'message': 'Failed to generate questions for this video',
+                            'code': 'NO_QUESTIONS_GENERATED'
+                        }
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Return success response
+                logger.info(f"Successfully generated {len(questions)} questions for video {video_id}")
+                return Response({
+                    'data': {
+                        'status': 'success',
+                        'questions': questions,
+                        'metadata': {
+                            'video_id': video_id,
+                            'count': len(questions),
+                            'generated_at': timezone.now().isoformat(),
+                            'source': 'bedrock',
+                            'model': aws_config.BEDROCK_MODEL_ID
+                        }
+                    }
+                })
+                
+            except ValueError as e:
+                error_message = str(e)
+                error_code = 'QUESTION_GENERATION_ERROR'
+                
+                # Map specific errors to codes
+                if "No transcript available" in error_message:
+                    error_code = 'NO_TRANSCRIPT'
+                elif "Empty transcript text" in error_message:
+                    error_code = 'EMPTY_TRANSCRIPT'
+                elif "No JSON array found" in error_message:
+                    error_code = 'INVALID_MODEL_RESPONSE'
+                elif "Invalid questions format" in error_message:
+                    error_code = 'INVALID_QUESTION_FORMAT'
+                elif "Service temporarily unavailable" in error_message:
+                    error_code = 'MODEL_NOT_READY'
+                elif "Rate limit exceeded" in error_message:
+                    error_code = 'RATE_LIMIT_EXCEEDED'
+                
+                logger.warning(f"Value error in get_questions: {error_message}")
+                return Response({
+                    'data': {
+                        'status': 'error',
+                        'message': error_message,
+                        'code': error_code
+                    }
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+        except ValueError as e:
+            logger.warning(f"Value error in extract_video_id: {e}")
+            return Response({
+                'data': {
+                    'status': 'error',
+                    'message': str(e),
+                    'code': 'INVALID_VIDEO_ID'
+                }
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
     except Exception as e:
-        logger.error(f"Error in get_listening_questions: {str(e)}", exc_info=True)
-        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        logger.error(f"Error in get_questions: {e}")
+        return Response({
+            'data': {
+                'status': 'error',
+                'message': 'An unexpected error occurred',
+                'code': 'INTERNAL_SERVER_ERROR'
+            }
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 def get_transcript_and_stats(request):
+    """Get transcript and statistics for a YouTube video."""
     try:
-        video_url = request.data.get('url')
-        if not video_url:
-            return Response({'error': 'URL is required'}, status=status.HTTP_400_BAD_REQUEST)
+        # Accept either video_id or url parameter
+        video_id = request.data.get('video_id') or request.data.get('url')
+        if not video_id:
+            return Response({
+                'status': 'error',
+                'message': 'Video ID or URL is required',
+                'code': 'MISSING_URL'
+            }, status=400)
             
-        result = listening_service.get_transcript_with_stats(video_url)
-        return Response(result)
+        # Extract video ID if URL is provided
+        try:
+            video_id = listening_service.extract_video_id(video_id)
+        except ValueError as e:
+            logger.error(f"Invalid video ID or URL: {e}")
+            return Response({
+                'status': 'error',
+                'message': str(e),
+                'code': 'INVALID_VIDEO_ID'
+            }, status=400)
+            
+        result = listening_service.get_transcript_with_stats(video_id)
+        return Response({
+            'status': 'success',
+            'data': result
+        })
+        
+    except ValueError as e:
+        logger.error(f"Invalid video ID: {e}")
+        return Response({
+            'status': 'error',
+            'message': str(e),
+            'code': 'INVALID_VIDEO_ID'
+        }, status=400)
     except Exception as e:
-        logger.error(f"Error in get_transcript_and_stats: {str(e)}", exc_info=True)
-        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        logger.error(f"Error getting transcript and stats: {e}")
+        return Response({
+            'status': 'error',
+            'message': str(e),
+            'code': 'INTERNAL_SERVER_ERROR'
+        }, status=500)
+
+@api_view(['POST'])
+def test_hindi_to_urdu(request):
+    """Test Hindi to Urdu conversion using AWS Translate."""
+    try:
+        text = request.data.get('text', '')
+        if not text:
+            return Response({
+                'status': 'error',
+                'message': 'No text provided',
+                'code': 'MISSING_TEXT'
+            }, status=400)
+            
+        service = ListeningService()
+        converted_text = service.convert_hindi_to_urdu(text)
+        
+        return Response({
+            'status': 'success',
+            'original': text,
+            'converted': converted_text
+        })
+        
+    except Exception as e:
+        return Response({
+            'status': 'error',
+            'message': str(e),
+            'code': 'INTERNAL_SERVER_ERROR'
+        }, status=500)
+
+@api_view(['POST'])
+def search_transcripts(request):
+    """
+    Search through stored transcripts using semantic search.
+    
+    Features:
+    - Semantic similarity search using ChromaDB and Bedrock embeddings
+    - Language-specific filtering and script conversion
+    - Configurable similarity threshold and result limits
+    - Rate limiting and guardrails support
+    """
+    try:
+        # Validate request
+        if not request.data.get('query'):
+            return Response({
+                'status': 'error',
+                'message': 'Query is required',
+                'code': 'MISSING_QUERY'
+            }, status=400)
+        
+        # Get search parameters with enhanced validation
+        query = request.data['query']
+        k = min(int(request.data.get('k', vector_store_config.DEFAULT_SEARCH_LIMIT)), 
+                vector_store_config.MAX_SEARCH_LIMIT)
+        min_score = max(float(request.data.get('min_score', vector_store_config.SIMILARITY_THRESHOLD)), 
+                       vector_store_config.MIN_SIMILARITY_THRESHOLD)
+        language = request.data.get('language', vector_store_config.DEFAULT_LANGUAGE)
+        
+        # Validate language
+        if language and language not in vector_store_config.SUPPORTED_LANGUAGES:
+            return Response({
+                'status': 'error',
+                'message': f'Unsupported language. Must be one of: {", ".join(vector_store_config.SUPPORTED_LANGUAGES)}',
+                'code': 'INVALID_LANGUAGE'
+            }, status=400)
+            
+        # Convert query to Urdu if needed
+        processed_query = query
+        if language == "ur" and listening_service._language_service:
+            try:
+                processed_query = listening_service._language_service.convert_hindi_to_urdu(query)
+            except Exception as e:
+                logger.warning(f"Failed to convert query to Urdu: {e}")
+        
+        # Search transcripts
+        results = listening_service._vector_store.search_transcripts(
+            query=processed_query,
+            k=k,
+            min_score=min_score,
+            language=language
+        )
+        
+        return Response({
+            'status': 'success',
+            'query': {
+                'original': query,
+                'processed': processed_query,
+                'language': language
+            },
+            'results': results,
+            'metadata': {
+                'total_results': len(results),
+                'similarity_threshold': min_score,
+                'max_results': k
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error searching transcripts: {e}")
+        return Response({
+            'status': 'error',
+            'message': str(e),
+            'code': 'INTERNAL_SERVER_ERROR'
+        }, status=500)
 
 @api_view(['GET'])
 def test_bedrock(request):
@@ -526,7 +819,8 @@ def test_bedrock(request):
             return Response({
                 'status': 'error',
                 'message': 'Bedrock client not initialized',
-                'details': 'Check AWS credentials and Bedrock access'
+                'details': 'Check AWS credentials and Bedrock access',
+                'code': 'BEDROCK_NOT_INITIALIZED'
             }, status=500)
             
         # Test simple prompt using Claude 3 format
@@ -562,67 +856,6 @@ def test_bedrock(request):
         return Response({
             'status': 'error',
             'message': str(e),
-            'details': 'Error testing Bedrock connection'
-        }, status=500)
-
-@api_view(['POST'])
-def test_hindi_to_urdu(request):
-    """Test Hindi to Urdu conversion using AWS Translate."""
-    try:
-        text = request.data.get('text', '')
-        if not text:
-            return Response({
-                'status': 'error',
-                'message': 'No text provided'
-            }, status=400)
-            
-        service = ListeningService()
-        converted_text = service.convert_hindi_to_urdu(text)
-        
-        return Response({
-            'status': 'success',
-            'original': text,
-            'converted': converted_text
-        })
-        
-    except Exception as e:
-        return Response({
-            'status': 'error',
-            'message': str(e)
-        }, status=500)
-
-@api_view(['POST'])
-def search_transcripts(request):
-    """Search through stored transcripts using semantic search."""
-    try:
-        if not request.data.get('query'):
-            return Response({
-                'status': 'error',
-                'message': 'Query is required'
-            }, status=400)
-            
-        query = request.data['query']
-        k = request.data.get('k', 5)  # Number of results to return
-        
-        # Get ListeningService instance to handle Hindi-Urdu conversion if needed
-        service = ListeningService()
-        
-        # Convert query to Urdu script if it's in Hindi
-        # This ensures consistent search regardless of input script
-        urdu_query = service.convert_hindi_to_urdu(query)
-        
-        # Search using vector store
-        vector_store = VectorStoreService()
-        results = vector_store.search_transcripts(urdu_query, k=k)
-        
-        return Response({
-            'status': 'success',
-            'results': results
-        })
-        
-    except Exception as e:
-        logger.error(f"Error searching transcripts: {e}")
-        return Response({
-            'status': 'error',
-            'message': str(e)
+            'details': 'Error testing Bedrock connection',
+            'code': 'INTERNAL_SERVER_ERROR'
         }, status=500)

@@ -3,40 +3,12 @@ Vector similarity search implementation using ChromaDB and Bedrock embeddings.
 Provides functionality for storing and retrieving language exercises based on semantic similarity.
 """
 from typing import Dict, List, Optional, Tuple, Any
-import chromadb
-import boto3
-from config import vector_store_config, aws_config
-import json
-import hashlib
-from langchain_aws.embeddings import BedrockEmbeddings
-from langchain_community.vectorstores import Chroma
-import os
+from services.vector_store_service import VectorStoreService
 
 class VectorStore:
     def __init__(self):
-        """Initialize vector store with ChromaDB and Bedrock embeddings."""
-        # Initialize Bedrock client
-        self.bedrock_runtime = boto3.client(
-            'bedrock-runtime',
-            region_name=aws_config.AWS_REGION
-        )
-        
-        # Initialize Bedrock embeddings
-        self.embeddings = BedrockEmbeddings(
-            client=self.bedrock_runtime,
-            model_id=aws_config.BEDROCK_EMBEDDING_MODEL,
-            model_kwargs={}  # Use default model parameters
-        )
-        
-        # Ensure persistence directory exists
-        os.makedirs(vector_store_config.PERSIST_DIRECTORY, exist_ok=True)
-        
-        # Initialize ChromaDB with LangChain integration
-        self.vector_store = Chroma(
-            collection_name=vector_store_config.COLLECTION_NAME,
-            embedding_function=self.embeddings,
-            persist_directory=vector_store_config.PERSIST_DIRECTORY
-        )
+        """Initialize vector store using VectorStoreService."""
+        self.vector_store = VectorStoreService()
 
     def add_exercise(
         self,
@@ -58,9 +30,10 @@ class VectorStore:
         # Add ID to metadata for retrieval
         metadata['id'] = exercise_id
             
-        self.vector_store.add_texts(
-            texts=[text],
+        # Add as single document
+        self.vector_store._collection.add(
             ids=[exercise_id],
+            documents=[text],
             metadatas=[metadata]
         )
 
@@ -82,24 +55,26 @@ class VectorStore:
             List of similar exercises with scores
         """
         if limit is None:
-            limit = vector_store_config.MAX_RESULTS
+            limit = 5
             
-        results = self.vector_store.similarity_search_with_relevance_scores(
-            query=query,
-            k=limit,
-            filter=filter_metadata
+        # Use VectorStoreService search with filters
+        results = self.vector_store._collection.query(
+            query_texts=[query],
+            n_results=limit,
+            where=filter_metadata
         )
         
         # Format results
         exercises = []
-        for doc, score in results:
-            exercise = {
-                'id': doc.metadata.get('id', ''),
-                'text': doc.page_content,
-                'metadata': doc.metadata,
-                'distance': 1.0 - score  # Convert similarity to distance
-            }
-            exercises.append(exercise)
+        if results and results['documents']:
+            for i, doc in enumerate(results['documents'][0]):
+                exercise = {
+                    'id': results['ids'][0][i],
+                    'text': doc,
+                    'metadata': results['metadatas'][0][i],
+                    'distance': float(results['distances'][0][i]) if 'distances' in results else 1.0
+                }
+                exercises.append(exercise)
             
         return exercises
 
@@ -114,19 +89,15 @@ class VectorStore:
             Exercise data if found, None otherwise
         """
         try:
-            # Search by ID in metadata
-            results = self.vector_store.similarity_search_with_score(
-                query="",  # Empty query to match only by filter
-                k=1,
-                filter={"id": exercise_id}
+            results = self.vector_store._collection.get(
+                ids=[exercise_id]
             )
             
-            if results:
-                doc, score = results[0]
+            if results and results['documents']:
                 return {
                     'id': exercise_id,
-                    'text': doc.page_content,
-                    'metadata': doc.metadata
+                    'text': results['documents'][0],
+                    'metadata': results['metadatas'][0]
                 }
             return None
             
@@ -157,14 +128,11 @@ class VectorStore:
             # Add ID to metadata
             metadata['id'] = exercise_id
                 
-            # Delete old document
-            self.delete_exercise(exercise_id)
-            
-            # Add new document
-            self.add_exercise(
-                exercise_id=exercise_id,
-                text=text,
-                metadata=metadata
+            # Update document
+            self.vector_store._collection.update(
+                ids=[exercise_id],
+                documents=[text],
+                metadatas=[metadata]
             )
             return True
             
@@ -182,7 +150,9 @@ class VectorStore:
             True if deletion successful, False otherwise
         """
         try:
-            self.vector_store.delete(ids=[exercise_id])
+            self.vector_store._collection.delete(
+                ids=[exercise_id]
+            )
             return True
         except Exception:
             return False
@@ -201,22 +171,20 @@ class VectorStore:
             List of matching exercises
         """
         try:
-            # Search with empty query to get all matching documents
-            results = self.vector_store.similarity_search_with_score(
-                query="",  # Empty query to match only by filter
-                k=100,  # Large enough to get all documents
-                filter=filter_metadata
+            results = self.vector_store._collection.get(
+                where=filter_metadata
             )
             
             exercises = []
-            for doc, score in results:
-                exercise = {
-                    'id': doc.metadata.get('id', ''),
-                    'text': doc.page_content,
-                    'metadata': doc.metadata
-                }
-                exercises.append(exercise)
-                
+            if results and results['documents']:
+                for i, doc in enumerate(results['documents']):
+                    exercise = {
+                        'id': results['ids'][i],
+                        'text': doc,
+                        'metadata': results['metadatas'][i]
+                    }
+                    exercises.append(exercise)
+                    
             return exercises
             
         except Exception:

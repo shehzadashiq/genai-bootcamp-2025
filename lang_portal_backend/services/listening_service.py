@@ -1,14 +1,18 @@
+"""
+Listening Service for handling YouTube transcripts and vector storage.
+Integrates with VectorStoreService for robust semantic search capabilities.
+"""
 import logging
 import json
 import os
 import re
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union, Tuple, Any
 from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, NoTranscriptFound
 import boto3
 from .vector_store_service import VectorStoreService
 from .language_service import LanguageService
-from config import guardrails_config
+from config import guardrails_config, vector_store_config, aws_config
 
 logger = logging.getLogger(__name__)
 
@@ -18,30 +22,126 @@ class ListeningService:
     _vector_store = None
     _language_service = None
     _runtime = None
+    _questions_collection = None
     
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(ListeningService, cls).__new__(cls)
-            cls._vector_store = VectorStoreService()
-            cls._language_service = LanguageService()
-            
-            # Initialize AWS Bedrock client
             try:
-                cls._runtime = boto3.client('bedrock-runtime')
-                logger.info("Successfully initialized Bedrock runtime client")
+                # Initialize services
+                cls._vector_store = VectorStoreService()
+                cls._language_service = LanguageService()
+                
+                # Initialize AWS Bedrock client with proper configuration
+                cls._runtime = boto3.client(
+                    'bedrock-runtime',
+                    region_name=aws_config.AWS_REGION,
+                    aws_access_key_id=aws_config.AWS_ACCESS_KEY_ID,
+                    aws_secret_access_key=aws_config.AWS_SECRET_ACCESS_KEY
+                )
+                
+                # Verify required permissions
+                try:
+                    # Test Bedrock model access
+                    cls._runtime.invoke_model(
+                        modelId=aws_config.BEDROCK_MODEL_ID,
+                        contentType="application/json",
+                        accept="application/json",
+                        body=json.dumps({
+                            "anthropic_version": "bedrock-2023-05-31",
+                            "max_tokens": 10,
+                            "messages": [{"role": "user", "content": [{"type": "text", "text": "test"}]}]
+                        }).encode()
+                    )
+                    logger.info("Successfully verified Bedrock model access")
+                except Exception as e:
+                    logger.error(f"Failed to verify Bedrock model access: {e}")
+                    raise ValueError(
+                        "Missing required AWS permissions. Please ensure the following IAM permissions are granted: " + 
+                        ", ".join(aws_config.REQUIRED_PERMISSIONS)
+                    )
+                
+                # Create cache directory if it doesn't exist
+                cache_dir = os.path.abspath(cls._cache_dir)
+                if not os.path.exists(cache_dir):
+                    os.makedirs(cache_dir)
+                    
             except Exception as e:
-                logger.error(f"Failed to initialize Bedrock runtime client: {e}")
-                cls._runtime = None
-            
-            # Create cache directory if it doesn't exist
-            if not os.path.exists(cls._cache_dir):
-                os.makedirs(cls._cache_dir)
+                logger.error(f"Failed to initialize services: {e}")
+                raise
                 
         return cls._instance
     
+    def __init__(self, runtime: Any = None, vector_store: Any = None):
+        """Initialize the service with AWS runtime and vector store."""
+        # Initialize AWS Bedrock client
+        self._runtime = runtime or boto3.client(
+            'bedrock-runtime',
+            aws_access_key_id=aws_config.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=aws_config.AWS_SECRET_ACCESS_KEY,
+            region_name=aws_config.AWS_REGION
+        )
+        
+        # Initialize vector store if not provided
+        if vector_store is None:
+            try:
+                import chromadb
+                from chromadb.config import Settings
+                from chromadb.utils import embedding_functions
+                
+                # Create Bedrock embedding function
+                bedrock_ef = embedding_functions.BedrockEmbeddingFunction(
+                    aws_access_key_id=aws_config.AWS_ACCESS_KEY_ID,
+                    aws_secret_access_key=aws_config.AWS_SECRET_ACCESS_KEY,
+                    region_name=aws_config.AWS_REGION,
+                    model_id=aws_config.VECTOR_STORE_EMBEDDING_MODEL
+                )
+                
+                # Initialize ChromaDB with persistent storage
+                self._vector_store = chromadb.Client(
+                    Settings(
+                        persist_directory="./chroma_db",
+                        anonymized_telemetry=False
+                    )
+                )
+                
+                # Create or get questions collection
+                try:
+                    self._questions_collection = self._vector_store.create_collection(
+                        name=aws_config.VECTOR_STORE_COLLECTION_NAME,
+                        embedding_function=bedrock_ef,
+                        metadata={"hnsw:space": "cosine"}
+                    )
+                except ValueError:  # Collection already exists
+                    self._questions_collection = self._vector_store.get_collection(
+                        name=aws_config.VECTOR_STORE_COLLECTION_NAME,
+                        embedding_function=bedrock_ef
+                    )
+                    
+                logger.info("Successfully initialized ChromaDB with Bedrock embeddings")
+                
+            except ImportError:
+                logger.warning("ChromaDB not installed, vector search disabled")
+                self._vector_store = None
+                self._questions_collection = None
+            except Exception as e:
+                logger.error(f"Failed to initialize vector store: {e}")
+                self._vector_store = None
+                self._questions_collection = None
+        else:
+            self._vector_store = vector_store
+            try:
+                self._questions_collection = self._vector_store.get_collection(
+                    aws_config.VECTOR_STORE_COLLECTION_NAME
+                )
+            except Exception as e:
+                logger.error(f"Failed to get questions collection: {e}")
+                self._questions_collection = None
+    
     def _get_cache_path(self, video_id: str) -> str:
         """Get path to cache file for video."""
-        return os.path.join(self._cache_dir, f"{video_id}.json")
+        cache_dir = os.path.abspath(self._cache_dir)
+        return os.path.join(cache_dir, f"{video_id}.json")
     
     def _read_cache(self, video_id: str) -> Optional[Dict]:
         """Read transcript from cache if available."""
@@ -49,7 +149,12 @@ class ListeningService:
             cache_path = self._get_cache_path(video_id)
             if os.path.exists(cache_path):
                 with open(cache_path, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                    data = json.load(f)
+                    # Validate cache data
+                    if not isinstance(data, dict) or 'transcript' not in data:
+                        logger.warning(f"Invalid cache data for video {video_id}")
+                        return None
+                    return data
         except Exception as e:
             logger.error(f"Error reading cache for video {video_id}: {e}")
         return None
@@ -64,218 +169,221 @@ class ListeningService:
         except Exception as e:
             logger.error(f"Error writing cache for video {video_id}: {e}")
             return False
-    
-    def get_transcript(self, video_id: str) -> List[Dict]:
-        """
-        Get transcript for a YouTube video.
-        
-        Args:
-            video_id: YouTube video ID
+
+    def extract_video_id(self, url_or_id: str) -> str:
+        """Extract video ID from URL or return the ID if already in correct format."""
+        if not url_or_id:
+            raise ValueError("URL or video ID is required")
             
-        Returns:
-            List of transcript segments with text converted to Urdu script
-        """
+        # Clean input
+        url_or_id = url_or_id.strip()
+        
+        # If it's already an 11-character ID, validate and return it
+        if re.match(r'^[a-zA-Z0-9_-]{11}$', url_or_id):
+            return url_or_id
+        
+        # Try to extract from various URL formats
+        patterns = [
+            r'(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})',
+            r'youtube\.com\/watch.*?v=([a-zA-Z0-9_-]{11})',
+            r'youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})'
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, url_or_id)
+            if match:
+                video_id = match.group(1)
+                if re.match(r'^[a-zA-Z0-9_-]{11}$', video_id):
+                    return video_id
+        
+        raise ValueError("Invalid YouTube URL or video ID format")
+        
+    def get_transcript(self, video_id: str) -> List[Dict[str, Any]]:
+        """Get transcript for a video, process it, and store in vector store."""
         try:
-            # Try to get from cache first
+            # Validate video ID
+            video_id = self.extract_video_id(video_id)
+            
+            # Check cache first
             cached_data = self._read_cache(video_id)
             if cached_data:
                 logger.info(f"Using cached transcript for video {video_id}")
-                return cached_data["transcript"]
+                return cached_data['transcript']
             
-            # Fetch transcript list from YouTube
-            try:
-                transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-            except (TranscriptsDisabled, NoTranscriptFound) as e:
-                logger.error(f"No transcripts available for video {video_id}: {e}")
-                return []
+            # Get transcript list
+            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+            logger.info(f"Retrieved transcript list for video {video_id}")
             
-            # Get available transcript languages
-            try:
-                # Get all available transcripts
-                available_transcripts = transcript_list._manually_created_transcripts.copy()
-                available_transcripts.update(transcript_list._generated_transcripts)
-                logger.info(f"Available transcript languages: {[t.language_code for t in available_transcripts.values()]}")
-            except Exception as e:
-                logger.error(f"Error getting available transcripts: {e}")
-                return []
-            
+            # Try to get transcript in preferred order: manual Hindi -> auto Hindi -> manual English -> auto English
             transcript = None
-            # Try to get Hindi transcript (including auto-generated)
             try:
-                # Look for Hindi transcripts
-                hindi_transcripts = [t for t in available_transcripts.values() if t.language_code == 'hi']
-                if hindi_transcripts:
-                    # Prefer manually created over auto-generated
-                    transcript = next((t for t in hindi_transcripts if not t.is_generated), None)
-                    if transcript:
-                        logger.info("Found manual Hindi transcript")
-                    else:
-                        # Use auto-generated if no manual transcript
-                        transcript = hindi_transcripts[0]
-                        logger.info("Found auto-generated Hindi transcript")
-            except Exception as e:
-                logger.debug(f"Error getting Hindi transcript: {e}")
-            
-            # If no Hindi transcript, try Urdu
-            if not transcript:
+                # Try manual Hindi first
+                transcript = transcript_list.find_manually_created_transcript(['hi'])
+                logger.info("Found manual Hindi transcript")
+            except:
                 try:
-                    urdu_transcripts = [t for t in available_transcripts.values() if t.language_code == 'ur']
-                    if urdu_transcripts:
-                        transcript = urdu_transcripts[0]
-                        logger.info("Found Urdu transcript")
-                except Exception as e:
-                    logger.debug(f"No Urdu transcript available: {e}")
+                    # Try auto-generated Hindi
+                    transcript = transcript_list.find_generated_transcript(['hi'])
+                    logger.info("Found auto-generated Hindi transcript")
+                except:
+                    try:
+                        # Try manual English
+                        transcript = transcript_list.find_manually_created_transcript(['en'])
+                        logger.info("Found manual English transcript")
+                    except:
+                        try:
+                            # Try auto-generated English
+                            transcript = transcript_list.find_generated_transcript(['en'])
+                            logger.info("Found auto-generated English transcript")
+                        except Exception as e:
+                            logger.error(f"No suitable transcript found: {str(e)}")
+                            # List available languages for debugging
+                            manual_langs = [f"{lang.language_code} ({lang.language})" for lang in transcript_list._manually_created_transcripts.values()]
+                            auto_langs = [f"{lang.language_code} ({lang.language})" for lang in transcript_list._generated_transcripts.values()]
+                            logger.info(f"Available manual transcripts: {manual_langs}")
+                            logger.info(f"Available auto transcripts: {auto_langs}")
+                            raise ValueError("No Hindi or English transcript available for this video")
             
-            # If still no transcript, try English as last resort
-            if not transcript:
-                try:
-                    english_transcripts = [t for t in available_transcripts.values() if t.language_code == 'en']
-                    if english_transcripts:
-                        transcript = english_transcripts[0]
-                        logger.info("Using English transcript as fallback")
-                except Exception as e:
-                    logger.debug(f"No English transcript available: {e}")
-                    # Try any available transcript as last resort
-                    if available_transcripts:
-                        transcript = next(iter(available_transcripts.values()))
-                        logger.info(f"Using available transcript in {transcript.language_code}")
+            # Fetch transcript data
+            transcript_data = transcript.fetch()
+            logger.info(f"Fetched transcript data with {len(transcript_data)} segments")
             
-            if not transcript:
-                logger.error("No transcript found in any language")
-                return []
-            
-            # Get transcript data
-            try:
-                transcript_data = transcript.fetch()
-                source_lang = transcript.language_code
-                logger.info(f"Successfully fetched transcript in {source_lang}")
-            except Exception as e:
-                logger.error(f"Error fetching transcript data: {e}")
-                return []
-            
-            # Convert text to Urdu script if needed
-            converted_data = []
+            # Process each segment
+            processed_segments = []
             for segment in transcript_data:
                 text = segment.get('text', '').strip()
                 if not text:
                     continue
+                    
+                # Convert to Urdu if needed
+                translated_text, was_translated = self._language_service.convert_hindi_to_urdu(text)
                 
-                # Convert if not already in Urdu script
-                if source_lang != 'ur':
-                    try:
-                        urdu_text = self._language_service.convert_hindi_to_urdu(text)
-                        converted_data.append({
-                            **segment,
-                            'text': urdu_text,
-                            'original_text': text,
-                            'source_language': source_lang
-                        })
-                    except Exception as e:
-                        logger.error(f"Error converting text to Urdu: {e}")
-                        converted_data.append({**segment, 'text': text})
+                # Create segment with metadata
+                processed_segment = {
+                    'text': translated_text,
+                    'original_text': text,
+                    'start': segment.get('start', 0),
+                    'duration': segment.get('duration', 0),
+                    'source_language': transcript.language_code,
+                    'language': 'ur' if was_translated else transcript.language_code,
+                    'has_translation': was_translated
+                }
+                processed_segments.append(processed_segment)
+                
+                # Log segment processing
+                if was_translated:
+                    logger.info(f"Processed segment with translation: {text} -> {translated_text}")
                 else:
-                    converted_data.append({**segment, 'text': text})
+                    logger.debug(f"Processed segment without translation: {text}")
             
-            if not converted_data:
-                logger.error("No valid transcript segments found")
-                return []
+            # Store in vector store if needed
+            if self._vector_store and processed_segments:
+                self._add_to_vector_store(video_id, processed_segments)
             
-            # Cache the converted transcript
+            # Cache the processed transcript
             cache_data = {
-                "video_id": video_id,
-                "transcript": converted_data,
-                "source_language": source_lang,
-                "timestamp": datetime.utcnow().isoformat()
+                'transcript': processed_segments,
+                'metadata': {
+                    'video_id': video_id,
+                    'segments': len(processed_segments),
+                    'languages': list(set(seg['language'] for seg in processed_segments)),
+                    'has_translations': any(seg['has_translation'] for seg in processed_segments),
+                    'cached_at': datetime.now().isoformat()
+                }
             }
             self._write_cache(video_id, cache_data)
             
-            # Add to vector store
-            self._vector_store.add_transcript(video_id, converted_data)
-            
-            logger.info(f"Successfully processed transcript for video {video_id}")
-            return converted_data
+            return processed_segments
             
         except Exception as e:
-            logger.error(f"Error getting transcript for video {video_id}: {e}")
-            return []
-    
+            logger.error(f"Error getting transcript for video {video_id}: {str(e)}")
+            raise
+
     def prepare_for_vector_store(self, transcript: List[Dict], chunk_size: int = 100, overlap: int = 20) -> List[Dict]:
-        """
-        Prepare transcript chunks for vector store.
+        """Prepare transcript segments for vector store by chunking and adding metadata."""
+        chunks = []
+        current_chunk = []
+        current_length = 0
         
-        Args:
-            transcript: List of transcript segments
-            chunk_size: Maximum number of characters per chunk
-            overlap: Number of characters to overlap between chunks
-            
-        Returns:
-            List of chunks with metadata
-        """
-        try:
-            if not transcript:
-                return []
-            
-            documents = []
-            current_chunk = ""
-            current_start = 0
-            current_end = 0
-            doc_id = 0
-            
-            for segment in transcript:
-                text = segment.get('text', '').strip()
-                if not text:
-                    continue
+        for segment in transcript:
+            # Use the translated text if available
+            text = segment['text']
+            if not text:
+                continue
                 
-                # Add segment to current chunk
-                if current_chunk:
-                    current_chunk += " "
-                current_chunk += text
-                
-                # Update timing
-                if not current_start:
-                    current_start = segment.get('start', 0)
-                current_end = segment.get('start', 0) + segment.get('duration', 0)
-                
-                # Check if chunk is full
-                if len(current_chunk) >= chunk_size:
-                    # Create document
-                    documents.append({
-                        'text': current_chunk,
-                        'metadata': {
-                            'start_time': current_start,
-                            'end_time': current_end,
-                            'language': segment.get('language', 'ur'),
-                            'timestamp': datetime.utcnow().isoformat(),
-                            'type': 'transcript_chunk'
-                        }
-                    })
-                    doc_id += 1
-                    
-                    # Start new chunk with overlap
-                    words = current_chunk.split()
-                    overlap_text = ' '.join(words[-int(len(words)*overlap/chunk_size):])
-                    current_chunk = overlap_text
-                    current_start = current_end - 2  # Approximate overlap time
+            # Add segment to current chunk
+            current_chunk.append({
+                'text': text,
+                'start': segment['start'],
+                'duration': segment['duration'],
+                'language': segment['language']
+            })
+            current_length += len(text.split())
             
-            # Add final chunk if not empty
-            if current_chunk:
-                documents.append({
-                    'text': current_chunk,
+            # If chunk is full, process it
+            if current_length >= chunk_size:
+                # Create chunk document
+                chunk_text = ' '.join(seg['text'] for seg in current_chunk)
+                chunk_start = current_chunk[0]['start']
+                chunk_end = current_chunk[-1]['start'] + current_chunk[-1]['duration']
+                
+                chunks.append({
+                    'text': chunk_text,
                     'metadata': {
-                        'start_time': current_start,
-                        'end_time': current_end,
-                        'language': transcript[-1].get('language', 'ur'),
-                        'timestamp': datetime.utcnow().isoformat(),
-                        'type': 'transcript_chunk'
+                        'start_time': chunk_start,
+                        'end_time': chunk_end,
+                        'duration': chunk_end - chunk_start,
+                        'language': current_chunk[0]['language']
                     }
                 })
+                
+                # Keep overlap segments for next chunk
+                overlap_segments = current_chunk[-overlap:] if overlap > 0 else []
+                current_chunk = overlap_segments
+                current_length = sum(len(seg['text'].split()) for seg in overlap_segments)
+        
+        # Add remaining segments as final chunk if any
+        if current_chunk:
+            chunk_text = ' '.join(seg['text'] for seg in current_chunk)
+            chunk_start = current_chunk[0]['start']
+            chunk_end = current_chunk[-1]['start'] + current_chunk[-1]['duration']
             
-            return documents
+            chunks.append({
+                'text': chunk_text,
+                'metadata': {
+                    'start_time': chunk_start,
+                    'end_time': chunk_end,
+                    'duration': chunk_end - chunk_start,
+                    'language': current_chunk[0]['language']
+                }
+            })
+        
+        return chunks
+        
+    def _add_to_vector_store(self, video_id: str, transcript: List[Dict]) -> None:
+        """Add transcript chunks to vector store with proper metadata."""
+        try:
+            # Prepare chunks for vector store
+            chunks = self.prepare_for_vector_store(transcript)
             
+            # Add chunks to vector store
+            if self._vector_store:
+                for chunk in chunks:
+                    self._vector_store.add_document(
+                        document=chunk['text'],
+                        metadata={
+                            'video_id': video_id,
+                            **chunk['metadata']
+                        }
+                    )
+                logger.info(f"Added {len(chunks)} chunks to vector store for video {video_id}")
+            else:
+                logger.warning("Vector store not initialized, skipping vector store addition")
+                
         except Exception as e:
-            logger.error(f"Error preparing transcript chunks: {e}")
-            return []
-    
+            logger.error(f"Error adding transcript to vector store: {str(e)}")
+            # Don't raise the error since vector store is optional
+
     def convert_hindi_to_urdu(self, text: str) -> str:
         """Convert Hindi text to Urdu script."""
         return self._language_service.convert_hindi_to_urdu(text)
@@ -447,55 +555,62 @@ class ListeningService:
             logger.error(f"Error storing transcript: {e}")
             return False
 
-    def get_transcript_with_stats(self, video_url: str) -> Dict:
-        """Get transcript and generate statistics."""
+    def get_transcript_with_stats(self, video_id: str) -> Dict[str, Any]:
+        """Get transcript with additional statistics."""
         try:
-            # Extract video ID
-            video_id = self.extract_video_id(video_url)
-            if not video_id:
-                return {
-                    "error": "Invalid YouTube URL",
-                    "transcript": [],
-                    "statistics": self._empty_stats()
-                }
-
             # Get transcript
             transcript = self.get_transcript(video_id)
-            if not transcript:
-                return {
-                    "transcript": [],
-                    "statistics": self._empty_stats()
-                }
-
-            # Convert Hindi text to Urdu
-            converted_transcript = []
-            for segment in transcript:
-                text = segment.get('text', '').strip()
-                # Convert if not already in Urdu script
-                if text and not any(ord(char) >= 0x0600 and ord(char) <= 0x06FF for char in text):
-                    urdu_text = self._language_service.convert_hindi_to_urdu(text)
-                    converted_transcript.append({**segment, 'text': urdu_text})
-                else:
-                    converted_transcript.append(segment)
-
-            # Store converted transcript
-            self.store_transcript(video_id, converted_transcript)
-
+            
             # Calculate statistics
-            stats = self._calculate_stats(converted_transcript)
-
+            total_segments = len(transcript)
+            total_duration = sum(seg['duration'] for seg in transcript)
+            translated_segments = sum(1 for seg in transcript if seg['has_translation'])
+            
+            # Group segments by language
+            language_stats = {}
+            for seg in transcript:
+                lang = seg['language']
+                if lang not in language_stats:
+                    language_stats[lang] = {
+                        'count': 0,
+                        'duration': 0,
+                        'sample_text': []
+                    }
+                language_stats[lang]['count'] += 1
+                language_stats[lang]['duration'] += seg['duration']
+                if len(language_stats[lang]['sample_text']) < 3:  # Keep up to 3 samples
+                    language_stats[lang]['sample_text'].append(seg['text'])
+            
+            # Format duration as MM:SS
+            def format_duration(seconds):
+                minutes = int(seconds // 60)
+                seconds = int(seconds % 60)
+                return f"{minutes:02d}:{seconds:02d}"
+            
+            # Prepare response
             return {
-                "transcript": converted_transcript,
-                "statistics": stats
+                'transcript': transcript,
+                'stats': {
+                    'total_segments': total_segments,
+                    'total_duration': format_duration(total_duration),
+                    'total_duration_seconds': total_duration,
+                    'translated_segments': translated_segments,
+                    'translation_percentage': round((translated_segments / total_segments * 100) if total_segments > 0 else 0, 1),
+                    'languages': {
+                        lang: {
+                            'count': stats['count'],
+                            'duration': format_duration(stats['duration']),
+                            'percentage': round((stats['count'] / total_segments * 100) if total_segments > 0 else 0, 1),
+                            'sample_text': stats['sample_text']
+                        }
+                        for lang, stats in language_stats.items()
+                    }
+                }
             }
-
+            
         except Exception as e:
-            logger.error(f"Error getting transcript with stats: {e}")
-            return {
-                "error": str(e),
-                "transcript": [],
-                "statistics": self._empty_stats()
-            }
+            logger.error(f"Error getting transcript with stats: {str(e)}")
+            raise
 
     def _empty_stats(self) -> Dict:
         """Return empty statistics structure."""
@@ -561,3 +676,168 @@ class ListeningService:
         except Exception as e:
             logger.error(f"Error calculating statistics: {e}")
             return self._empty_stats()
+
+    def get_questions(self, video_id: str) -> List[Dict[str, Any]]:
+        """Generate questions for a video using AWS Bedrock and vector similarity search."""
+        try:
+            # Get transcript first
+            transcript = self.get_transcript(video_id)
+            if not transcript:
+                raise ValueError("No transcript available")
+
+            # Combine transcript segments into a single text
+            combined_text = " ".join(seg["text"] for seg in transcript)
+            if not combined_text.strip():
+                raise ValueError("Empty transcript text")
+
+            # Try vector search only if collection is initialized
+            if self._questions_collection is not None:
+                try:
+                    # Query similar questions using ChromaDB with Titan embeddings
+                    results = self._questions_collection.query(
+                        query_texts=[combined_text],
+                        n_results=5,
+                        where={"video_id": video_id},
+                        include=["documents", "metadatas", "distances"]
+                    )
+                    
+                    # Check if we found good matches
+                    if (results and 
+                        results["documents"] and 
+                        results["distances"] and 
+                        results["distances"][0][0] <= (1 - aws_config.VECTOR_STORE_SIMILARITY_THRESHOLD)):
+                        
+                        logger.info(f"Found similar questions for video {video_id} with similarity {1 - results['distances'][0][0]:.2f}")
+                        return json.loads(results["documents"][0][0])
+                        
+                except Exception as e:
+                    logger.warning(f"Error searching for similar questions: {e}")
+            else:
+                logger.info("Vector store not available, proceeding with question generation")
+
+            # Generate new questions using Bedrock Claude
+            prompt = {
+                "prompt": "\n\nHuman: " + aws_config.QUESTION_GENERATION_PROMPT.format(
+                    text=combined_text[:2000]  # Limit transcript length
+                ) + "\n\nAssistant: ",
+                "max_tokens_to_sample": aws_config.BEDROCK_MAX_TOKENS,
+                "temperature": aws_config.BEDROCK_TEMPERATURE,
+                "top_p": aws_config.BEDROCK_TOP_P,
+                "stop_sequences": ["\n\nHuman:"]
+            }
+
+            # Call Bedrock with proper error handling
+            try:
+                response = self._runtime.invoke_model(
+                    modelId=aws_config.BEDROCK_MODEL_ID,
+                    contentType="application/json",
+                    accept="application/json",
+                    body=json.dumps(prompt).encode()
+                )
+                
+                # Parse response
+                response_body = json.loads(response.get('body').read())
+                if not response_body:
+                    raise ValueError("Empty response from Bedrock")
+                    
+                # Get completion from response
+                completion = response_body.get('completion')
+                if not completion:
+                    raise ValueError("No completion in model response")
+                
+                # Clean up completion text
+                completion = completion.strip()
+                if not completion:
+                    raise ValueError("Empty completion text")
+                
+                # Try to find JSON array in response
+                try:
+                    # First try direct JSON parsing
+                    questions = json.loads(completion)
+                except json.JSONDecodeError:
+                    # If that fails, try to find JSON array in text
+                    json_match = re.search(r'\[.*\]', completion, re.DOTALL)
+                    if not json_match:
+                        raise ValueError("No JSON array found in response")
+                    try:
+                        questions = json.loads(json_match.group())
+                    except json.JSONDecodeError:
+                        raise ValueError("Invalid JSON format in response")
+                
+                if not isinstance(questions, list) or not questions:
+                    raise ValueError("Invalid questions format")
+                
+                # Validate each question
+                for i, question in enumerate(questions):
+                    if not isinstance(question, dict):
+                        raise ValueError(f"Question {i} is not a dictionary")
+                        
+                    # Check required fields
+                    missing_fields = []
+                    for field in ['question', 'options', 'correct_answer']:
+                        if field not in question:
+                            missing_fields.append(field)
+                    if missing_fields:
+                        raise ValueError(f"Question {i} missing fields: {', '.join(missing_fields)}")
+                    
+                    # Validate options
+                    if not isinstance(question['options'], list):
+                        raise ValueError(f"Question {i} options is not a list")
+                    if len(question['options']) != 4:
+                        raise ValueError(f"Question {i} must have exactly 4 options")
+                    
+                    # Validate option prefixes
+                    invalid_options = []
+                    for j, opt in enumerate(question['options']):
+                        if not isinstance(opt, str):
+                            invalid_options.append(f"Option {j} is not a string")
+                        elif not opt.startswith(('A. ', 'B. ', 'C. ', 'D. ')):
+                            invalid_options.append(f"Option {j} does not start with A./B./C./D.")
+                    if invalid_options:
+                        raise ValueError(f"Question {i} has invalid options: {', '.join(invalid_options)}")
+                    
+                    # Validate correct answer
+                    if not isinstance(question['correct_answer'], str):
+                        raise ValueError(f"Question {i} correct_answer is not a string")
+                    if question['correct_answer'] not in question['options']:
+                        raise ValueError(f"Question {i} correct_answer not in options")
+                
+                # Store in vector store if available
+                if self._questions_collection is not None:
+                    try:
+                        # Store questions as JSON string with Titan embeddings
+                        self._questions_collection.add(
+                            documents=[json.dumps(questions)],
+                            metadatas=[{
+                                "video_id": video_id,
+                                "generated_at": datetime.now().isoformat(),
+                                "source": "bedrock",
+                                "model": aws_config.BEDROCK_MODEL_ID,
+                                "embedding_model": aws_config.VECTOR_STORE_EMBEDDING_MODEL,
+                                "embedding_dim": aws_config.VECTOR_STORE_EMBEDDING_DIM
+                            }],
+                            ids=[f"{video_id}_{datetime.now().timestamp()}"]
+                        )
+                        logger.info(f"Stored questions in vector store for video {video_id}")
+                    except Exception as e:
+                        logger.warning(f"Failed to store questions in vector store: {e}")
+                
+                logger.info(f"Successfully generated {len(questions)} questions for video {video_id}")
+                return questions
+                
+            except self._runtime.exceptions.ValidationException as e:
+                logger.error(f"Bedrock validation error: {e}")
+                raise ValueError("Invalid request format")
+            except self._runtime.exceptions.ModelNotReadyException as e:
+                logger.error(f"Bedrock model not ready: {e}")
+                raise ValueError("Service temporarily unavailable")
+            except self._runtime.exceptions.ThrottlingException as e:
+                logger.error(f"Bedrock throttling error: {e}")
+                raise ValueError("Rate limit exceeded")
+            except (json.JSONDecodeError, KeyError, IndexError) as e:
+                logger.error(f"Error processing Bedrock response: {e}")
+                raise ValueError("Failed to process generated questions")
+                
+        except Exception as e:
+            logger.error(f"Error in question generation: {e}")
+            raise ValueError(f"Failed to generate questions: {e}")

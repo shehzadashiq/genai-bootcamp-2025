@@ -47,8 +47,8 @@ class LanguageService:
     
     # Special case handling for combined characters
     _combined_chars = {
-        'क्क': 'کّ', 'क्ख': 'कّھ', 'क्त': 'کت',
-        'त्त': 'تّ', 'त्र': 'تر', 'द्द': 'दّ',
+        'क्क': 'कّ', 'क्ख': 'कّھ', 'क्त': 'کت',
+        'त्त': 'तّ', 'त्र': 'تر', 'द्द': 'दّ',
         'द्ध': 'दّھ', 'प्प': 'पّ', 'र्र': 'रّ',
         'ल्ल': 'ल्ल', 'ज्ज': 'ज्ज', 'श्श': 'श्श'
     }
@@ -57,18 +57,39 @@ class LanguageService:
         if cls._instance is None:
             cls._instance = super(LanguageService, cls).__new__(cls)
             try:
-                # Initialize AWS Translate client
+                # Initialize AWS Translate client with proper configuration
                 config = botocore.config.Config(
-                    region_name=os.getenv('AWS_DEFAULT_REGION', 'us-east-1'),
-                    retries={'max_attempts': 3}
+                    region_name=os.getenv('AWS_REGION', 'us-east-1'),
+                    retries={'max_attempts': 3},
+                    connect_timeout=5,
+                    read_timeout=10
                 )
+                
+                # Ensure AWS credentials are available
+                aws_access_key = os.getenv('AWS_ACCESS_KEY_ID')
+                aws_secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+                
+                if not aws_access_key or not aws_secret_key:
+                    logger.error("AWS credentials not found in environment variables")
+                    raise ValueError("AWS credentials not found")
+                
                 cls._translate = boto3.client(
                     'translate',
                     config=config,
-                    aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-                    aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
+                    aws_access_key_id=aws_access_key,
+                    aws_secret_access_key=aws_secret_key
                 )
                 logger.info("AWS Translate client initialized successfully")
+                
+                # Verify AWS Translate permissions
+                try:
+                    cls._translate.list_languages()
+                    logger.info("AWS Translate permissions verified successfully")
+                except Exception as e:
+                    logger.error(f"AWS Translate permissions verification failed: {e}")
+                    cls._translate = None
+                    raise ValueError(f"AWS Translate permissions verification failed: {e}")
+                    
             except Exception as e:
                 logger.error(f"AWS Translate initialization failed: {e}")
                 cls._translate = None
@@ -161,12 +182,16 @@ class LanguageService:
             logger.error(f"Error in character mapping conversion: {e}")
             return text
     
-    def convert_hindi_to_urdu(self, text: str) -> str:
-        """Convert Hindi text to Urdu script using AWS Translate with fallback."""
+    def convert_hindi_to_urdu(self, text: str) -> Tuple[str, bool]:
+        """Convert text to Urdu script using AWS Translate with fallback."""
         try:
-            # Skip if text is empty
-            if not text:
-                return text
+            # Skip if text is empty or just whitespace
+            if not text or text.isspace():
+                return text, False
+                
+            # Skip if text is just [Music] or similar
+            if text.strip().lower() in ['[music]', '[music]']:
+                return text, False
             
             # Detect script and confidence
             script, confidence = self._detect_script(text)
@@ -174,30 +199,57 @@ class LanguageService:
             
             # If already in Urdu with high confidence, just normalize
             if script == 'ur' and confidence > 0.8:
-                return self._normalize_text(text)
+                return self._normalize_text(text), True
             
-            # If not Hindi, return as is
-            if script != 'hi' and script != 'unknown':
-                return text
-            
-            # Try AWS Translate first
+            # Try AWS Translate if available
             if self._translate:
                 try:
+                    # Determine source language based on script detection
+                    source_lang = 'hi' if script == 'hi' else 'en'
+                    
+                    # Log translation attempt
+                    logger.info(f"Attempting to translate from {source_lang} to Urdu: {text}")
+                    
+                    # Perform translation
                     response = self._translate.translate_text(
                         Text=text,
-                        SourceLanguageCode='hi',
+                        SourceLanguageCode=source_lang,
                         TargetLanguageCode='ur'
                     )
-                    translated_text = self._normalize_text(response['TranslatedText'])
-                    logger.info("Successfully used AWS Translate for conversion")
-                    return translated_text
+                    
+                    # Get translated text and source language
+                    translated_text = response.get('TranslatedText', '')
+                    detected_source = response.get('SourceLanguageCode', source_lang)
+                    
+                    # Log translation result
+                    logger.info(f"Translation result: {translated_text}")
+                    logger.info(f"Detected source language: {detected_source}")
+                    
+                    if translated_text and translated_text != text:
+                        logger.info(f"Successfully translated from {detected_source} to Urdu")
+                        return self._normalize_text(translated_text), True
+                    else:
+                        logger.warning(f"AWS Translate returned empty or unchanged translation: {translated_text}")
+                        return text, False
+                        
                 except Exception as e:
-                    logger.warning(f"AWS Translate failed, falling back to character mapping: {e}")
+                    logger.error(f"AWS Translate failed: {str(e)}")
+                    # Only fall back to character mapping if it was Hindi text
+                    if script == 'hi':
+                        logger.info("Falling back to character mapping for Hindi text")
+                        mapped_text = self._convert_with_mapping(text)
+                        return mapped_text, mapped_text != text
+                    return text, False
             
-            # Fallback to character mapping
-            logger.info("Using character mapping fallback")
-            return self._convert_with_mapping(text)
+            # If AWS Translate is not available and text is Hindi, use character mapping
+            if script == 'hi':
+                logger.info("AWS Translate not available, using character mapping for Hindi text")
+                mapped_text = self._convert_with_mapping(text)
+                return mapped_text, mapped_text != text
+            
+            # If neither translation nor mapping is possible, return original text
+            return text, False
             
         except Exception as e:
-            logger.error(f"Error converting Hindi to Urdu: {e}")
-            return text  # Return original text if conversion fails
+            logger.error(f"Error in convert_hindi_to_urdu: {str(e)}")
+            return text, False
