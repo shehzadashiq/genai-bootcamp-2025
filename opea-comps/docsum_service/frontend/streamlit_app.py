@@ -94,7 +94,12 @@ def main():
                     # Display audio player if available
                     if result.get("audio_url"):
                         st.subheader("Audio Version")
-                        st.audio(result["audio_url"])
+                        try:
+                            with open(os.path.join("audio_cache", os.path.basename(result["audio_url"])), "rb") as f:
+                                audio_bytes = f.read()
+                                st.audio(audio_bytes, format="audio/mp3")
+                        except Exception as e:
+                            st.error(f"Error playing audio: {str(e)}")
     
     # Add some spacing
     st.markdown("---")

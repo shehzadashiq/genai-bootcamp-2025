@@ -47,9 +47,6 @@ class VectorStore:
                 ids=[self._generate_id(url)]
             )
             
-            # Persist changes
-            self.client.persist()
-            
             logger.info(f"Stored summary for URL: {url}")
             
         except Exception as e:
@@ -107,7 +104,6 @@ class VectorStore:
             # Delete old entries
             if ids_to_delete:
                 self.collection.delete(ids=ids_to_delete)
-                self.client.persist()
                 logger.info(f"Cleaned up {len(ids_to_delete)} old entries")
                 
         except Exception as e:

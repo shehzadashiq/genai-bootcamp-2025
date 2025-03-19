@@ -12,7 +12,7 @@ services:
       - AWS_REGION=${AWS_REGION:-us-east-1}
     volumes:
       - ./data:/app/data
-      - ./audio_cache:/app/audio_cache
+      - audio_cache:/app/audio_cache
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
       interval: 30s
@@ -36,9 +36,13 @@ services:
     volumes:
       - ./frontend:/app/frontend
       - ./frontend/.streamlit:/app/frontend/.streamlit
+      - audio_cache:/app/audio_cache
     networks:
       - docsum_network
 
 networks:
   docsum_network:
     driver: bridge
+
+volumes:
+  audio_cache:

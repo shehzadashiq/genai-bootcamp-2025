@@ -36,8 +36,7 @@ class TextToSpeechService:
                 Text=text,
                 OutputFormat='mp3',
                 VoiceId='Aditi',  # Hindi female voice
-                LanguageCode='hi-IN',  # Hindi
-                Engine='neural'  # Using neural engine for better quality
+                LanguageCode='hi-IN'  # Hindi
             )
             
             # Save the audio stream to a file
