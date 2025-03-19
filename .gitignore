@@ -13,4 +13,6 @@ opea-comps/huggingface/token
 opea-comps/huggingface/hub/*
 opea-comps/.env
 lang_portal_frontend/node_modules/
-
+*.env
+lang_portal.7z
+lang_portal_backend/chroma_db/*
