@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, HttpUrl
 import uvicorn
-from app.services.docsum import DocSumService
+from app.services.docsum import Summarizer
 from app.services.vectorstore import VectorStore
 from app.services.translator import TranslationService
 from app.services.tts import TextToSpeechService
@@ -26,7 +26,7 @@ app.add_middleware(
 )
 
 # Initialize services
-docsum_service = DocSumService()
+summarizer = Summarizer()
 vector_store = VectorStore()
 translation_service = TranslationService()
 tts_service = TextToSpeechService()
@@ -61,10 +61,14 @@ async def summarize_url(input_data: URLInput):
                 )
 
         # Generate summary
-        summary = await docsum_service.generate_summary(str(input_data.url))
+        summary = await summarizer.summarize(str(input_data.url))
+        if not summary:
+            raise HTTPException(status_code=500, detail="Failed to generate summary")
         
         # Translate to Urdu
         translated_summary = await translation_service.translate_to_urdu(summary)
+        if not translated_summary:
+            raise HTTPException(status_code=500, detail="Failed to translate summary")
         
         # Generate audio for both languages
         audio_paths = await tts_service.generate_all_audio({

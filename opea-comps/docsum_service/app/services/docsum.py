@@ -1,118 +1,121 @@
-import torch
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-import requests
-from bs4 import BeautifulSoup
 import logging
+import boto3
+import os
+import json
 from typing import Optional
+import re
+from bs4 import BeautifulSoup
+import requests
+from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)
 
-class DocSumService:
+class Summarizer:
     def __init__(self):
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        logger.info(f"Using device: {self.device}")
-        
-        # Initialize model and tokenizer
-        self.model_name = "facebook/bart-large-cnn"
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name)
-        self.model = self.model.to(self.device)
-        
-        # Set maximum input and output lengths
-        self.max_input_length = 1024
-        self.max_output_length = 256
-    
-    async def _fetch_content(self, url: str) -> str:
-        """Fetch and extract text content from URL."""
+        self.client = boto3.client('bedrock-runtime',
+            aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+            aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+            region_name=os.getenv('AWS_REGION', 'us-east-1')
+        )
+        logger.info("Summarizer service initialized")
+
+    def _clean_content(self, html_content: str) -> str:
+        """Clean HTML content by removing navigation, footers, and suggested articles."""
         try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-            response = requests.get(url, headers=headers, timeout=10)
-            response.raise_for_status()
+            soup = BeautifulSoup(html_content, 'html.parser')
             
-            soup = BeautifulSoup(response.text, 'html.parser')
+            # Remove common elements that contain links to other articles
+            unwanted_selectors = [
+                'nav', 'footer', 'header',  # Navigation and footer elements
+                '[class*="related"]', '[class*="suggested"]', '[class*="recommendation"]',  # Related/suggested content
+                '[class*="sidebar"]', '[class*="promo"]', '[class*="advertisement"]',  # Sidebars and ads
+                '[class*="share"]', '[class*="social"]',  # Social sharing
+                '[class*="nav"]', '[class*="menu"]',  # Navigation menus
+                '[role="complementary"]'  # Complementary content
+            ]
+            
+            for selector in unwanted_selectors:
+                for element in soup.select(selector):
+                    element.decompose()
+            
+            # Extract main article content
+            main_content = None
+            content_selectors = [
+                'article', '[role="main"]', 
+                '[class*="article"]', '[class*="content"]', 
+                '[class*="story"]', 'main'
+            ]
+            
+            for selector in content_selectors:
+                main_content = soup.select_one(selector)
+                if main_content:
+                    break
+            
+            if not main_content:
+                main_content = soup
             
             # Remove script and style elements
-            for script in soup(["script", "style"]):
-                script.decompose()
+            for element in main_content(['script', 'style']):
+                element.decompose()
             
-            # Get text content
-            text = soup.get_text(separator=' ', strip=True)
+            # Get text and clean it
+            text = main_content.get_text(separator=' ', strip=True)
             
-            # Basic text cleaning
-            text = ' '.join(text.split())
+            # Remove extra whitespace and newlines
+            text = re.sub(r'\s+', ' ', text)
             
-            return text
+            # Remove common article suggestion patterns
+            text = re.sub(r'Read more:.*?(?=\w)', '', text)
+            text = re.sub(r'Related:.*?(?=\w)', '', text)
+            text = re.sub(r'You might also like:.*?(?=\w)', '', text)
+            text = re.sub(r'More on this story:.*?(?=\w)', '', text)
+            text = re.sub(r'More from BBC:.*?(?=\w)', '', text)
+            
+            return text.strip()
             
         except Exception as e:
-            logger.error(f"Error fetching content from {url}: {str(e)}")
-            raise
-    
-    async def _chunk_text(self, text: str, max_length: int) -> list[str]:
-        """Split text into chunks that fit within model's max input length."""
-        words = text.split()
-        chunks = []
-        current_chunk = []
-        current_length = 0
-        
-        for word in words:
-            word_tokens = len(self.tokenizer.encode(word))
-            if current_length + word_tokens > max_length:
-                chunks.append(' '.join(current_chunk))
-                current_chunk = [word]
-                current_length = word_tokens
-            else:
-                current_chunk.append(word)
-                current_length += word_tokens
-        
-        if current_chunk:
-            chunks.append(' '.join(current_chunk))
-        
-        return chunks
-    
-    async def _summarize_chunk(self, text: str) -> str:
-        """Generate summary for a single chunk of text."""
-        inputs = self.tokenizer(text, max_length=self.max_input_length, truncation=True, return_tensors="pt")
-        inputs = inputs.to(self.device)
-        
-        summary_ids = self.model.generate(
-            inputs["input_ids"],
-            max_length=self.max_output_length,
-            num_beams=4,
-            length_penalty=2.0,
-            early_stopping=True
-        )
-        
-        summary = self.tokenizer.decode(summary_ids[0], skip_special_tokens=True)
-        return summary
-    
-    async def generate_summary(self, url: str) -> str:
-        """Generate summary for the content at the given URL."""
+            logger.error(f"Error cleaning content: {str(e)}")
+            return html_content  # Return original content if cleaning fails
+
+    async def summarize(self, url: str) -> Optional[str]:
+        """Generate a summary of the webpage content."""
         try:
-            # Fetch content
-            content = await self._fetch_content(url)
+            # Fetch webpage content
+            response = requests.get(url)
+            response.raise_for_status()
             
-            # Split into chunks if necessary
-            chunks = await self._chunk_text(content, self.max_input_length)
+            # Clean the content
+            cleaned_content = self._clean_content(response.text)
+            logger.info("Successfully cleaned webpage content")
             
-            # Generate summary for each chunk
-            chunk_summaries = []
-            for chunk in chunks:
-                summary = await self._summarize_chunk(chunk)
-                chunk_summaries.append(summary)
+            # Prepare the prompt for Claude
+            prompt = {
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens_to_sample": 512,
+                "temperature": 0.7,
+                "top_p": 0.9,
+                "prompt": f"\n\nHuman: Summarize the following text in a clear and concise way, focusing on the main points and key information. Ignore any links to other articles or suggested content:\n\n{cleaned_content}\n\nAssistant: Here's a concise summary of the main points:"
+            }
             
-            # Combine chunk summaries if necessary
-            if len(chunk_summaries) > 1:
-                combined_summary = " ".join(chunk_summaries)
-                # Generate a final summary if the combined summary is too long
-                if len(self.tokenizer.encode(combined_summary)) > self.max_input_length:
-                    final_summary = await self._summarize_chunk(combined_summary)
-                    return final_summary
-                return combined_summary
+            # Call Bedrock with Claude model
+            response = self.client.invoke_model(
+                modelId="anthropic.claude-v2",
+                body=json.dumps(prompt)
+            )
             
-            return chunk_summaries[0]
+            # Parse the response
+            response_body = json.loads(response.get('body').read())
+            summary = response_body.get('completion', '').strip()
             
+            logger.info("Successfully generated summary")
+            return summary
+            
+        except requests.RequestException as e:
+            logger.error(f"Error fetching URL: {str(e)}")
+            return None
+        except ClientError as e:
+            logger.error(f"Error calling Bedrock: {str(e)}")
+            return None
         except Exception as e:
-            logger.error(f"Error generating summary for {url}: {str(e)}")
-            raise
+            logger.error(f"Unexpected error: {str(e)}")
+            return None
