@@ -7,7 +7,7 @@ from app.services.vectorstore import VectorStore
 from app.services.translator import TranslationService
 from app.services.tts import TextToSpeechService
 import logging
-from typing import Optional
+from typing import Optional, Dict
 import os
 
 # Configure logging
@@ -38,7 +38,7 @@ class URLInput(BaseModel):
 class SummaryResponse(BaseModel):
     summary: str
     translated_summary: str
-    audio_url: Optional[str]
+    audio_paths: Dict[str, Optional[str]]
 
 @app.post("/summarize", response_model=SummaryResponse)
 async def summarize_url(input_data: URLInput):
@@ -48,7 +48,17 @@ async def summarize_url(input_data: URLInput):
             cached_result = await vector_store.get_summary(str(input_data.url))
             if cached_result:
                 logger.info(f"Cache hit for URL: {input_data.url}")
-                return cached_result
+                # Generate audio for cached result
+                audio_paths = await tts_service.generate_all_audio({
+                    "en": cached_result["summary"],
+                    "ur": cached_result["translated_summary"]
+                })
+                cached_result.update(audio_paths)
+                return SummaryResponse(
+                    summary=cached_result["summary"],
+                    translated_summary=cached_result["translated_summary"],
+                    audio_paths=audio_paths
+                )
 
         # Generate summary
         summary = await docsum_service.generate_summary(str(input_data.url))
@@ -56,22 +66,31 @@ async def summarize_url(input_data: URLInput):
         # Translate to Urdu
         translated_summary = await translation_service.translate_to_urdu(summary)
         
-        # Generate audio
-        audio_url = await tts_service.generate_audio(translated_summary)
-        
+        # Generate audio for both languages
+        audio_paths = await tts_service.generate_all_audio({
+            "en": summary,
+            "ur": translated_summary
+        })
+
+        # Prepare result
+        result = {
+            "summary": summary,
+            "translated_summary": translated_summary,
+            "audio_paths": audio_paths
+        }
+
         # Store in cache
         if input_data.use_cache:
             await vector_store.store_summary(
                 str(input_data.url),
-                summary,
-                translated_summary,
-                audio_url
+                result
             )
-        
+            logger.info(f"Stored summary in cache for URL: {input_data.url}")
+
         return SummaryResponse(
-            summary=summary,
-            translated_summary=translated_summary,
-            audio_url=audio_url
+            summary=result["summary"],
+            translated_summary=result["translated_summary"],
+            audio_paths=result["audio_paths"]
         )
     
     except Exception as e:
@@ -81,6 +100,16 @@ async def summarize_url(input_data: URLInput):
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Starting up services...")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.info("Shutting down services...")
+    # Clean up old audio files
+    await tts_service.cleanup_old_audio()
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8002))

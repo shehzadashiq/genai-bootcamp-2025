@@ -35,7 +35,7 @@ class ScriptConverter:
             'ظ': 'ज़',
             'ع': 'अ',
             'غ': 'ग़',
-            'ف': 'फ़',
+            'ف': '__F__',  # Special marker for F sound
             'ق': 'क़',
             'ک': 'क',
             'گ': 'ग',
@@ -68,7 +68,7 @@ class ScriptConverter:
             '۵': '५',
             '۶': '६',
             '۷': '७',
-            '۸': '८',
+            '८': '८',
             '۹': '९',
             
             # Punctuation

@@ -2,10 +2,11 @@ import boto3
 import os
 import logging
 from botocore.exceptions import ClientError, BotoCoreError
-from typing import Optional
+from typing import Optional, Dict
 import uuid
 from datetime import datetime
 from .script_converter import ScriptConverter
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -26,14 +27,54 @@ class TextToSpeechService:
         
         logger.info("Text-to-Speech service initialized")
     
-    async def generate_audio(self, text: str) -> Optional[str]:
-        """Generate audio from Urdu text using Amazon Polly.
-        Converts Urdu script to Devanagari while preserving pronunciation,
-        then uses Hindi voice for better quality speech."""
+    def _create_ssml(self, text: str, lang: str = 'hi-IN') -> str:
+        """Create SSML with prosody and break controls for more natural speech."""
+        # For Hindi text, replace special markers with phoneme tags
+        if lang == 'hi-IN':
+            text = text.replace('__F__', '<phoneme alphabet="ipa" ph="f">फ</phoneme>')
+            
+        # Split text into sentences
+        delimiter = '।' if lang == 'hi-IN' else '.'
+        sentences = text.split(delimiter)
+        
+        # Build SSML with prosody controls
+        ssml_parts = ['<speak>']
+        
+        for sentence in sentences:
+            if not sentence.strip():
+                continue
+                
+            # Add prosody controls for more natural rhythm
+            # Slightly different settings for English vs Hindi
+            rate = "85%" if lang == 'hi-IN' else "95%"
+            ssml_parts.append(
+                f'<prosody rate="{rate}" pitch="+0%">{sentence.strip()}</prosody>'
+                '<break strength="strong"/>'
+            )
+        
+        ssml_parts.append('</speak>')
+        return ''.join(ssml_parts)
+    
+    async def generate_audio(self, text: str, lang: str = 'hi-IN') -> Optional[str]:
+        """Generate audio using Amazon Polly.
+        For Hindi text, converts from Urdu script to Devanagari while preserving pronunciation.
+        For English text, uses native English voice."""
         try:
-            # Convert Urdu script to Devanagari
-            devanagari_text = self.converter.convert_to_devanagari(text)
-            logger.info("Converted text to Devanagari script")
+            # Process text based on language
+            if lang == 'hi-IN':
+                # Convert Urdu script to Devanagari
+                processed_text = self.converter.convert_to_devanagari(text)
+                voice_id = 'Aditi'
+                logger.info("Converted text to Devanagari script")
+            else:
+                # Use English text as is
+                processed_text = text
+                voice_id = 'Joanna'  # Female US English voice
+                logger.info("Using English text directly")
+            
+            # Create SSML with prosody controls
+            ssml_text = self._create_ssml(processed_text, lang)
+            logger.info("Created SSML with prosody controls")
             
             # Generate a unique filename
             filename = f"{uuid.uuid4()}.mp3"
@@ -41,11 +82,12 @@ class TextToSpeechService:
             
             # Request speech synthesis
             response = self.client.synthesize_speech(
-                Text=devanagari_text,
+                Text=ssml_text,
                 OutputFormat='mp3',
-                VoiceId='Aditi',  # Hindi female voice
-                LanguageCode='hi-IN',  # Hindi
-                Engine='standard'
+                VoiceId=voice_id,
+                LanguageCode=lang,
+                Engine='standard',
+                TextType='ssml'
             )
             
             # Save the audio stream to a file
@@ -64,6 +106,19 @@ class TextToSpeechService:
         except Exception as e:
             logger.error(f"Audio generation error: {str(e)}")
             raise
+    
+    async def generate_all_audio(self, text_dict: Dict[str, str]) -> Dict[str, str]:
+        """Generate audio for all provided text versions."""
+        result = {}
+        for lang, text in text_dict.items():
+            if text:
+                audio_path = await self.generate_audio(
+                    text,
+                    'hi-IN' if lang == 'ur' else 'en-US'
+                )
+                if audio_path:
+                    result[f"{lang}_audio"] = audio_path
+        return result
     
     async def cleanup_old_audio(self, max_age_hours: int = 24) -> None:
         """Clean up audio files older than specified hours."""

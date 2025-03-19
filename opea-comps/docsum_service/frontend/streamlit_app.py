@@ -44,6 +44,15 @@ def get_summary(url: str, use_cache: bool = True) -> Optional[dict]:
         st.error(f"Error: {str(e)}")
         return None
 
+def display_audio(audio_path: str, language: str) -> None:
+    """Display audio player with error handling."""
+    try:
+        with open(os.path.join("audio_cache", os.path.basename(audio_path)), "rb") as f:
+            audio_bytes = f.read()
+            st.audio(audio_bytes, format="audio/mp3")
+    except Exception as e:
+        st.error(f"Error playing {language} audio: {str(e)}")
+
 def main():
     st.set_page_config(
         page_title="Document Summarizer",
@@ -53,7 +62,7 @@ def main():
     
     st.title("📚 Document Summarizer")
     st.markdown("""
-    This application summarizes web pages and provides the summary in Urdu with audio support.
+    This application summarizes web pages and provides the summary in both English and Urdu with audio support.
     Simply enter a URL below to get started!
     """)
     
@@ -82,24 +91,18 @@ def main():
                 result = get_summary(url, use_cache)
                 
                 if result:
-                    # Display original summary
+                    # Display English summary with audio
                     st.subheader("English Summary")
                     st.write(result["summary"])
+                    if result.get("audio_paths", {}).get("en_audio"):
+                        display_audio(result["audio_paths"]["en_audio"], "English")
                     
-                    # Display Urdu summary
+                    # Display Urdu summary with audio
                     st.subheader("Urdu Summary")
                     st.markdown(f'<div dir="rtl" lang="ur">{result["translated_summary"]}</div>', 
                               unsafe_allow_html=True)
-                    
-                    # Display audio player if available
-                    if result.get("audio_url"):
-                        st.subheader("Audio Version")
-                        try:
-                            with open(os.path.join("audio_cache", os.path.basename(result["audio_url"])), "rb") as f:
-                                audio_bytes = f.read()
-                                st.audio(audio_bytes, format="audio/mp3")
-                        except Exception as e:
-                            st.error(f"Error playing audio: {str(e)}")
+                    if result.get("audio_paths", {}).get("ur_audio"):
+                        display_audio(result["audio_paths"]["ur_audio"], "Urdu")
     
     # Add some spacing
     st.markdown("---")
