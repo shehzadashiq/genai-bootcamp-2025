@@ -9,6 +9,7 @@ import mimetypes
 from pathlib import Path
 import base64
 import time
+import io
 
 # API endpoints
 API_URL = os.getenv("API_URL", "http://localhost:8002")  # For browser access
@@ -34,11 +35,17 @@ def is_valid_youtube_url(url: str) -> bool:
 def is_valid_url(url: str) -> bool:
     return url.startswith(("http://", "https://"))
 
-def get_audio_url(path: str) -> str:
-    """Convert relative path to full URL"""
-    if path.startswith("/"):
-        return f"{API_URL}{path}"
-    return path
+def get_audio_content(audio_path: str) -> Optional[bytes]:
+    """Fetch audio content from API using internal URL"""
+    try:
+        url = f"{INTERNAL_API_URL}{audio_path}"
+        response = requests.get(url)
+        if response.status_code == 200:
+            return response.content
+        return None
+    except Exception as e:
+        st.error(f"Error fetching audio: {str(e)}")
+        return None
 
 def display_summary(response_data: Dict):
     if not response_data:
@@ -52,23 +59,24 @@ def display_summary(response_data: Dict):
     
     if "audio_paths" in response_data:
         st.subheader("Audio")
-        st.write("Debug - Audio paths:", response_data["audio_paths"])  # Debug line
-        
+        # st.write("Debug - Audio paths:", response_data["audio_paths"])  # Debug line
         col1, col2 = st.columns(2)
         
         with col1:
             st.write("English Audio")
             if response_data["audio_paths"].get("en_audio"):
-                audio_url = get_audio_url(response_data["audio_paths"]["en_audio"])
-                st.write("Debug - English audio URL:", audio_url)  # Debug line
-                st.audio(audio_url)
+                audio_path = response_data["audio_paths"]["en_audio"]
+                audio_content = get_audio_content(audio_path)
+                if audio_content:
+                    st.audio(audio_content, format='audio/mp3')
         
         with col2:
             st.write("Urdu Audio")
             if response_data["audio_paths"].get("ur_audio"):
-                audio_url = get_audio_url(response_data["audio_paths"]["ur_audio"])
-                st.write("Debug - Urdu audio URL:", audio_url)  # Debug line
-                st.audio(audio_url)
+                audio_path = response_data["audio_paths"]["ur_audio"]
+                audio_content = get_audio_content(audio_path)
+                if audio_content:
+                    st.audio(audio_content, format='audio/mp3')
 
 def process_url(url: str, use_cache: bool = True):
     try:

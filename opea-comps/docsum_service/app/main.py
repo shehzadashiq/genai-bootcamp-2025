@@ -1,6 +1,5 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 import uvicorn
 from app.services.docsum import Summarizer
 from app.services.vectorstore import VectorStore
@@ -26,20 +25,44 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount static files directory for serving audio files
-audio_dir = "/app/audio_cache"
-logger.info(f"Setting up static file serving from: {audio_dir}")
-logger.info(f"Directory exists: {os.path.exists(audio_dir)}")
-if os.path.exists(audio_dir):
-    logger.info(f"Directory contents: {os.listdir(audio_dir)}")
-
-app.mount("/audio", StaticFiles(directory=audio_dir), name="audio")
+# Audio directory configuration
+AUDIO_DIR = "/app/audio_cache"
+os.makedirs(AUDIO_DIR, exist_ok=True)
+logger.info(f"Audio directory: {AUDIO_DIR}")
 
 # Initialize services
 summarizer = Summarizer()
 vector_store = VectorStore()
 translation_service = TranslationService()
 tts_service = TextToSpeechService()
+
+@app.get("/audio/{filename}")
+async def get_audio_file(filename: str):
+    """Serve audio files directly."""
+    file_path = os.path.join(AUDIO_DIR, filename)
+    logger.info(f"Attempting to serve audio file: {file_path}")
+    
+    if not os.path.exists(file_path):
+        logger.error(f"Audio file not found: {file_path}")
+        raise HTTPException(status_code=404, detail="Audio file not found")
+    
+    try:
+        with open(file_path, "rb") as f:
+            content = f.read()
+            
+        logger.info(f"Successfully read audio file: {filename}")
+        return Response(
+            content=content,
+            media_type="audio/mpeg",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "public, max-age=3600",
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error serving audio file: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/summarize", response_model=SummaryResponse)
 async def summarize_content(input_data: ContentInput):

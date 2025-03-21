@@ -13,7 +13,8 @@ RUN useradd -m -u 1000 appuser
 # Set working directory and create necessary directories
 WORKDIR /app
 RUN mkdir -p data/chroma audio_cache && \
-    chown -R appuser:appuser /app
+    chown -R appuser:appuser /app && \
+    chmod 755 /app/audio_cache
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -29,6 +30,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application
 COPY --chown=appuser:appuser . .
+
+# Ensure volume mount point has correct permissions
+RUN mkdir -p /app/audio_cache && \
+    chown -R appuser:appuser /app/audio_cache && \
+    chmod 755 /app/audio_cache
 
 # Switch to non-root user
 USER appuser

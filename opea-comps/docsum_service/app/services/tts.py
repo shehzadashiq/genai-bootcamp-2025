@@ -82,6 +82,7 @@ class TextToSpeechService:
             # Generate a unique filename
             filename = f"{uuid.uuid4()}.mp3"
             filepath = os.path.join(self.cache_dir, filename)
+            logger.info(f"Will save audio to: {filepath}")
             
             # Request speech synthesis
             response = self.client.synthesize_speech(
@@ -95,11 +96,15 @@ class TextToSpeechService:
             
             # Save the audio stream to a file
             if "AudioStream" in response:
+                os.makedirs(os.path.dirname(filepath), exist_ok=True)
                 with open(filepath, 'wb') as file:
                     file.write(response['AudioStream'].read())
                 
-                logger.info(f"Generated audio file: {filename}")
-                # Return just the filename instead of full URL
+                logger.info(f"Generated audio file at: {filepath}")
+                logger.info(f"File exists after write: {os.path.exists(filepath)}")
+                logger.info(f"File size: {os.path.getsize(filepath)} bytes")
+                
+                # Return just the filename
                 return filename
             
             return None
