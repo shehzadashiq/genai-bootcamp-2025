@@ -1,121 +1,160 @@
+import aiohttp
 import logging
-import boto3
-import os
-import json
-from typing import Optional
-import re
 from bs4 import BeautifulSoup
-import requests
-from botocore.exceptions import ClientError
+from typing import Optional, Dict, Union
+import os
+import tempfile
+from pathlib import Path
+import magic
+import pytesseract
+from PIL import Image
+import io
+from youtube_transcript_api import YouTubeTranscriptApi
+import pandas as pd
+import json
+from app.models import ContentType
+from app.services.bedrock import BedrockService
 
 logger = logging.getLogger(__name__)
 
 class Summarizer:
     def __init__(self):
-        self.client = boto3.client('bedrock-runtime',
-            aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-            aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
-            region_name=os.getenv('AWS_REGION', 'us-east-1')
-        )
-        logger.info("Summarizer service initialized")
+        self.bedrock = BedrockService()
+        self.supported_document_types = {
+            ".txt", ".doc", ".docx", ".pdf",
+            ".csv", ".json", ".xlsx", ".xls"
+        }
+        self.supported_image_types = {
+            "image/jpeg", "image/png", "image/tiff"
+        }
+        self.supported_audio_types = {
+            "audio/mpeg", "audio/wav", "audio/ogg"
+        }
+        self.supported_video_types = {
+            "video/mp4", "video/mpeg", "video/ogg"
+        }
 
-    def _clean_content(self, html_content: str) -> str:
-        """Clean HTML content by removing navigation, footers, and suggested articles."""
+    async def _fetch_url_content(self, url: str) -> Optional[str]:
         try:
-            soup = BeautifulSoup(html_content, 'html.parser')
-            
-            # Remove common elements that contain links to other articles
-            unwanted_selectors = [
-                'nav', 'footer', 'header',  # Navigation and footer elements
-                '[class*="related"]', '[class*="suggested"]', '[class*="recommendation"]',  # Related/suggested content
-                '[class*="sidebar"]', '[class*="promo"]', '[class*="advertisement"]',  # Sidebars and ads
-                '[class*="share"]', '[class*="social"]',  # Social sharing
-                '[class*="nav"]', '[class*="menu"]',  # Navigation menus
-                '[role="complementary"]'  # Complementary content
-            ]
-            
-            for selector in unwanted_selectors:
-                for element in soup.select(selector):
-                    element.decompose()
-            
-            # Extract main article content
-            main_content = None
-            content_selectors = [
-                'article', '[role="main"]', 
-                '[class*="article"]', '[class*="content"]', 
-                '[class*="story"]', 'main'
-            ]
-            
-            for selector in content_selectors:
-                main_content = soup.select_one(selector)
-                if main_content:
-                    break
-            
-            if not main_content:
-                main_content = soup
-            
-            # Remove script and style elements
-            for element in main_content(['script', 'style']):
-                element.decompose()
-            
-            # Get text and clean it
-            text = main_content.get_text(separator=' ', strip=True)
-            
-            # Remove extra whitespace and newlines
-            text = re.sub(r'\s+', ' ', text)
-            
-            # Remove common article suggestion patterns
-            text = re.sub(r'Read more:.*?(?=\w)', '', text)
-            text = re.sub(r'Related:.*?(?=\w)', '', text)
-            text = re.sub(r'You might also like:.*?(?=\w)', '', text)
-            text = re.sub(r'More on this story:.*?(?=\w)', '', text)
-            text = re.sub(r'More from BBC:.*?(?=\w)', '', text)
-            
-            return text.strip()
-            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        html = await response.text()
+                        soup = BeautifulSoup(html, 'html.parser')
+                        # Remove script and style elements
+                        for script in soup(["script", "style"]):
+                            script.decompose()
+                        return soup.get_text(separator=' ', strip=True)
+                    else:
+                        logger.error(f"Failed to fetch URL: {url}")
+                        return None
         except Exception as e:
-            logger.error(f"Error cleaning content: {str(e)}")
-            return html_content  # Return original content if cleaning fails
+            logger.error(f"Error fetching URL {url}: {str(e)}")
+            return None
 
-    async def summarize(self, url: str) -> Optional[str]:
-        """Generate a summary of the webpage content."""
+    async def _process_document(self, file_content: bytes, filename: str) -> Optional[str]:
+        ext = Path(filename).suffix.lower()
+        if ext not in self.supported_document_types:
+            raise ValueError(f"Unsupported document type: {ext}")
+        
+        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as temp_file:
+            temp_file.write(file_content)
+            temp_file.flush()
+            
+            try:
+                if ext in {".csv", ".json", ".xlsx", ".xls"}:
+                    if ext == ".json":
+                        data = json.loads(file_content)
+                        text = json.dumps(data, indent=2)
+                    else:
+                        df = pd.read_excel(temp_file.name) if ext in {".xlsx", ".xls"} else pd.read_csv(temp_file.name)
+                        text = df.to_string()
+                else:
+                    # Use appropriate document processing library based on file type
+                    # This is a placeholder - implement actual document processing
+                    with open(temp_file.name, 'r', encoding='utf-8') as f:
+                        text = f.read()
+                return text
+            finally:
+                os.unlink(temp_file.name)
+
+    async def _process_image(self, file_content: bytes) -> Optional[str]:
+        mime_type = magic.from_buffer(file_content, mime=True)
+        if mime_type not in self.supported_image_types:
+            raise ValueError(f"Unsupported image type: {mime_type}")
+        
+        image = Image.open(io.BytesIO(file_content))
+        text = pytesseract.image_to_string(image)
+        return text if text.strip() else None
+
+    async def _process_youtube(self, video_id: str) -> Optional[str]:
         try:
-            # Fetch webpage content
-            response = requests.get(url)
-            response.raise_for_status()
-            
-            # Clean the content
-            cleaned_content = self._clean_content(response.text)
-            logger.info("Successfully cleaned webpage content")
-            
-            # Prepare the prompt for Claude
-            prompt = {
-                "anthropic_version": "bedrock-2023-05-31",
-                "max_tokens_to_sample": 512,
-                "temperature": 0.7,
-                "top_p": 0.9,
-                "prompt": f"\n\nHuman: Summarize the following text in a clear and concise way, focusing on the main points and key information. Ignore any links to other articles or suggested content:\n\n{cleaned_content}\n\nAssistant: Here's a concise summary of the main points:"
-            }
-            
-            # Call Bedrock with Claude model
-            response = self.client.invoke_model(
-                modelId="anthropic.claude-v2",
-                body=json.dumps(prompt)
-            )
-            
-            # Parse the response
-            response_body = json.loads(response.get('body').read())
-            summary = response_body.get('completion', '').strip()
-            
-            logger.info("Successfully generated summary")
-            return summary
-            
-        except requests.RequestException as e:
-            logger.error(f"Error fetching URL: {str(e)}")
-            return None
-        except ClientError as e:
-            logger.error(f"Error calling Bedrock: {str(e)}")
-            return None
+            transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+            text = " ".join([entry["text"] for entry in transcript_list])
+            return text
         except Exception as e:
-            logger.error(f"Unexpected error: {str(e)}")
+            logger.error(f"Error getting YouTube transcript: {str(e)}")
+            return None
+
+    def _extract_youtube_id(self, url: str) -> Optional[str]:
+        # Handle various YouTube URL formats
+        if "youtu.be" in url:
+            return url.split("/")[-1].split("?")[0]
+        elif "youtube.com/watch" in url:
+            from urllib.parse import parse_qs, urlparse
+            parsed_url = urlparse(url)
+            return parse_qs(parsed_url.query).get("v", [None])[0]
+        return None
+
+    async def summarize(
+        self,
+        content: Union[str, bytes],
+        content_type: ContentType,
+        metadata: Optional[Dict] = None
+    ) -> Optional[str]:
+        try:
+            text = None
+            
+            if content_type == ContentType.URL:
+                text = await self._fetch_url_content(str(content))
+            elif content_type == ContentType.TEXT:
+                text = content
+            elif content_type == ContentType.YOUTUBE:
+                video_id = self._extract_youtube_id(str(content))
+                if video_id:
+                    text = await self._process_youtube(video_id)
+            
+            if text:
+                return await self.bedrock.summarize(text)
+            return None
+
+        except Exception as e:
+            logger.error(f"Error in summarize: {str(e)}")
+            return None
+
+    async def summarize_file(
+        self,
+        file_content: bytes,
+        filename: str,
+        content_type: ContentType
+    ) -> Optional[str]:
+        try:
+            text = None
+            mime_type = magic.from_buffer(file_content, mime=True)
+
+            if content_type == ContentType.DOCUMENT:
+                text = await self._process_document(file_content, filename)
+            elif content_type == ContentType.IMAGE:
+                text = await self._process_image(file_content)
+            elif content_type in [ContentType.AUDIO, ContentType.VIDEO]:
+                # Placeholder for audio/video processing
+                # Would need to implement speech-to-text here
+                raise NotImplementedError(f"Processing {content_type} is not yet implemented")
+            
+            if text:
+                return await self.bedrock.summarize(text)
+            return None
+
+        except Exception as e:
+            logger.error(f"Error in summarize_file: {str(e)}")
             return None

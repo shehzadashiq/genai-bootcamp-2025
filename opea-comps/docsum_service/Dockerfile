@@ -18,6 +18,8 @@ RUN mkdir -p data/chroma audio_cache && \
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
+    tesseract-ocr \
+    libmagic1 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 

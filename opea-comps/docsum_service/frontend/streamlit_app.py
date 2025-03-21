@@ -1,118 +1,245 @@
 import streamlit as st
 import requests
 import json
-from typing import Optional
+from typing import Dict, Optional, Union
 import os
+from enum import Enum
+import tempfile
+import mimetypes
+from pathlib import Path
+import base64
 import time
 
-# Constants
-API_URL = os.getenv("API_URL", "http://localhost:8002")
-MAX_RETRIES = 3
-RETRY_DELAY = 2
+# API endpoints
+API_URL = os.getenv("API_URL", "http://localhost:8002")  # For browser access
+INTERNAL_API_URL = os.getenv("INTERNAL_API_URL", API_URL)  # For container-to-container communication
 
-def validate_url(url: str) -> bool:
-    """Basic URL validation."""
-    return url.startswith(('http://', 'https://'))
+class ContentType(str, Enum):
+    URL = "url"
+    TEXT = "text"
+    DOCUMENT = "document"
+    IMAGE = "image"
+    AUDIO = "audio"
+    VIDEO = "video"
+    YOUTUBE = "youtube"
+    DATASET = "dataset"
 
-def wait_for_api() -> bool:
-    """Wait for API to be ready."""
-    for _ in range(MAX_RETRIES):
-        try:
-            response = requests.get(f"{API_URL}/health")
-            if response.status_code == 200:
-                return True
-        except requests.exceptions.RequestException:
-            pass
-        time.sleep(RETRY_DELAY)
-    return False
+def init_session_state():
+    if "audio_cache" not in st.session_state:
+        st.session_state.audio_cache = {}
 
-def get_summary(url: str, use_cache: bool = True) -> Optional[dict]:
-    """Get summary from the API."""
+def is_valid_youtube_url(url: str) -> bool:
+    return "youtube.com/watch" in url or "youtu.be" in url
+
+def is_valid_url(url: str) -> bool:
+    return url.startswith(("http://", "https://"))
+
+def get_audio_url(path: str) -> str:
+    """Convert relative path to full URL"""
+    if path.startswith("/"):
+        return f"{API_URL}{path}"
+    return path
+
+def display_summary(response_data: Dict):
+    if not response_data:
+        return
+
+    st.subheader("Summary")
+    st.write(response_data["summary"])
+    
+    st.subheader("Urdu Summary")
+    st.write(response_data["translated_summary"])
+    
+    if "audio_paths" in response_data:
+        st.subheader("Audio")
+        st.write("Debug - Audio paths:", response_data["audio_paths"])  # Debug line
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("English Audio")
+            if response_data["audio_paths"].get("en_audio"):
+                audio_url = get_audio_url(response_data["audio_paths"]["en_audio"])
+                st.write("Debug - English audio URL:", audio_url)  # Debug line
+                st.audio(audio_url)
+        
+        with col2:
+            st.write("Urdu Audio")
+            if response_data["audio_paths"].get("ur_audio"):
+                audio_url = get_audio_url(response_data["audio_paths"]["ur_audio"])
+                st.write("Debug - Urdu audio URL:", audio_url)  # Debug line
+                st.audio(audio_url)
+
+def process_url(url: str, use_cache: bool = True):
     try:
-        # Check if API is ready
-        if not wait_for_api():
-            st.error("Could not connect to API service. Please try again later.")
-            return None
-            
         response = requests.post(
-            f"{API_URL}/summarize",
-            json={"url": url, "use_cache": use_cache}
+            f"{INTERNAL_API_URL}/summarize",
+            json={
+                "content_type": ContentType.URL,
+                "content": url,
+                "use_cache": use_cache
+            }
         )
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error: {str(e)}")
-        return None
-
-def display_audio(audio_path: str, language: str) -> None:
-    """Display audio player with error handling."""
-    try:
-        with open(os.path.join("audio_cache", os.path.basename(audio_path)), "rb") as f:
-            audio_bytes = f.read()
-            st.audio(audio_bytes, format="audio/mp3")
+        if response.status_code == 200:
+            display_summary(response.json())
+        else:
+            st.error(f"Error: {response.text}")
     except Exception as e:
-        st.error(f"Error playing {language} audio: {str(e)}")
+        st.error(f"Error: {str(e)}")
+
+def process_text(text: str):
+    try:
+        response = requests.post(
+            f"{INTERNAL_API_URL}/summarize",
+            json={
+                "content_type": ContentType.TEXT,
+                "content": text,
+                "use_cache": False
+            }
+        )
+        if response.status_code == 200:
+            display_summary(response.json())
+        else:
+            st.error(f"Error: {response.text}")
+    except Exception as e:
+        st.error(f"Error: {str(e)}")
+
+def process_file(file, content_type: ContentType):
+    try:
+        files = {"file": (file.name, file, file.type)}
+        data = {
+            "content_type": content_type,
+            "use_cache": True
+        }
+        
+        response = requests.post(
+            f"{INTERNAL_API_URL}/summarize/file",
+            files=files,
+            data=data
+        )
+        
+        if response.status_code == 200:
+            display_summary(response.json())
+        else:
+            st.error(f"Error: {response.text}")
+    except Exception as e:
+        st.error(f"Error: {str(e)}")
+
+def process_youtube(url: str):
+    try:
+        response = requests.post(
+            f"{INTERNAL_API_URL}/summarize",
+            json={
+                "content_type": ContentType.YOUTUBE,
+                "content": url,
+                "use_cache": True
+            }
+        )
+        if response.status_code == 200:
+            display_summary(response.json())
+        else:
+            st.error(f"Error: {response.text}")
+    except Exception as e:
+        st.error(f"Error: {str(e)}")
 
 def main():
     st.set_page_config(
-        page_title="Document Summarizer",
-        page_icon="📚",
+        page_title="Document Summary Service",
+        page_icon="📄",
         layout="wide"
     )
     
-    st.title("📚 Document Summarizer")
-    st.markdown("""
-    This application summarizes web pages and provides the summary in both English and Urdu with audio support.
-    Simply enter a URL below to get started!
-    """)
+    init_session_state()
     
-    # Display API status
-    try:
-        response = requests.get(f"{API_URL}/health")
-        if response.status_code == 200:
-            st.success("API service is ready!")
-        else:
-            st.warning("API service is not responding correctly")
-    except requests.exceptions.RequestException:
-        st.error("Could not connect to API service")
+    st.title("Document Summary Service")
+    st.write("Generate summaries from various content types in Urdu with audio")
     
-    # URL input
-    url = st.text_input("Enter webpage URL:", key="url_input")
-    col1, col2 = st.columns([1, 4])
-    use_cache = col1.checkbox("Use cache", value=True)
+    tabs = st.tabs([
+        "URL", "Text", "Document", "Image",
+        "Audio/Video", "YouTube", "Dataset"
+    ])
     
-    if col2.button("Generate Summary", type="primary"):
-        if not url:
-            st.warning("Please enter a URL")
-        elif not validate_url(url):
-            st.error("Please enter a valid URL (starting with http:// or https://)")
-        else:
-            with st.spinner("Generating summary..."):
-                result = get_summary(url, use_cache)
-                
-                if result:
-                    # Display English summary with audio
-                    st.subheader("English Summary")
-                    st.write(result["summary"])
-                    if result.get("audio_paths", {}).get("en_audio"):
-                        display_audio(result["audio_paths"]["en_audio"], "English")
-                    
-                    # Display Urdu summary with audio
-                    st.subheader("Urdu Summary")
-                    st.markdown(f'<div dir="rtl" lang="ur">{result["translated_summary"]}</div>', 
-                              unsafe_allow_html=True)
-                    if result.get("audio_paths", {}).get("ur_audio"):
-                        display_audio(result["audio_paths"]["ur_audio"], "Urdu")
+    # URL Tab
+    with tabs[0]:
+        st.header("URL Summary")
+        url = st.text_input("Enter URL")
+        use_cache = st.checkbox("Use Cache", value=True)
+        if st.button("Generate Summary", key="url_btn"):
+            if is_valid_url(url):
+                process_url(url, use_cache)
+            else:
+                st.error("Please enter a valid URL")
     
-    # Add some spacing
-    st.markdown("---")
+    # Text Tab
+    with tabs[1]:
+        st.header("Text Summary")
+        text = st.text_area("Enter Text")
+        if st.button("Generate Summary", key="text_btn"):
+            if text.strip():
+                process_text(text)
+            else:
+                st.error("Please enter some text")
     
-    # Add footer
-    st.markdown("""
-    <div style='text-align: center'>
-        <p>Built with ❤️ using Streamlit</p>
-    </div>
-    """, unsafe_allow_html=True)
+    # Document Tab
+    with tabs[2]:
+        st.header("Document Summary")
+        st.write("Supported formats: PDF, DOC, DOCX, TXT")
+        doc_file = st.file_uploader(
+            "Upload Document",
+            type=["pdf", "doc", "docx", "txt"],
+            key="doc_upload"
+        )
+        if doc_file:
+            if st.button("Generate Summary", key="doc_btn"):
+                process_file(doc_file, ContentType.DOCUMENT)
+    
+    # Image Tab
+    with tabs[3]:
+        st.header("Image Summary (OCR)")
+        st.write("Supported formats: JPG, PNG, TIFF")
+        img_file = st.file_uploader(
+            "Upload Image",
+            type=["jpg", "jpeg", "png", "tiff"],
+            key="img_upload"
+        )
+        if img_file:
+            st.image(img_file)
+            if st.button("Generate Summary", key="img_btn"):
+                process_file(img_file, ContentType.IMAGE)
+    
+    # Audio/Video Tab
+    with tabs[4]:
+        st.header("Audio/Video Summary")
+        st.write("Coming soon! Audio and video transcription support.")
+        media_file = st.file_uploader(
+            "Upload Audio/Video",
+            type=["mp3", "wav", "mp4", "mpeg", "ogg"],
+            key="media_upload",
+            disabled=True
+        )
+    
+    # YouTube Tab
+    with tabs[5]:
+        st.header("YouTube Summary")
+        youtube_url = st.text_input("Enter YouTube URL")
+        if st.button("Generate Summary", key="youtube_btn"):
+            if is_valid_youtube_url(youtube_url):
+                process_youtube(youtube_url)
+            else:
+                st.error("Please enter a valid YouTube URL")
+    
+    # Dataset Tab
+    with tabs[6]:
+        st.header("Dataset Summary")
+        st.write("Supported formats: CSV, JSON, XLSX")
+        dataset_file = st.file_uploader(
+            "Upload Dataset",
+            type=["csv", "json", "xlsx", "xls"],
+            key="dataset_upload"
+        )
+        if dataset_file:
+            if st.button("Generate Summary", key="dataset_btn"):
+                process_file(dataset_file, ContentType.DOCUMENT)
 
 if __name__ == "__main__":
     main()

@@ -6,9 +6,6 @@ Create an application that summarises webpages in Urdu. Given a URL, the applica
 
 Create an audio version of the summary.
 
-
-
-
 ## Technical Requirements
 
 - Use Docsum from [https://opea-project.github.io/latest/tutorial/DocSum/DocSum_Guide.html](https://opea-project.github.io/latest/tutorial/DocSum/DocSum_Guide.html)
@@ -22,3 +19,16 @@ Create an audio version of the summary.
 - Use Guardrails
 - Use AI Coding Assistant
 - Use Frontend eg. Streamlit
+
+## V2
+
+Create new tabs in the UI for the following in the UI:
+
+- Support for freetext
+- Support for documents
+- Support for OCR/Images
+- Support for audio/video
+- Support for YouTube videos as these are readily available
+- Support for structured datasets
+
+These will then be summarised and the audio version will be generated.

@@ -22,8 +22,11 @@ class TextToSpeechService:
         self.converter = ScriptConverter()
         
         # Create audio cache directory if it doesn't exist
-        self.cache_dir = "audio_cache"
+        self.cache_dir = "/app/audio_cache"
         os.makedirs(self.cache_dir, exist_ok=True)
+        
+        # Get API URL from environment - use internal Docker network URL
+        self.api_url = os.getenv('API_URL', 'http://api:8002')
         
         logger.info("Text-to-Speech service initialized")
     
@@ -96,7 +99,8 @@ class TextToSpeechService:
                     file.write(response['AudioStream'].read())
                 
                 logger.info(f"Generated audio file: {filename}")
-                return filepath
+                # Return just the filename instead of full URL
+                return filename
             
             return None
             
@@ -112,12 +116,12 @@ class TextToSpeechService:
         result = {}
         for lang, text in text_dict.items():
             if text:
-                audio_path = await self.generate_audio(
+                audio_filename = await self.generate_audio(
                     text,
                     'hi-IN' if lang == 'ur' else 'en-US'
                 )
-                if audio_path:
-                    result[f"{lang}_audio"] = audio_path
+                if audio_filename:
+                    result[f"{lang}_audio"] = f"/audio/{audio_filename}"
         return result
     
     async def cleanup_old_audio(self, max_age_hours: int = 24) -> None:
