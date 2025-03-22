@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   api:
     build:
@@ -11,7 +13,10 @@ services:
     environment:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+      - AWS_REGION=${AWS_REGION}
+      - AWS_BUCKET_NAME=${AWS_BUCKET_NAME}
+      - BEDROCK_MODEL_ID=${BEDROCK_MODEL_ID}
+      - BEDROCK_REGION=${BEDROCK_REGION}
     volumes:
       - ./data:/app/data
       - ./audio_cache:/app/audio_cache
@@ -47,3 +52,6 @@ services:
 networks:
   docsum_network:
     driver: bridge
+
+volumes:
+  audio_cache:

@@ -32,3 +32,16 @@ Create new tabs in the UI for the following in the UI:
 - Support for structured datasets
 
 These will then be summarised and the audio version will be generated.
+
+## Python Packages
+
+- boto3
+- youtube-transcript-api
+- chromadb
+- streamlit
+- langchain
+- faiss-cpu
+
+## Reference Sources
+
+- [https://www.dawn.com/news/1894059/from-darkness-to-light-the-promise-of-decentralised-community-driven-energy-in-northern-pakistan](https://www.dawn.com/news/1894059/from-darkness-to-light-the-promise-of-decentralised-community-driven-energy-in-northern-pakistan)

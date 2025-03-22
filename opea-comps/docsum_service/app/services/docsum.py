@@ -14,12 +14,14 @@ import pandas as pd
 import json
 from app.models import ContentType
 from app.services.bedrock import BedrockService
+from app.services.transcribe import TranscribeService
 
 logger = logging.getLogger(__name__)
 
 class Summarizer:
     def __init__(self):
         self.bedrock = BedrockService()
+        self.transcribe = TranscribeService()
         self.supported_document_types = {
             ".txt", ".doc", ".docx", ".pdf",
             ".csv", ".json", ".xlsx", ".xls"
@@ -87,6 +89,15 @@ class Summarizer:
         text = pytesseract.image_to_string(image)
         return text if text.strip() else None
 
+    async def _process_audio(self, file_content: bytes) -> Optional[str]:
+        """Process audio file and return transcribed text."""
+        mime_type = magic.from_buffer(file_content, mime=True)
+        if mime_type not in self.supported_audio_types:
+            raise ValueError(f"Unsupported audio type: {mime_type}")
+        
+        text = await self.transcribe.transcribe_audio(file_content, mime_type)
+        return text if text else None
+
     async def _process_youtube(self, video_id: str) -> Optional[str]:
         try:
             transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
@@ -138,23 +149,20 @@ class Summarizer:
         filename: str,
         content_type: ContentType
     ) -> Optional[str]:
+        """Process uploaded file based on content type."""
         try:
-            text = None
-            mime_type = magic.from_buffer(file_content, mime=True)
-
             if content_type == ContentType.DOCUMENT:
                 text = await self._process_document(file_content, filename)
             elif content_type == ContentType.IMAGE:
                 text = await self._process_image(file_content)
-            elif content_type in [ContentType.AUDIO, ContentType.VIDEO]:
-                # Placeholder for audio/video processing
-                # Would need to implement speech-to-text here
-                raise NotImplementedError(f"Processing {content_type} is not yet implemented")
-            
+            elif content_type == ContentType.AUDIO:
+                text = await self._process_audio(file_content)
+            else:
+                raise ValueError(f"Unsupported content type for file upload: {content_type}")
+
             if text:
                 return await self.bedrock.summarize(text)
             return None
-
         except Exception as e:
-            logger.error(f"Error in summarize_file: {str(e)}")
+            logger.error(f"Error processing file: {str(e)}")
             return None

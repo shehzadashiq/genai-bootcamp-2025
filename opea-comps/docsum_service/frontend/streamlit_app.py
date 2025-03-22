@@ -126,10 +126,14 @@ def process_file(file, content_type: ContentType):
                 # Send the file for processing
                 with open(tmp_file.name, 'rb') as f:
                     files = {'file': (file.name, f, file.type)}
+                    data = {
+                        'content_type': content_type.value,  # Use enum value
+                        'use_cache': 'true'  # Form data should be strings
+                    }
                     response = requests.post(
                         f"{INTERNAL_API_URL}/summarize/file",
                         files=files,
-                        data={'content_type': content_type}
+                        data=data
                     )
 
             os.unlink(tmp_file.name)  # Clean up the temporary file
@@ -137,7 +141,14 @@ def process_file(file, content_type: ContentType):
             if response.status_code == 200:
                 display_summary(response.json())
             else:
-                st.error(f"Error: {response.text}")
+                error_msg = response.text
+                try:
+                    error_json = response.json()
+                    if 'detail' in error_json:
+                        error_msg = str(error_json['detail'])
+                except:
+                    pass
+                st.error(f"Error: {error_msg}")
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
@@ -178,85 +189,94 @@ def main():
     
     # URL Tab
     with tabs[0]:
-        st.header("URL Summary")
+        st.subheader("URL Summary")
         url = st.text_input("Enter URL")
         use_cache = st.checkbox("Use Cache", value=True)
-        if st.button("Generate Summary", key="url_btn"):
-            if is_valid_url(url):
-                process_url(url, use_cache)
+        if st.button("Generate Summary", key="url_button"):
+            if url:
+                if is_valid_url(url):
+                    process_url(url, use_cache)
+                else:
+                    st.error("Please enter a valid URL")
             else:
-                st.error("Please enter a valid URL")
-    
+                st.error("Please enter a URL")
+
     # Text Tab
     with tabs[1]:
-        st.header("Text Summary")
+        st.subheader("Text Summary")
         text = st.text_area("Enter Text")
-        if st.button("Generate Summary", key="text_btn"):
-            if text.strip():
+        if st.button("Generate Summary", key="text_button"):
+            if text:
                 process_text(text)
             else:
                 st.error("Please enter some text")
-    
+
     # Document Tab
     with tabs[2]:
-        st.header("Document Summary")
-        st.write("Supported formats: PDF, DOC, DOCX, TXT")
+        st.subheader("Document Summary")
+        st.write("Supported formats: TXT, DOC, DOCX, PDF")
         doc_file = st.file_uploader(
             "Upload Document",
-            type=["pdf", "doc", "docx", "txt"],
+            type=["txt", "doc", "docx", "pdf"],
             key="doc_upload"
         )
-        if doc_file:
-            if st.button("Generate Summary", key="doc_btn"):
+        if doc_file is not None:
+            if st.button("Generate Summary", key="doc_button"):
                 process_file(doc_file, ContentType.DOCUMENT)
-    
+
     # Image Tab
     with tabs[3]:
-        st.header("Image Summary (OCR)")
-        st.write("Supported formats: JPG, PNG, TIFF")
-        img_file = st.file_uploader(
+        st.subheader("Image Summary")
+        st.write("Upload an image for OCR and summarization")
+        image_file = st.file_uploader(
             "Upload Image",
             type=["jpg", "jpeg", "png", "tiff"],
-            key="img_upload"
+            key="image_upload"
         )
-        if img_file:
-            st.image(img_file)
-            if st.button("Generate Summary", key="img_btn"):
-                process_file(img_file, ContentType.IMAGE)
-    
+        if image_file is not None:
+            st.image(image_file, caption="Uploaded Image")
+            if st.button("Generate Summary", key="image_button"):
+                process_file(image_file, ContentType.IMAGE)
+
     # Audio/Video Tab
     with tabs[4]:
-        st.header("Audio/Video Summary")
-        st.write("Coming soon! Audio and video transcription support.")
-        media_file = st.file_uploader(
-            "Upload Audio/Video",
-            type=["mp3", "wav", "mp4", "mpeg", "ogg"],
-            key="media_upload",
-            disabled=True
+        st.subheader("Audio/Video Summary")
+        st.write("Upload an audio file for transcription and summarization")
+        audio_file = st.file_uploader(
+            "Upload Audio",
+            type=["mp3", "wav", "ogg"],
+            key="audio_upload"
         )
-    
+        if audio_file is not None:
+            st.audio(audio_file)
+            if st.button("Generate Summary", key="audio_button"):
+                process_file(audio_file, ContentType.AUDIO)
+
     # YouTube Tab
     with tabs[5]:
-        st.header("YouTube Summary")
+        st.subheader("YouTube Summary")
         youtube_url = st.text_input("Enter YouTube URL")
-        if st.button("Generate Summary", key="youtube_btn"):
-            if is_valid_youtube_url(youtube_url):
-                process_youtube(youtube_url)
+        if st.button("Generate Summary", key="youtube_button"):
+            if youtube_url:
+                if is_valid_youtube_url(youtube_url):
+                    process_youtube(youtube_url)
+                else:
+                    st.error("Please enter a valid YouTube URL")
             else:
-                st.error("Please enter a valid YouTube URL")
-    
+                st.error("Please enter a YouTube URL")
+
     # Dataset Tab
     with tabs[6]:
-        st.header("Dataset Summary")
-        st.write("Supported formats: CSV, JSON, XLSX")
+        st.subheader("Dataset Summary")
+        st.write("Upload structured data for summarization")
         dataset_file = st.file_uploader(
             "Upload Dataset",
             type=["csv", "json", "xlsx", "xls"],
             key="dataset_upload"
         )
-        if dataset_file:
-            if st.button("Generate Summary", key="dataset_btn"):
-                process_file(dataset_file, ContentType.DOCUMENT)
+        if dataset_file is not None:
+            if st.button("Generate Summary", key="dataset_button"):
+                process_file(dataset_file, ContentType.DATASET)
 
 if __name__ == "__main__":
     main()
