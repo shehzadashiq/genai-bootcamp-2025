@@ -261,6 +261,9 @@ class Summarizer:
             elif content_type == ContentType.VIDEO:
                 # For video, we use the same transcribe service
                 text = await self._process_video(file_content)
+            elif content_type == ContentType.DATASET:
+                # Handle dataset files (CSV, JSON, XLSX)
+                text = await self._process_document(file_content, filename)
             else:
                 raise ValueError(f"Unsupported content type for file upload: {content_type}")
 
@@ -270,7 +273,7 @@ class Summarizer:
 
         except Exception as e:
             logger.error(f"Error processing file: {str(e)}")
-            return None
+            raise  # Re-raise to let FastAPI handle the error response
 
     async def _process_video(self, file_content: bytes) -> Optional[str]:
         """Process video file and return transcribed text."""

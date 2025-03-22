@@ -47,3 +47,5 @@ These will then be summarised and the audio version will be generated.
 ## Reference Sources
 
 - [https://www.dawn.com/news/1894059/from-darkness-to-light-the-promise-of-decentralised-community-driven-energy-in-northern-pakistan](https://www.dawn.com/news/1894059/from-darkness-to-light-the-promise-of-decentralised-community-driven-energy-in-northern-pakistan)
+- [https://www.youtube.com/watch?v=1PvjRIkwIl8&t=2s&ab_channel=YouTubeCreators](https://www.youtube.com/watch?v=1PvjRIkwIl8&t=2s&ab_channel=YouTubeCreators)
+- [https://www.youtube.com/watch?v=xd4ygI0GHV8&ab_channel=GuzKhanOfficial](https://www.youtube.com/watch?v=xd4ygI0GHV8&ab_channel=GuzKhanOfficial)
