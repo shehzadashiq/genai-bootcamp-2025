@@ -7,6 +7,7 @@ import time
 import json
 import aiohttp
 import requests
+from moviepy.editor import VideoFileClip
 
 logger = logging.getLogger(__name__)
 
@@ -23,13 +24,57 @@ class TranscribeService:
             'audio/wav': 'wav',
             'audio/ogg': 'ogg'
         }
+        
+        self.supported_video_formats = {
+            'video/mp4': 'mp4',
+            'video/mpeg': 'mpeg',
+            'video/ogg': 'ogg'
+        }
+
+    async def extract_audio_from_video(self, video_content: bytes, mime_type: str) -> tuple[bytes, str]:
+        """Extract audio from video file."""
+        if mime_type not in self.supported_video_formats:
+            raise ValueError(f"Unsupported video format: {mime_type}")
+
+        # Save video content to temporary file
+        video_ext = self.supported_video_formats[mime_type]
+        with tempfile.NamedTemporaryFile(suffix=f'.{video_ext}', delete=False) as video_file:
+            video_file.write(video_content)
+            video_file.flush()
+            video_path = video_file.name
+
+        try:
+            # Extract audio using moviepy
+            audio_path = video_path + '.mp3'
+            video = VideoFileClip(video_path)
+            video.audio.write_audiofile(audio_path)
+            video.close()
+
+            # Read the extracted audio
+            with open(audio_path, 'rb') as audio_file:
+                audio_content = audio_file.read()
+
+            return audio_content, 'audio/mpeg'
+
+        finally:
+            # Clean up temporary files
+            try:
+                os.unlink(video_path)
+                os.unlink(audio_path)
+            except Exception as e:
+                logger.warning(f"Error cleaning up temporary files: {str(e)}")
 
     async def transcribe_audio(self, file_content: bytes, mime_type: str) -> Optional[str]:
         """Transcribe audio content using AWS Transcribe."""
-        if mime_type not in self.supported_formats:
-            raise ValueError(f"Unsupported audio format: {mime_type}")
-
         try:
+            # If it's a video, extract the audio first
+            if mime_type in self.supported_video_formats:
+                logger.info("Extracting audio from video file")
+                file_content, mime_type = await self.extract_audio_from_video(file_content, mime_type)
+
+            if mime_type not in self.supported_formats:
+                raise ValueError(f"Unsupported audio format: {mime_type}")
+
             # Create a temporary file
             ext = self.supported_formats[mime_type]
             with tempfile.NamedTemporaryFile(suffix=f'.{ext}', delete=False) as tmp_file:

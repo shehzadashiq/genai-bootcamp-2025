@@ -157,12 +157,25 @@ class Summarizer:
                 text = await self._process_image(file_content)
             elif content_type == ContentType.AUDIO:
                 text = await self._process_audio(file_content)
+            elif content_type == ContentType.VIDEO:
+                # For video, we use the same transcribe service
+                text = await self._process_video(file_content)
             else:
                 raise ValueError(f"Unsupported content type for file upload: {content_type}")
 
             if text:
                 return await self.bedrock.summarize(text)
             return None
+
         except Exception as e:
             logger.error(f"Error processing file: {str(e)}")
             return None
+
+    async def _process_video(self, file_content: bytes) -> Optional[str]:
+        """Process video file and return transcribed text."""
+        mime_type = magic.from_buffer(file_content, mime=True)
+        if mime_type not in self.supported_video_types:
+            raise ValueError(f"Unsupported video format: {mime_type}")
+        
+        text = await self.transcribe.transcribe_audio(file_content, mime_type)
+        return text if text else None

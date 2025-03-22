@@ -184,7 +184,7 @@ def main():
     
     tabs = st.tabs([
         "URL", "Text", "Document", "Image",
-        "Audio/Video", "YouTube", "Dataset"
+        "Audio", "Video", "YouTube", "Dataset"
     ])
     
     # URL Tab
@@ -238,9 +238,9 @@ def main():
             if st.button("Generate Summary", key="image_button"):
                 process_file(image_file, ContentType.IMAGE)
 
-    # Audio/Video Tab
+    # Audio Tab
     with tabs[4]:
-        st.subheader("Audio/Video Summary")
+        st.subheader("Audio Summary")
         st.write("Upload an audio file for transcription and summarization")
         audio_file = st.file_uploader(
             "Upload Audio",
@@ -252,8 +252,22 @@ def main():
             if st.button("Generate Summary", key="audio_button"):
                 process_file(audio_file, ContentType.AUDIO)
 
-    # YouTube Tab
+    # Video Tab
     with tabs[5]:
+        st.subheader("Video Summary")
+        st.write("Upload a video file for transcription and summarization")
+        video_file = st.file_uploader(
+            "Upload Video",
+            type=["mp4", "mpeg", "ogg"],
+            key="video_upload"
+        )
+        if video_file is not None:
+            st.video(video_file)
+            if st.button("Generate Summary", key="video_button"):
+                process_file(video_file, ContentType.VIDEO)
+
+    # YouTube Tab
+    with tabs[6]:
         st.subheader("YouTube Summary")
         youtube_url = st.text_input("Enter YouTube URL")
         if st.button("Generate Summary", key="youtube_button"):
@@ -266,7 +280,7 @@ def main():
                 st.error("Please enter a YouTube URL")
 
     # Dataset Tab
-    with tabs[6]:
+    with tabs[7]:
         st.subheader("Dataset Summary")
         st.write("Upload structured data for summarization")
         dataset_file = st.file_uploader(

@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     libmagic1 \
     curl \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first to leverage Docker cache
@@ -43,4 +44,4 @@ USER appuser
 EXPOSE 8002
 
 # Command to run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8002"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8002", "--reload"]

@@ -41,6 +41,8 @@ These will then be summarised and the audio version will be generated.
 - streamlit
 - langchain
 - faiss-cpu
+- bedrock
+- moviepy
 
 ## Reference Sources
 
