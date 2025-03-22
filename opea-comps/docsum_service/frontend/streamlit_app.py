@@ -80,73 +80,82 @@ def display_summary(response_data: Dict):
 
 def process_url(url: str, use_cache: bool = True):
     try:
-        response = requests.post(
-            f"{INTERNAL_API_URL}/summarize",
-            json={
-                "content_type": ContentType.URL,
-                "content": url,
-                "use_cache": use_cache
-            }
-        )
-        if response.status_code == 200:
-            display_summary(response.json())
-        else:
-            st.error(f"Error: {response.text}")
+        with st.spinner('Generating summary and audio...'):
+            response = requests.post(
+                f"{INTERNAL_API_URL}/summarize",
+                json={
+                    "content_type": ContentType.URL,
+                    "content": url,
+                    "use_cache": use_cache
+                }
+            )
+            if response.status_code == 200:
+                display_summary(response.json())
+            else:
+                st.error(f"Error: {response.text}")
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
 def process_text(text: str):
     try:
-        response = requests.post(
-            f"{INTERNAL_API_URL}/summarize",
-            json={
-                "content_type": ContentType.TEXT,
-                "content": text,
-                "use_cache": False
-            }
-        )
-        if response.status_code == 200:
-            display_summary(response.json())
-        else:
-            st.error(f"Error: {response.text}")
+        with st.spinner('Generating summary and audio...'):
+            response = requests.post(
+                f"{INTERNAL_API_URL}/summarize",
+                json={
+                    "content_type": ContentType.TEXT,
+                    "content": text,
+                    "use_cache": False
+                }
+            )
+            if response.status_code == 200:
+                display_summary(response.json())
+            else:
+                st.error(f"Error: {response.text}")
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
 def process_file(file, content_type: ContentType):
     try:
-        files = {"file": (file.name, file, file.type)}
-        data = {
-            "content_type": content_type,
-            "use_cache": True
-        }
-        
-        response = requests.post(
-            f"{INTERNAL_API_URL}/summarize/file",
-            files=files,
-            data=data
-        )
-        
-        if response.status_code == 200:
-            display_summary(response.json())
-        else:
-            st.error(f"Error: {response.text}")
+        with st.spinner('Processing file and generating summary...'):
+            # Create a temporary file with the correct extension
+            suffix = Path(file.name).suffix
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
+                tmp_file.write(file.getvalue())
+                tmp_file.flush()
+
+                # Send the file for processing
+                with open(tmp_file.name, 'rb') as f:
+                    files = {'file': (file.name, f, file.type)}
+                    response = requests.post(
+                        f"{INTERNAL_API_URL}/summarize/file",
+                        files=files,
+                        data={'content_type': content_type}
+                    )
+
+            os.unlink(tmp_file.name)  # Clean up the temporary file
+
+            if response.status_code == 200:
+                display_summary(response.json())
+            else:
+                st.error(f"Error: {response.text}")
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
 def process_youtube(url: str):
     try:
-        response = requests.post(
-            f"{INTERNAL_API_URL}/summarize",
-            json={
-                "content_type": ContentType.YOUTUBE,
-                "content": url,
-                "use_cache": True
-            }
-        )
-        if response.status_code == 200:
-            display_summary(response.json())
-        else:
-            st.error(f"Error: {response.text}")
+        with st.spinner('Extracting video transcript and generating summary...'):
+            response = requests.post(
+                f"{INTERNAL_API_URL}/summarize",
+                json={
+                    "content_type": ContentType.YOUTUBE,
+                    "content": url,
+                    "use_cache": False
+                }
+            )
+            if response.status_code == 200:
+                display_summary(response.json())
+            else:
+                st.error(f"Error: {response.text}")
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
