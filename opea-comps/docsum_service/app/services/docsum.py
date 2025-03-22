@@ -12,6 +12,7 @@ import io
 from youtube_transcript_api import YouTubeTranscriptApi
 import pandas as pd
 import json
+from PyPDF2 import PdfReader
 from app.models import ContentType
 from app.services.bedrock import BedrockService
 from app.services.transcribe import TranscribeService
@@ -55,30 +56,130 @@ class Summarizer:
             return None
 
     async def _process_document(self, file_content: bytes, filename: str) -> Optional[str]:
-        ext = Path(filename).suffix.lower()
-        if ext not in self.supported_document_types:
-            raise ValueError(f"Unsupported document type: {ext}")
-        
-        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as temp_file:
-            temp_file.write(file_content)
-            temp_file.flush()
-            
-            try:
-                if ext in {".csv", ".json", ".xlsx", ".xls"}:
-                    if ext == ".json":
-                        data = json.loads(file_content)
-                        text = json.dumps(data, indent=2)
+        """Process document file and return text content."""
+        try:
+            ext = Path(filename).suffix.lower()
+            if ext not in self.supported_document_types:
+                raise ValueError(f"Unsupported document format: {ext}")
+
+            if ext == ".pdf":
+                # Process PDF using PyPDF2
+                pdf_reader = PdfReader(io.BytesIO(file_content))
+                text = ""
+                
+                # Process PDF in chunks to avoid token limits
+                chunk_size = 5  # Process 5 pages at a time
+                summaries = []
+                
+                for i in range(0, len(pdf_reader.pages), chunk_size):
+                    chunk_text = ""
+                    # Get text from current chunk of pages
+                    for page in pdf_reader.pages[i:i + chunk_size]:
+                        chunk_text += page.extract_text() + "\n"
+                    
+                    if chunk_text.strip():
+                        # Get summary for this chunk
+                        chunk_summary = await self.bedrock.summarize(chunk_text.strip())
+                        if chunk_summary:
+                            summaries.append(chunk_summary)
+                
+                if summaries:
+                    # If we have multiple summaries, combine them
+                    if len(summaries) > 1:
+                        combined_summary = "\n\n".join(summaries)
+                        # Get a final summary of all chunks
+                        return await self.bedrock.summarize(combined_summary)
                     else:
-                        df = pd.read_excel(temp_file.name) if ext in {".xlsx", ".xls"} else pd.read_csv(temp_file.name)
-                        text = df.to_string()
+                        return summaries[0]
+                return None
+            
+            elif ext == ".txt":
+                # Try different encodings for text files
+                encodings = ['utf-8', 'latin-1', 'cp1252']
+                for encoding in encodings:
+                    try:
+                        text = file_content.decode(encoding).strip()
+                        if len(text) > 8000:  # If text is too long, chunk it
+                            chunks = [text[i:i + 8000] for i in range(0, len(text), 8000)]
+                            summaries = []
+                            for chunk in chunks:
+                                chunk_summary = await self.bedrock.summarize(chunk)
+                                if chunk_summary:
+                                    summaries.append(chunk_summary)
+                            
+                            if summaries:
+                                if len(summaries) > 1:
+                                    combined_summary = "\n\n".join(summaries)
+                                    return await self.bedrock.summarize(combined_summary)
+                                else:
+                                    return summaries[0]
+                        else:
+                            return text
+                    except UnicodeDecodeError:
+                        continue
+                raise ValueError("Could not decode text file with any supported encoding")
+            
+            elif ext in [".csv", ".json"]:
+                # Handle structured data files
+                if ext == ".csv":
+                    df = pd.read_csv(io.BytesIO(file_content))
+                else:  # .json
+                    df = pd.read_json(io.BytesIO(file_content))
+                text = df.to_string()
+                
+                # Chunk large dataframes
+                if len(text) > 8000:
+                    chunks = [text[i:i + 8000] for i in range(0, len(text), 8000)]
+                    summaries = []
+                    for chunk in chunks:
+                        chunk_summary = await self.bedrock.summarize(chunk)
+                        if chunk_summary:
+                            summaries.append(chunk_summary)
+                    
+                    if summaries:
+                        if len(summaries) > 1:
+                            combined_summary = "\n\n".join(summaries)
+                            return await self.bedrock.summarize(combined_summary)
+                        else:
+                            return summaries[0]
                 else:
-                    # Use appropriate document processing library based on file type
-                    # This is a placeholder - implement actual document processing
-                    with open(temp_file.name, 'r', encoding='utf-8') as f:
-                        text = f.read()
-                return text
-            finally:
-                os.unlink(temp_file.name)
+                    return text
+            
+            elif ext in [".xlsx", ".xls"]:
+                # Handle Excel files
+                df = pd.read_excel(io.BytesIO(file_content))
+                text = df.to_string()
+                
+                # Chunk large Excel files
+                if len(text) > 8000:
+                    chunks = [text[i:i + 8000] for i in range(0, len(text), 8000)]
+                    summaries = []
+                    for chunk in chunks:
+                        chunk_summary = await self.bedrock.summarize(chunk)
+                        if chunk_summary:
+                            summaries.append(chunk_summary)
+                    
+                    if summaries:
+                        if len(summaries) > 1:
+                            combined_summary = "\n\n".join(summaries)
+                            return await self.bedrock.summarize(combined_summary)
+                        else:
+                            return summaries[0]
+                else:
+                    return text
+            
+            else:
+                # For other document types (doc, docx)
+                # Save to temp file and use appropriate library
+                with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp_file:
+                    tmp_file.write(file_content)
+                    tmp_file.flush()
+                    # TODO: Add support for doc/docx using python-docx
+                    return f"Document type {ext} not yet supported"
+
+        except Exception as e:
+            logger.error(f"Error processing document: {str(e)}")
+            raise
 
     async def _process_image(self, file_content: bytes) -> Optional[str]:
         mime_type = magic.from_buffer(file_content, mime=True)
