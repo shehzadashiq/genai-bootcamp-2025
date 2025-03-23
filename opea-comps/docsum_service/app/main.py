@@ -67,11 +67,14 @@ async def get_audio_file(filename: str):
 @app.post("/summarize", response_model=SummaryResponse)
 async def summarize_content(input_data: ContentInput):
     try:
-        # Check cache first if enabled and URL is provided
-        if input_data.use_cache and input_data.content_type == ContentType.URL:
-            cached_result = await vector_store.get_summary(str(input_data.content))
+        # Check cache first if enabled
+        if input_data.use_cache:
+            cached_result = await vector_store.get_summary(
+                content=input_data.content,
+                content_type=input_data.content_type
+            )
             if cached_result:
-                logger.info(f"Cache hit for URL: {input_data.content}")
+                logger.info(f"Cache hit for {input_data.content_type}")
                 audio_paths = await tts_service.generate_all_audio({
                     "en": cached_result["summary"],
                     "ur": cached_result["translated_summary"]
@@ -107,13 +110,17 @@ async def summarize_content(input_data: ContentInput):
             "metadata": input_data.metadata
         }
 
-        # Store in cache if URL
-        if input_data.use_cache and input_data.content_type == ContentType.URL:
-            await vector_store.store_summary(
-                str(input_data.content),
-                result
+        # Store in cache if enabled
+        if input_data.use_cache:
+            success = await vector_store.store_summary(
+                content=input_data.content,
+                result=result,
+                content_type=input_data.content_type
             )
-            logger.info(f"Stored summary in cache for URL: {input_data.content}")
+            if success:
+                logger.info(f"Stored summary in cache for {input_data.content_type}")
+            else:
+                logger.warning(f"Failed to store summary in cache for {input_data.content_type}")
 
         return SummaryResponse(**result)
     
@@ -129,6 +136,22 @@ async def summarize_file(
 ):
     try:
         file_content = await file.read()
+        
+        # Check cache first if enabled
+        if use_cache:
+            cached_result = await vector_store.get_summary(
+                content=file_content,
+                content_type=content_type
+            )
+            if cached_result:
+                logger.info(f"Cache hit for file {file.filename}")
+                audio_paths = await tts_service.generate_all_audio({
+                    "en": cached_result["summary"],
+                    "ur": cached_result["translated_summary"]
+                })
+                cached_result.update({"audio_paths": audio_paths})
+                return SummaryResponse(**cached_result)
+
         summary = await summarizer.summarize_file(
             file_content=file_content,
             filename=file.filename,
@@ -148,12 +171,29 @@ async def summarize_file(
             "ur": translated_summary
         })
 
-        return SummaryResponse(
-            summary=summary,
-            translated_summary=translated_summary,
-            audio_paths=audio_paths,
-            metadata={"filename": file.filename}
-        )
+        # Convert metadata to simple string values
+        metadata = {"filename": file.filename}
+
+        result = {
+            "summary": summary,
+            "translated_summary": translated_summary,
+            "audio_paths": audio_paths,
+            "metadata": metadata
+        }
+
+        # Store in cache if enabled
+        if use_cache:
+            success = await vector_store.store_summary(
+                content=file_content,
+                result=result,
+                content_type=content_type
+            )
+            if success:
+                logger.info(f"Stored summary in cache for file {file.filename}")
+            else:
+                logger.warning(f"Failed to store summary in cache for file {file.filename}")
+
+        return SummaryResponse(**result)
 
     except Exception as e:
         logger.error(f"Error processing file {file.filename}: {str(e)}")

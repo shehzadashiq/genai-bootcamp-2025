@@ -26,8 +26,18 @@ class ContentType(str, Enum):
     DATASET = "dataset"
 
 def init_session_state():
+    """Initialize session state variables"""
     if "audio_cache" not in st.session_state:
-        st.session_state.audio_cache = {}
+        st.session_state["audio_cache"] = {}
+    
+    # Initialize cache flags for each content type
+    cache_flags = [
+        "url_cache", "text_cache", "doc_cache", "img_cache",
+        "audio_cache_flag", "video_cache", "youtube_cache", "dataset_cache"
+    ]
+    for flag in cache_flags:
+        if flag not in st.session_state:
+            st.session_state[flag] = True
 
 def is_valid_youtube_url(url: str) -> bool:
     return "youtube.com/watch" in url or "youtu.be" in url
@@ -96,7 +106,7 @@ def process_url(url: str, use_cache: bool = True):
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
-def process_text(text: str):
+def process_text(text: str, use_cache: bool = True):
     try:
         with st.spinner('Generating summary and audio...'):
             response = requests.post(
@@ -104,7 +114,7 @@ def process_text(text: str):
                 json={
                     "content_type": ContentType.TEXT,
                     "content": text,
-                    "use_cache": False
+                    "use_cache": use_cache
                 }
             )
             if response.status_code == 200:
@@ -114,7 +124,7 @@ def process_text(text: str):
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
-def process_file(file, content_type: ContentType):
+def process_file(file, content_type: ContentType, use_cache: bool = True):
     try:
         with st.spinner('Processing file and generating summary...'):
             # Create a temporary file with the correct extension
@@ -128,7 +138,7 @@ def process_file(file, content_type: ContentType):
                     files = {'file': (file.name, f, file.type)}
                     data = {
                         'content_type': content_type.value,  # Use enum value
-                        'use_cache': 'true'  # Form data should be strings
+                        'use_cache': 'true' if use_cache else 'false'  # Form data should be strings
                     }
                     response = requests.post(
                         f"{INTERNAL_API_URL}/summarize/file",
@@ -152,7 +162,7 @@ def process_file(file, content_type: ContentType):
     except Exception as e:
         st.error(f"Error: {str(e)}")
 
-def process_youtube(url: str):
+def process_youtube(url: str, use_cache: bool = True):
     try:
         with st.spinner('Extracting video transcript and generating summary...'):
             response = requests.post(
@@ -160,7 +170,7 @@ def process_youtube(url: str):
                 json={
                     "content_type": ContentType.YOUTUBE,
                     "content": url,
-                    "use_cache": False
+                    "use_cache": use_cache
                 }
             )
             if response.status_code == 200:
@@ -190,8 +200,8 @@ def main():
     # URL Tab
     with tabs[0]:
         st.subheader("URL Summary")
-        url = st.text_input("Enter URL")
-        use_cache = st.checkbox("Use Cache", value=True)
+        url = st.text_input("Enter URL", key="url_input")
+        use_cache = st.checkbox("Use Cache", value=True, key="url_cache")
         if st.button("Generate Summary", key="url_button"):
             if url:
                 if is_valid_url(url):
@@ -200,97 +210,84 @@ def main():
                     st.error("Please enter a valid URL")
             else:
                 st.error("Please enter a URL")
-
+    
     # Text Tab
     with tabs[1]:
         st.subheader("Text Summary")
-        text = st.text_area("Enter Text")
+        text = st.text_area("Enter Text", key="text_input")
+        use_cache = st.checkbox("Use Cache", value=True, key="text_cache")
         if st.button("Generate Summary", key="text_button"):
             if text:
-                process_text(text)
+                process_text(text, use_cache)
             else:
                 st.error("Please enter some text")
-
+    
     # Document Tab
     with tabs[2]:
         st.subheader("Document Summary")
-        st.write("Supported formats: TXT, DOC, DOCX, PDF")
-        doc_file = st.file_uploader(
-            "Upload Document",
-            type=["txt", "doc", "docx", "pdf"],
-            key="doc_upload"
-        )
-        if doc_file is not None:
+        st.write("Supported formats: PDF, DOC, DOCX, TXT")
+        doc_file = st.file_uploader("Upload Document", type=["pdf", "doc", "docx", "txt"], key="doc_upload")
+        use_cache = st.checkbox("Use Cache", value=True, key="doc_cache")
+        if doc_file:
             if st.button("Generate Summary", key="doc_button"):
-                process_file(doc_file, ContentType.DOCUMENT)
-
+                process_file(doc_file, ContentType.DOCUMENT, use_cache)
+    
     # Image Tab
     with tabs[3]:
         st.subheader("Image Summary")
-        st.write("Upload an image for OCR and summarization")
-        image_file = st.file_uploader(
-            "Upload Image",
-            type=["jpg", "jpeg", "png", "tiff"],
-            key="image_upload"
-        )
-        if image_file is not None:
-            st.image(image_file, caption="Uploaded Image")
-            if st.button("Generate Summary", key="image_button"):
-                process_file(image_file, ContentType.IMAGE)
-
+        st.write("Supported formats: JPG, PNG, TIFF")
+        img_file = st.file_uploader("Upload Image", type=["jpg", "jpeg", "png", "tiff"], key="img_upload")
+        use_cache = st.checkbox("Use Cache", value=True, key="img_cache")
+        if img_file:
+            st.image(img_file, caption="Uploaded Image")
+            if st.button("Generate Summary", key="img_button"):
+                process_file(img_file, ContentType.IMAGE, use_cache)
+    
     # Audio Tab
     with tabs[4]:
         st.subheader("Audio Summary")
-        st.write("Upload an audio file for transcription and summarization")
-        audio_file = st.file_uploader(
-            "Upload Audio",
-            type=["mp3", "wav", "ogg"],
-            key="audio_upload"
-        )
-        if audio_file is not None:
+        st.write("Supported formats: MP3, WAV")
+        audio_file = st.file_uploader("Upload Audio", type=["mp3", "wav"], key="audio_upload")
+        use_cache = st.checkbox("Use Cache", value=True, key="audio_cache_flag")
+        if audio_file:
             st.audio(audio_file)
             if st.button("Generate Summary", key="audio_button"):
-                process_file(audio_file, ContentType.AUDIO)
-
+                process_file(audio_file, ContentType.AUDIO, use_cache)
+    
     # Video Tab
     with tabs[5]:
         st.subheader("Video Summary")
-        st.write("Upload a video file for transcription and summarization")
-        video_file = st.file_uploader(
-            "Upload Video",
-            type=["mp4", "mpeg", "ogg"],
-            key="video_upload"
-        )
-        if video_file is not None:
+        st.write("Supported formats: MP4")
+        video_file = st.file_uploader("Upload Video", type=["mp4"], key="video_upload")
+        use_cache = st.checkbox("Use Cache", value=True, key="video_cache")
+        if video_file:
             st.video(video_file)
             if st.button("Generate Summary", key="video_button"):
-                process_file(video_file, ContentType.VIDEO)
-
+                process_file(video_file, ContentType.VIDEO, use_cache)
+    
     # YouTube Tab
     with tabs[6]:
         st.subheader("YouTube Summary")
-        youtube_url = st.text_input("Enter YouTube URL")
+        youtube_url = st.text_input("Enter YouTube URL", key="youtube_input")
+        use_cache = st.checkbox("Use Cache", value=True, key="youtube_cache")
         if st.button("Generate Summary", key="youtube_button"):
             if youtube_url:
                 if is_valid_youtube_url(youtube_url):
-                    process_youtube(youtube_url)
+                    process_youtube(youtube_url, use_cache)
                 else:
                     st.error("Please enter a valid YouTube URL")
             else:
                 st.error("Please enter a YouTube URL")
-
+    
     # Dataset Tab
     with tabs[7]:
         st.subheader("Dataset Summary")
-        st.write("Upload structured data for summarization")
-        dataset_file = st.file_uploader(
-            "Upload Dataset",
-            type=["csv", "json", "xlsx", "xls"],
-            key="dataset_upload"
-        )
-        if dataset_file is not None:
+        st.write("Supported formats: CSV, JSON, XLSX")
+        dataset_file = st.file_uploader("Upload Dataset", type=["csv", "json", "xlsx"], key="dataset_upload")
+        use_cache = st.checkbox("Use Cache", value=True, key="dataset_cache")
+        if dataset_file:
             if st.button("Generate Summary", key="dataset_button"):
-                process_file(dataset_file, ContentType.DATASET)
+                process_file(dataset_file, ContentType.DATASET, use_cache)
 
 if __name__ == "__main__":
     main()
