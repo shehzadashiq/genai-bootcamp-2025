@@ -18,3 +18,4 @@ lang_portal_frontend/node_modules/
 .env
 lang_portal.7z
 lang_portal_backend/chroma_db/*
+opea-comps/docsum_service/audio_cache/*

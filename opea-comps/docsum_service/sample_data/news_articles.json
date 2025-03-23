@@ -1,0 +1,39 @@
+{
+    "articles": [
+        {
+            "title": "From darkness to light: The promise of decentralised community-driven energy in northern Pakistan",
+            "url": "https://www.dawn.com/news/1894059/from-darkness-to-light-the-promise-of-decentralised-community-driven-energy-in-northern-pakistan",
+            "category": "Energy",
+            "language": "English",
+            "summary": "The article discusses how decentralized energy solutions are transforming remote communities in northern Pakistan. Local initiatives are bringing electricity to previously unserved areas, improving quality of life and enabling economic development."
+        },
+        {
+            "title": "Pakistan's IT Exports Surge to Record High",
+            "url": "https://www.dawn.com/news/1893967/pakistans-it-exports-surge-to-record-high",
+            "category": "Technology",
+            "language": "English",
+            "summary": "Pakistan's IT exports have reached unprecedented levels, showcasing the country's growing technology sector. The increase is attributed to government initiatives, skilled workforce development, and increased foreign investment in tech startups."
+        },
+        {
+            "title": "Pakistan's Renewable Energy Vision 2025",
+            "url": "https://www.dawn.com/news/1893456/pakistans-renewable-energy-vision-2025",
+            "category": "Energy",
+            "language": "English",
+            "summary": "Pakistan aims to increase its renewable energy capacity significantly by 2025. The plan includes solar, wind, and hydroelectric projects across the country, with a focus on reducing dependence on fossil fuels."
+        },
+        {
+            "title": "Digital Pakistan: A Look at the Future",
+            "url": "https://www.dawn.com/news/1893234/digital-pakistan-a-look-at-the-future",
+            "category": "Technology",
+            "language": "English",
+            "summary": "An analysis of Pakistan's digital transformation initiatives, including e-governance, digital payments, and technology education programs. The article explores how these changes are shaping the country's future."
+        },
+        {
+            "title": "Climate Change Impact on Northern Pakistan",
+            "url": "https://www.dawn.com/news/1892987/climate-change-impact-on-northern-pakistan",
+            "category": "Environment",
+            "language": "English",
+            "summary": "A detailed report on how climate change is affecting northern Pakistan's glaciers, agriculture, and local communities. The article discusses adaptation strategies and calls for urgent environmental protection measures."
+        }
+    ]
+}
