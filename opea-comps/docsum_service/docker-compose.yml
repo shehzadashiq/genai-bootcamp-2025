@@ -18,9 +18,11 @@ services:
       - AWS_BUCKET_NAME=${AWS_BUCKET_NAME}
       - BEDROCK_MODEL_ID=${BEDROCK_MODEL_ID}
       - BEDROCK_REGION=${BEDROCK_REGION}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/google_credentials.json
     volumes:
       - ./data:/app/data
       - ./audio_cache:/app/audio_cache
+      - ./credentials:/app/credentials
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
       interval: 30s
