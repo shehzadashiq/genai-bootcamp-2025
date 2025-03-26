@@ -103,3 +103,10 @@ These are used to test the application.
 
 - [News Articles JSON](../sample_data/news_articles.csv)
 - [News Articles CSV](../sample_data/news_articles.csv)
+
+
+## References
+
+- [Docsum](https://opea-project.github.io/latest/tutorial/DocSum/DocSum_Guide.html)
+- [Docsum GitHub](https://github.com/opea-project/GenAIExamples/tree/main/DocSum)
+- [Docsum - Single node on-prem deployment with TGI on Intel® Xeon® Scalable processor¶](https://opea-project.github.io/latest/tutorial/DocSum/deploy/xeon.html)
