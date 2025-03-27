@@ -1,14 +1,23 @@
 import { Link, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
+import { 
+  LayoutDashboard, 
+  BookOpen, 
+  Type, 
+  Users, 
+  Calendar, 
+  BarChart2, 
+  Settings 
+} from 'lucide-react'
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard' },
-  { name: 'Study Activities', href: '/study_activities' },
-  { name: 'Words', href: '/words' },
-  { name: 'Groups', href: '/groups' },
-  { name: 'Study Sessions', href: '/study_sessions' },
-  { name: 'Stats', href: '/stats' },
-  { name: 'Settings', href: '/settings' },
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Study Activities', href: '/study_activities', icon: BookOpen },
+  { name: 'Words', href: '/words', icon: Type },
+  { name: 'Groups', href: '/groups', icon: Users },
+  { name: 'Study Sessions', href: '/study_sessions', icon: Calendar },
+  { name: 'Stats', href: '/stats', icon: BarChart2 },
+  { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
 export default function Sidebar() {
@@ -23,12 +32,13 @@ export default function Sidebar() {
               key={item.name}
               to={item.href}
               className={cn(
-                'group flex gap-x-3 rounded-md p-2 text-sm leading-6',
+                'group flex items-center gap-x-3 rounded-md p-2 text-sm leading-6',
                 location.pathname === item.href
                   ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               )}
             >
+              <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
               {item.name}
             </Link>
           ))}
