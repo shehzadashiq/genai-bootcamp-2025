@@ -201,7 +201,9 @@ export default function VocabularyQuiz() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="text-center mb-8">
-              <p className="text-4xl font-bold mb-2">{currentWord.urdu}</p>
+              {/* <p className="text-4xl font-bold mb-2">{currentWord.urdu}</p> */}
+              <p className="text-4xl font-bold mb-2 font-nastaleeq text-center urdu-text">{currentWord.urdu}</p>
+              <br></br>
               <p className="text-muted-foreground">Select the correct English translation</p>
             </div>
             <div className="grid grid-cols-1 gap-3">

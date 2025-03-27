@@ -5,21 +5,22 @@ from botocore.exceptions import ClientError, BotoCoreError
 from typing import Optional, Dict
 import uuid
 from datetime import datetime
-from .script_converter import ScriptConverter
+from google.cloud import texttospeech
 import re
 
 logger = logging.getLogger(__name__)
 
 class TextToSpeechService:
     def __init__(self):
-        self.client = boto3.client('polly',
+        # Initialize AWS Polly client
+        self.polly_client = boto3.client('polly',
             aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
             aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
             region_name=os.getenv('AWS_REGION', 'us-east-1')
         )
         
-        # Initialize script converter
-        self.converter = ScriptConverter()
+        # Initialize Google Cloud Text-to-Speech client
+        self.google_client = texttospeech.TextToSpeechClient()
         
         # Create audio cache directory if it doesn't exist
         self.cache_dir = "/app/audio_cache"
@@ -32,12 +33,8 @@ class TextToSpeechService:
     
     def _create_ssml(self, text: str, lang: str = 'hi-IN') -> str:
         """Create SSML with prosody and break controls for more natural speech."""
-        # For Hindi text, replace special markers with phoneme tags
-        if lang == 'hi-IN':
-            text = text.replace('__F__', '<phoneme alphabet="ipa" ph="f">फ</phoneme>')
-            
         # Split text into sentences
-        delimiter = '।' if lang == 'hi-IN' else '.'
+        delimiter = '।' if lang in ['hi-IN', 'ur-PK'] else '.'
         sentences = text.split(delimiter)
         
         # Build SSML with prosody controls
@@ -48,8 +45,7 @@ class TextToSpeechService:
                 continue
                 
             # Add prosody controls for more natural rhythm
-            # Slightly different settings for English vs Hindi
-            rate = "85%" if lang == 'hi-IN' else "95%"
+            rate = "85%" if lang in ['hi-IN', 'ur-PK'] else "95%"
             ssml_parts.append(
                 f'<prosody rate="{rate}" pitch="+0%">{sentence.strip()}</prosody>'
                 '<break strength="strong"/>'
@@ -59,89 +55,99 @@ class TextToSpeechService:
         return ''.join(ssml_parts)
     
     async def generate_audio(self, text: str, lang: str = 'hi-IN') -> Optional[str]:
-        """Generate audio using Amazon Polly.
-        For Hindi text, converts from Urdu script to Devanagari while preserving pronunciation.
-        For English text, uses native English voice."""
+        """Generate audio using either Google Cloud TTS (for Urdu) or Amazon Polly (for other languages)."""
         try:
-            # Process text based on language
-            if lang == 'hi-IN':
-                # Convert Urdu script to Devanagari
-                processed_text = self.converter.convert_to_devanagari(text)
-                voice_id = 'Aditi'
-                logger.info("Converted text to Devanagari script")
-            else:
-                # Use English text as is
-                processed_text = text
-                voice_id = 'Joanna'  # Female US English voice
-                logger.info("Using English text directly")
-            
-            # Create SSML with prosody controls
-            ssml_text = self._create_ssml(processed_text, lang)
-            logger.info("Created SSML with prosody controls")
-            
             # Generate a unique filename
             filename = f"{uuid.uuid4()}.mp3"
             filepath = os.path.join(self.cache_dir, filename)
             logger.info(f"Will save audio to: {filepath}")
-            
-            # Request speech synthesis
-            response = self.client.synthesize_speech(
-                Text=ssml_text,
-                OutputFormat='mp3',
-                VoiceId=voice_id,
-                LanguageCode=lang,
-                Engine='standard',
-                TextType='ssml'
-            )
-            
-            # Save the audio stream to a file
-            if "AudioStream" in response:
+
+            if lang == 'ur-PK':
+                # Use Google Cloud Text-to-Speech for Urdu
+                synthesis_input = texttospeech.SynthesisInput(text=text)
+                
+                # Build the voice request
+                voice = texttospeech.VoiceSelectionParams(
+                    language_code='ur-PK',  # Urdu (Pakistan)
+                    ssml_gender=texttospeech.SsmlVoiceGender.NEUTRAL
+                )
+                
+                # Select the type of audio file
+                audio_config = texttospeech.AudioConfig(
+                    audio_encoding=texttospeech.AudioEncoding.MP3,
+                    speaking_rate=0.85  # Slightly slower for better clarity
+                )
+                
+                # Perform the text-to-speech request
+                response = self.google_client.synthesize_speech(
+                    input=synthesis_input,
+                    voice=voice,
+                    audio_config=audio_config
+                )
+                
+                # Save the audio stream to a file
                 os.makedirs(os.path.dirname(filepath), exist_ok=True)
                 with open(filepath, 'wb') as file:
-                    file.write(response['AudioStream'].read())
+                    file.write(response.audio_content)
                 
-                logger.info(f"Generated audio file at: {filepath}")
-                logger.info(f"File exists after write: {os.path.exists(filepath)}")
-                logger.info(f"File size: {os.path.getsize(filepath)} bytes")
+                logger.info("Generated Urdu audio using Google Cloud TTS")
                 
-                # Return just the filename
-                return filename
+            else:
+                # Use Amazon Polly for other languages
+                voice_id = 'Joanna' if lang == 'en-US' else 'Aditi'  # Aditi for Hindi
+                ssml_text = self._create_ssml(text, lang)
+                
+                # Request speech synthesis from Polly
+                response = self.polly_client.synthesize_speech(
+                    Text=ssml_text,
+                    OutputFormat='mp3',
+                    VoiceId=voice_id,
+                    LanguageCode=lang,
+                    Engine='standard',
+                    TextType='ssml'
+                )
+                
+                # Save the audio stream to a file
+                if "AudioStream" in response:
+                    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+                    with open(filepath, 'wb') as file:
+                        file.write(response['AudioStream'].read())
+                    logger.info(f"Generated audio using Amazon Polly for language {lang}")
             
-            return None
+            # Return just the filename
+            return filename
             
         except (ClientError, BotoCoreError) as e:
             logger.error(f"AWS Polly error: {str(e)}")
-            raise
+            return None
         except Exception as e:
             logger.error(f"Audio generation error: {str(e)}")
-            raise
-    
-    async def generate_all_audio(self, text_dict: Dict[str, str]) -> Dict[str, str]:
-        """Generate audio for all provided text versions."""
+            return None
+
+    async def generate_all_audio(self, content: Dict[str, str]) -> Dict[str, str]:
+        """Generate audio for all available text content."""
         result = {}
-        for lang, text in text_dict.items():
+        for lang, text in content.items():
             if text:
                 audio_filename = await self.generate_audio(
                     text,
-                    'hi-IN' if lang == 'ur' else 'en-US'
+                    'ur-PK' if lang == 'ur' else 'en-US' if lang == 'en' else 'hi-IN'
                 )
                 if audio_filename:
                     result[f"{lang}_audio"] = f"/audio/{audio_filename}"
         return result
-    
-    async def cleanup_old_audio(self, max_age_hours: int = 24) -> None:
+
+    async def cleanup_old_audio(self, max_age_hours: int = 24):
         """Clean up audio files older than specified hours."""
         try:
             current_time = datetime.now()
-            
             for filename in os.listdir(self.cache_dir):
                 filepath = os.path.join(self.cache_dir, filename)
-                file_age = current_time - datetime.fromtimestamp(os.path.getctime(filepath))
-                
-                if file_age.total_seconds() > (max_age_hours * 3600):
-                    os.remove(filepath)
-                    logger.info(f"Removed old audio file: {filename}")
-                    
+                if os.path.isfile(filepath):
+                    file_time = datetime.fromtimestamp(os.path.getctime(filepath))
+                    age_hours = (current_time - file_time).total_seconds() / 3600
+                    if age_hours > max_age_hours:
+                        os.remove(filepath)
+                        logger.info(f"Removed old audio file: {filename}")
         except Exception as e:
-            logger.error(f"Error during audio cleanup: {str(e)}")
-            raise
+            logger.error(f"Error cleaning up audio files: {str(e)}")
