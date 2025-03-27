@@ -1,7 +1,7 @@
 
 <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
   <!-- Background -->
-  <rect width="200" height="200" rx="20" fill="#4A7C9B" />
+  <rect width="200" height="200" rx="20" fill="#1CB0F6" />
   
   <!-- Word blocks -->
   <rect x="40" y="60" width="40" height="25" rx="5" fill="#fff" />
