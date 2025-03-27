@@ -342,7 +342,7 @@ export const VocabularyQuiz: React.FC<VocabularyQuizProps> = ({ sessionId }) => 
 
   return (
     <div className="space-y-4">
-      <div className="text-2xl font-bold">{state.currentWord.word.urdu}</div>
+      <div className="urdu-text text-3xl mb-6 font-bold">{state.currentWord.word.urdu}</div>
       <div className="space-y-2">
         {state.currentWord.options.map((option) => (
           <button

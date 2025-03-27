@@ -79,14 +79,14 @@ Create new tabs in the UI for the following in the UI:
 These are used to test the application.
 
 ### Articles
+
 - [From darkness to light: The promise of decentralised community-driven energy in northern Pakistan](https://www.dawn.com/news/1894059/from-darkness-to-light-the-promise-of-decentralised-community-driven-energy-in-northern-pakistan)
 - [Running on empty](https://www.dawn.com/news/1899558/running-on-empty)
 - [FIFA report finds wide discrepancy in women’s pay, contracts, attendance](https://images.dawn.com/news/1193388/fifa-report-finds-wide-discrepancy-in-womens-pay-contracts-attendance)
 
 ### Documents
 
-- [A railway fit for Britain's future
-](https://assets.publishing.service.gov.uk/media/67b30e36b56d8b0856c2fd49/a-railway-fit-for-britains-future.pdf)
+- [A railway fit for Britain's future](https://assets.publishing.service.gov.uk/media/67b30e36b56d8b0856c2fd49/a-railway-fit-for-britains-future.pdf)
 - [RFC 1035 - Domain names - implementation and experience](https://www.ietf.org/rfc/rfc1035.txt)
 
 ### Audio/Video
@@ -103,7 +103,6 @@ These are used to test the application.
 
 - [News Articles JSON](../sample_data/news_articles.csv)
 - [News Articles CSV](../sample_data/news_articles.csv)
-
 
 ## References
 

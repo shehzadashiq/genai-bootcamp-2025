@@ -98,7 +98,7 @@ export default function WordsIndex() {
                         <td className="px-6 py-4">
                           <Link
                             to={`/words/${word.id}`}
-                            className="text-primary hover:underline"
+                            className="text-primary hover:underline font-nastaleeq text-lg"
                           >
                             {word.urdu}
                           </Link>
