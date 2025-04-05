@@ -6,6 +6,8 @@ class Word(models.Model):
     urdlish = models.TextField(null=False)
     english = models.TextField(null=False)
     parts = models.TextField(null=True)
+    example = models.TextField(null=True)
+    etymology = models.TextField(null=True)
     difficulty_level = models.IntegerField(default=1)
     usage_frequency = models.IntegerField(default=0)
     created_at = models.DateTimeField(default=timezone.now)

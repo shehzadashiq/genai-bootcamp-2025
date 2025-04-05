@@ -281,7 +281,8 @@ export const Flashcards: React.FC = () => {
                             justifyContent: 'center',
                             position: 'absolute',
                             width: '100%',
-                            textAlign: 'center'
+                            textAlign: 'center',
+                            padding: 4
                         }}
                     >
                         {currentWord ? (
@@ -295,6 +296,59 @@ export const Flashcards: React.FC = () => {
                                 >
                                     {currentWord.english}
                                 </Typography>
+                                
+                                {/* Word Type */}
+                                <Typography 
+                                    variant="subtitle1" 
+                                    sx={{ 
+                                        mb: 2,
+                                        color: 'text.secondary'
+                                    }}
+                                >
+                                    {currentWord.type || 'Unknown type'}
+                                </Typography>
+
+                                {/* Example Sentence */}
+                                {currentWord.example && (
+                                    <Box sx={{ mb: 2 }}>
+                                        <Typography 
+                                            variant="h6" 
+                                            sx={{ 
+                                                mb: 1,
+                                                color: 'text.secondary'
+                                            }}
+                                        >
+                                            Example:
+                                        </Typography>
+                                        <Typography 
+                                            variant="body1" 
+                                            sx={{ 
+                                                fontStyle: 'italic',
+                                                direction: 'rtl'
+                                            }}
+                                        >
+                                            {currentWord.example}
+                                        </Typography>
+                                    </Box>
+                                )}
+
+                                {/* Etymology */}
+                                {currentWord.etymology && (
+                                    <Box sx={{ mt: 2 }}>
+                                        <Typography 
+                                            variant="h6" 
+                                            sx={{ 
+                                                mb: 1,
+                                                color: 'text.secondary'
+                                            }}
+                                        >
+                                            Etymology:
+                                        </Typography>
+                                        <Typography variant="body2">
+                                            {currentWord.etymology}
+                                        </Typography>
+                                    </Box>
+                                )}
                             </>
                         ) : (
                             <Typography variant="h4">No word available</Typography>

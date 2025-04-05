@@ -1,11 +1,11 @@
 export interface FlashcardWord {
     id: number;
     urdu: string;
-    urdlish: string;
     english: string;
-    parts: string;
-    difficulty_level: number;
-    usage_frequency: number;
+    urdlish: string;
+    type?: string;
+    example?: string;
+    etymology?: string;
 }
 
 export interface FlashcardGame {
@@ -17,7 +17,7 @@ export interface FlashcardGame {
     total_cards: number;
     cards_reviewed: number;
     start_time: string;
-    end_time: string | null;
+    end_time?: string;
     completed: boolean;
     reviews: FlashcardReview[];
     words: FlashcardWord[];

@@ -8,10 +8,13 @@ from .models import (
 class WordSerializer(serializers.ModelSerializer):
     correct_count = serializers.SerializerMethodField()
     wrong_count = serializers.SerializerMethodField()
+    type = serializers.CharField(source='parts')
+    example = serializers.CharField(read_only=True)
+    etymology = serializers.CharField(read_only=True)
 
     class Meta:
         model = Word
-        fields = ['id', 'urdu', 'urdlish', 'english', 'parts', 'correct_count', 'wrong_count']
+        fields = ['id', 'urdu', 'urdlish', 'english', 'type', 'example', 'etymology', 'correct_count', 'wrong_count']
 
     def get_correct_count(self, obj):
         return obj.wordreviewitem_set.filter(correct=True).count()
