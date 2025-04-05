@@ -87,13 +87,14 @@ class FlashcardReviewSerializer(serializers.ModelSerializer):
 
 class FlashcardGameSerializer(serializers.ModelSerializer):
     reviews = FlashcardReviewSerializer(many=True)
+    words = WordSerializer(many=True)
     
     class Meta:
         model = FlashcardGame
         fields = [
             'id', 'user', 'score', 'streak', 'max_streak', 
             'total_cards', 'cards_reviewed', 'start_time', 
-            'end_time', 'completed', 'reviews'
+            'end_time', 'completed', 'reviews', 'words'
         ]
 
 class FlashcardStatsSerializer(serializers.ModelSerializer):

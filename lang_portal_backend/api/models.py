@@ -111,6 +111,7 @@ class FlashcardGame(models.Model):
     start_time = models.DateTimeField(default=timezone.now)
     end_time = models.DateTimeField(null=True)
     completed = models.BooleanField(default=False)
+    words = models.ManyToManyField(Word, through='FlashcardReview')
 
     def __str__(self):
         return f"Flashcard Game by {self.user} - Score: {self.score}"

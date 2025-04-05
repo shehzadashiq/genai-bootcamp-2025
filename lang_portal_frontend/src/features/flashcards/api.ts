@@ -14,12 +14,7 @@ export const flashcardsApi = {
         return response.data;
     },
 
-    reviewCard: async (gameId: number, data: ReviewCardRequest): Promise<{
-        success: boolean;
-        game_completed: boolean;
-        current_streak: number;
-        cards_remaining: number;
-    }> => {
+    submitReview: async (gameId: number, data: ReviewCardRequest): Promise<FlashcardGame> => {
         const response = await api.post(`${BASE_URL}/${gameId}/review_card/`, data);
         return response.data;
     },

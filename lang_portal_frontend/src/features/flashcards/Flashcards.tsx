@@ -1,200 +1,302 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Card, CardContent, Typography, Button, LinearProgress, IconButton, Grow } from '@mui/material';
-import { Refresh, ArrowBack, VolumeUp } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { Box, Card, CardContent, Typography, Button, IconButton, Grow, Switch, useTheme } from '@mui/material';
+import { ArrowBack, VolumeUp, HelpOutline, Star, ArrowForward, PlayArrow, Shuffle, Settings, Fullscreen } from '@mui/icons-material';
 import { flashcardsApi } from './api';
 import { FlashcardGame } from './types';
-import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 
 export const Flashcards: React.FC = () => {
-    const navigate = useNavigate();
-    const { playAudio } = useAudioPlayer();
+    const theme = useTheme();
     const [game, setGame] = useState<FlashcardGame | null>(null);
     const [flipped, setFlipped] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [currentIndex, setCurrentIndex] = useState(0);
 
     useEffect(() => {
-        startNewGame();
+        const initGame = async () => {
+            setLoading(true);
+            try {
+                console.log('Initializing game...');
+                const newGame = await flashcardsApi.createGame('user1', 10);
+                console.log('Game created:', newGame);
+                setGame(newGame);
+            } catch (error) {
+                console.error('Error creating game:', error);
+                setError('Failed to create game');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        initGame();
     }, []);
 
-    const startNewGame = async () => {
-        setLoading(true);
-        try {
-            const newGame = await flashcardsApi.createGame('user1');
-            setGame(newGame);
-            setFlipped(false);
-        } catch (error) {
-            console.error('Error starting new game:', error);
-        } finally {
-            setLoading(false);
+    useEffect(() => {
+        if (game) {
+            console.log('Game updated:', game);
+            const word = getCurrentWord();
+            console.log('Current word:', word);
         }
-    };
+    }, [game, currentIndex]);
 
     const getCurrentWord = () => {
-        if (!game || game.reviews.length === 0) return null;
-        return game.reviews[game.reviews.length - 1].word;
+        if (!game || !game.words) return null;
+        console.log('Current game:', game);
+        console.log('Current index:', currentIndex);
+        return game.words[currentIndex];
     };
 
-    const handleConfidenceLevel = async (level: number) => {
-        if (!game || !getCurrentWord()) return;
+    const handleNext = async () => {
+        if (!game || !game.words) return;
 
-        setLoading(true);
+        // Get current word before moving to next
+        const currentWord = getCurrentWord();
+        if (!currentWord) return;
+
+        // Submit review for current word
         try {
-            const result = await flashcardsApi.reviewCard(game.id, {
-                word_id: getCurrentWord()!.id,
-                confidence_level: level,
-                time_spent: 0 // TODO: Track actual time spent
+            const updatedGame = await flashcardsApi.submitReview(game.id, {
+                word_id: currentWord.id,
+                confidence_level: 3, // Default to medium confidence
+                time_spent: 0
             });
-
-            if (result.game_completed) {
-                // Show completion screen or navigate away
-                navigate('/study-sessions');
-            } else {
-                const updatedGame = await flashcardsApi.getGame(game.id);
-                setGame(updatedGame);
-                setFlipped(false);
-            }
+            setGame(updatedGame);
         } catch (error) {
             console.error('Error submitting review:', error);
-        } finally {
-            setLoading(false);
         }
+
+        // Move to next word
+        const nextIndex = (currentIndex + 1) % game.words.length;
+        setCurrentIndex(nextIndex);
+        setFlipped(false);
+    };
+
+    const handlePrevious = () => {
+        if (!game?.words?.length) return;
+        console.log('Handling previous, current index:', currentIndex);
+        setFlipped(false);
+        const prevIndex = (currentIndex - 1 + game.words.length) % game.words.length;
+        console.log('Moving to previous index:', prevIndex);
+        setCurrentIndex(prevIndex);
+    };
+
+    const handleShuffle = () => {
+        if (!game?.words?.length) return;
+        const shuffledWords = [...game.words].sort(() => Math.random() - 0.5);
+        setGame(prev => prev ? { ...prev, words: shuffledWords } : null);
+        setCurrentIndex(0);
+        setFlipped(false);
     };
 
     const currentWord = getCurrentWord();
-    const progress = game ? (game.cards_reviewed / game.total_cards) * 100 : 0;
 
     if (loading) {
         return (
-            <Box sx={{ width: '100%', mt: 4 }}>
-                <LinearProgress />
+            <Box sx={{ 
+                height: '70vh',
+                display: 'flex',
+                flexDirection: 'column',
+                bgcolor: theme.palette.background.default,
+                borderRadius: 4,
+                p: 3,
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}>
+                <Typography variant="h5" sx={{ color: 'black.300' }}>
+                    Loading flashcards...
+                </Typography>
+            </Box>
+        );
+    }
+
+    if (error) {
+        return (
+            <Box sx={{ 
+                height: '70vh',
+                display: 'flex',
+                flexDirection: 'column',
+                bgcolor: theme.palette.background.default,
+                borderRadius: 4,
+                p: 3,
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}>
+                <Typography variant="h5" sx={{ color: 'error.main' }}>
+                    {error}
+                </Typography>
             </Box>
         );
     }
 
     if (!game || !currentWord) {
         return (
-            <Box sx={{ textAlign: 'center', mt: 4 }}>
-                <Typography variant="h6" gutterBottom>
-                    No active flashcard game
+            <Box sx={{ 
+                height: '70vh',
+                display: 'flex',
+                flexDirection: 'column',
+                bgcolor: theme.palette.background.default,
+                borderRadius: 4,
+                p: 3,
+                alignItems: 'center',
+                justifyContent: 'center'
+            }}>
+                <Typography variant="h5" sx={{ color: 'black.300' }}>
+                    No flashcards available
                 </Typography>
-                <Button variant="contained" onClick={startNewGame}>
-                    Start New Game
-                </Button>
             </Box>
         );
     }
 
     return (
-        <Box sx={{ maxWidth: 600, mx: 'auto', p: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <IconButton onClick={() => navigate('/study-sessions')}>
-                    <ArrowBack />
-                </IconButton>
-                <IconButton onClick={startNewGame}>
-                    <Refresh />
-                </IconButton>
+        <Box sx={{ 
+            height: '70vh',
+            display: 'flex',
+            flexDirection: 'column',
+            bgcolor: theme.palette.background.default,
+            borderRadius: 4,
+            p: 3,
+            position: 'relative'
+        }}>
+            {/* Top bar */}
+            <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                mb: 4
+            }}>
+                <Button
+                    startIcon={<HelpOutline />}
+                    sx={{ color: 'black.300' }}
+                >
+                    Get a hint
+                </Button>
+                <Box>
+                    <IconButton sx={{ color: 'black.300' }}>
+                        <VolumeUp />
+                    </IconButton>
+                    <IconButton sx={{ color: 'black.300' }}>
+                        <Star />
+                    </IconButton>
+                </Box>
             </Box>
 
-            <LinearProgress variant="determinate" value={progress} sx={{ mb: 3 }} />
+            {/* Card content */}
+            <Card
+                sx={{
+                    cursor: 'pointer',
+                    flexGrow: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    bgcolor: 'transparent',
+                    boxShadow: 'none',
+                    position: 'relative'
+                }}
+                onClick={() => setFlipped(!flipped)}
+            >
+                <Grow in={!flipped} timeout={300}>
+                    <CardContent
+                        sx={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            position: 'absolute',
+                            width: '100%',
+                            textAlign: 'center'
+                        }}
+                    >
+                        {currentWord ? (
+                            <>
+                                <Typography 
+                                    variant="h2" 
+                                    sx={{ 
+                                        mb: 2,
+                                        fontSize: '2.5rem'
+                                    }}
+                                >
+                                    {currentWord.urdu}
+                                </Typography>
+                                <Typography 
+                                    variant="h4" 
+                                    sx={{ 
+                                        fontSize: '1.75rem'
+                                    }}
+                                >
+                                    {currentWord.urdlish}
+                                </Typography>
+                            </>
+                        ) : (
+                            <Typography variant="h4">No word available</Typography>
+                        )}
+                    </CardContent>
+                </Grow>
 
-            <Box sx={{ height: 200, position: 'relative' }}>
-                <Card
-                    sx={{
-                        cursor: 'pointer',
-                        height: '100%',
-                        width: '100%',
-                        position: 'relative'
-                    }}
-                    onClick={() => setFlipped(!flipped)}
-                >
-                    <Grow in={!flipped} timeout={300}>
-                        <CardContent
-                            sx={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                height: '100%',
-                                width: '100%',
-                                position: 'absolute'
-                            }}
-                        >
-                            <Typography variant="h4" gutterBottom>
-                                {currentWord.urdu}
-                            </Typography>
-                            <Typography variant="subtitle1" color="textSecondary">
-                                {currentWord.urdlish}
-                            </Typography>
-                            <IconButton onClick={(e) => {
-                                e.stopPropagation();
-                                playAudio(currentWord.urdu);
-                            }}>
-                                <VolumeUp />
-                            </IconButton>
-                        </CardContent>
-                    </Grow>
+                <Grow in={flipped} timeout={300}>
+                    <CardContent
+                        sx={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            position: 'absolute',
+                            width: '100%',
+                            textAlign: 'center'
+                        }}
+                    >
+                        {currentWord ? (
+                            <>
+                                <Typography 
+                                    variant="h2" 
+                                    sx={{ 
+                                        mb: 2,
+                                        fontSize: '2.5rem'
+                                    }}
+                                >
+                                    {currentWord.english}
+                                </Typography>
+                            </>
+                        ) : (
+                            <Typography variant="h4">No word available</Typography>
+                        )}
+                    </CardContent>
+                </Grow>
+            </Card>
 
-                    <Grow in={flipped} timeout={300}>
-                        <CardContent
-                            sx={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                height: '100%',
-                                width: '100%',
-                                position: 'absolute'
-                            }}
-                        >
-                            <Typography variant="h4" gutterBottom>
-                                {currentWord.english}
-                            </Typography>
-                            <Typography variant="subtitle1" color="textSecondary">
-                                {currentWord.parts}
-                            </Typography>
-                        </CardContent>
-                    </Grow>
-                </Card>
-            </Box>
-
-            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center', gap: 2 }}>
-                <Button
-                    variant="contained"
-                    color="error"
-                    onClick={() => handleConfidenceLevel(1)}
-                    disabled={!flipped}
-                >
-                    Hard
-                </Button>
-                <Button
-                    variant="contained"
-                    color="warning"
-                    onClick={() => handleConfidenceLevel(2)}
-                    disabled={!flipped}
-                >
-                    Medium
-                </Button>
-                <Button
-                    variant="contained"
-                    color="success"
-                    onClick={() => handleConfidenceLevel(3)}
-                    disabled={!flipped}
-                >
-                    Easy
-                </Button>
-            </Box>
-
-            <Box sx={{ mt: 3, textAlign: 'center' }}>
-                <Typography variant="subtitle1">
-                    Cards: {game.cards_reviewed} / {game.total_cards}
-                </Typography>
-                <Typography variant="subtitle1">
-                    Current Streak: {game.streak}
-                </Typography>
-                <Typography variant="subtitle1">
-                    Best Streak: {game.max_streak}
-                </Typography>
+            {/* Bottom bar */}
+            <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                mt: 4
+            }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography sx={{ color: 'black.300' }}>Track progress</Typography>
+                    <Switch size="small" />
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <IconButton sx={{ color: 'black.300' }} onClick={handlePrevious}>
+                        <ArrowBack />
+                    </IconButton>
+                    <Typography sx={{ color: 'black.300' }}>
+                        {currentIndex + 1} / {game.words.length}
+                    </Typography>
+                    <IconButton sx={{ color: 'black.300' }} onClick={handleNext}>
+                        <ArrowForward />
+                    </IconButton>
+                    <IconButton sx={{ color: 'black.300' }}>
+                        <PlayArrow />
+                    </IconButton>
+                    <IconButton sx={{ color: 'black.300' }} onClick={handleShuffle}>
+                        <Shuffle />
+                    </IconButton>
+                    <IconButton sx={{ color: 'black.300' }}>
+                        <Settings />
+                    </IconButton>
+                    <IconButton sx={{ color: 'black.300' }}>
+                        <Fullscreen />
+                    </IconButton>
+                </Box>
             </Box>
         </Box>
     );

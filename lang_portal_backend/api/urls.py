@@ -1,6 +1,7 @@
 from django.urls import path, include
 from rest_framework import routers
 from . import views
+from .flashcard_views import FlashcardGameViewSet
 
 router = routers.DefaultRouter(trailing_slash=True)
 router.register(r'study_activities', views.StudyActivityViewSet, basename='study_activities')
@@ -10,7 +11,7 @@ router.register(r'groups', views.GroupViewSet, basename='groups')
 router.register(r'vocabulary-quiz', views.VocabularyQuizViewSet, basename='vocabulary-quiz')
 router.register(r'word-matching', views.WordMatchingGameViewSet, basename='word-matching')
 router.register(r'word-matching-stats', views.WordMatchingStatsViewSet, basename='word-matching-stats')
-router.register(r'flashcards', views.FlashcardGameViewSet, basename='flashcards')
+router.register(r'flashcards', FlashcardGameViewSet, basename='flashcards')
 
 # First include the router URLs
 urlpatterns = [

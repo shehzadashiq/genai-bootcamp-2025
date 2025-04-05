@@ -20,6 +20,7 @@ export interface FlashcardGame {
     end_time: string | null;
     completed: boolean;
     reviews: FlashcardReview[];
+    words: FlashcardWord[];
 }
 
 export interface FlashcardReview {
