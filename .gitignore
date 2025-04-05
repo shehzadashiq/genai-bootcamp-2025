@@ -20,3 +20,5 @@ lang_portal.7z
 lang_portal_backend/chroma_db/*
 opea-comps/docsum_service/audio_cache/*
 opea-comps/docsum_service/credentials/google_credentials.json
+lang_portal_backend/credentials/google_credentials.json
+lang_portal_backend/audio_cache/*

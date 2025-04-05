@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, Card, CardContent, Typography, Button, IconButton, Grow, Switch, useTheme } from '@mui/material';
 import { ArrowBack, VolumeUp, HelpOutline, Star, ArrowForward, PlayArrow, Shuffle, Settings, Fullscreen } from '@mui/icons-material';
 import { flashcardsApi } from './api';
+import { audioApi } from '@/services/audio';
 import { FlashcardGame } from './types';
 
 export const Flashcards: React.FC = () => {
@@ -11,6 +12,8 @@ export const Flashcards: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [audioUrl, setAudioUrl] = useState<string | null>(null);
+    const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
     useEffect(() => {
         const initGame = async () => {
@@ -36,8 +39,41 @@ export const Flashcards: React.FC = () => {
             console.log('Game updated:', game);
             const word = getCurrentWord();
             console.log('Current word:', word);
+            // Load audio for the current word
+            if (word) {
+                loadWordAudio(word.urdu);
+            }
         }
     }, [game, currentIndex]);
+
+    const loadWordAudio = async (text: string) => {
+        try {
+            const url = await audioApi.getWordAudio(text);
+            setAudioUrl(url);
+        } catch (error) {
+            console.error('Error loading audio:', error);
+        }
+    };
+
+    const playAudio = async () => {
+        if (!audioUrl || isPlayingAudio) return;
+        
+        setIsPlayingAudio(true);
+        const audio = new Audio(audioUrl);
+        
+        audio.onended = () => {
+            setIsPlayingAudio(false);
+            URL.revokeObjectURL(audioUrl); // Clean up the blob URL
+            setAudioUrl(null);
+        };
+        
+        try {
+            await audio.play();
+        } catch (error) {
+            console.error('Error playing audio:', error);
+            setIsPlayingAudio(false);
+        }
+    };
 
     const getCurrentWord = () => {
         if (!game || !game.words) return null;
@@ -171,7 +207,11 @@ export const Flashcards: React.FC = () => {
                     Get a hint
                 </Button>
                 <Box>
-                    <IconButton sx={{ color: 'black.300' }}>
+                    <IconButton 
+                        sx={{ color: 'black.300' }} 
+                        onClick={playAudio}
+                        disabled={!audioUrl || isPlayingAudio}
+                    >
                         <VolumeUp />
                     </IconButton>
                     <IconButton sx={{ color: 'black.300' }}>

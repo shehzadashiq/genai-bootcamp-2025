@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework import routers
 from . import views
 from .flashcard_views import FlashcardGameViewSet
+from .audio_views import synthesize_speech
 
 router = routers.DefaultRouter(trailing_slash=True)
 router.register(r'study_activities', views.StudyActivityViewSet, basename='study_activities')
@@ -35,6 +36,9 @@ urlpatterns = [
     path('listening/search', views.search_transcripts, name='search_transcripts'),
     path('listening/test-bedrock', views.test_bedrock, name='test_bedrock'),
     path('listening/test-hindi-to-urdu', views.test_hindi_to_urdu, name='test_hindi_to_urdu'),
+    
+    # Audio synthesis endpoint
+    path('audio/synthesize/', synthesize_speech, name='synthesize_speech'),
     
     # Include router URLs at the end
     path('', include(router.urls)),
