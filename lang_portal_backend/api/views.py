@@ -1,4 +1,4 @@
-from django.db.models import Count, F, Sum, Case, When, Q
+from django.db.models import Count, Sum, Case, When, Q
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, action
@@ -10,14 +10,20 @@ from django.utils.decorators import method_decorator
 import random
 import logging
 import json
+from django.db import transaction
+from django.db.models import F
+from django.shortcuts import get_object_or_404
 
-from .models import StudySession, StudyActivity, Word, Group, WordReviewItem, WordGroup
+from .models import StudySession, StudyActivity, Word, Group, WordReviewItem, WordGroup, WordMatchingGame, WordMatchingQuestion, WordMatchingStats
 from .serializers import (
     StudySessionSerializer, 
     StudyActivitySerializer, 
     StudySessionListSerializer,
     WordSerializer,
-    GroupSerializer
+    GroupSerializer,
+    WordMatchingGameSerializer, 
+    WordMatchingQuestionSerializer,
+    WordMatchingStatsSerializer
 )
 
 logger = logging.getLogger(__name__)
@@ -80,7 +86,8 @@ class StudySessionViewSet(viewsets.ReadOnlyModelViewSet):
             'pagination': None
         })
 
-    def get_words(self, request, pk=None):
+    @action(detail=True, methods=['get'])
+    def words(self, request, pk=None):
         """Get words for a specific study session."""
         study_session = self.get_object()
         words = Word.objects.filter(
@@ -161,7 +168,8 @@ class GroupViewSet(viewsets.ReadOnlyModelViewSet):
             'pagination': None
         })
 
-    def get_words(self, request, pk=None):
+    @action(detail=True, methods=['get'])
+    def words(self, request, pk=None):
         """Get words for a specific group."""
         group = self.get_object()
         words = Word.objects.filter(wordgroup__group=group)
@@ -172,7 +180,8 @@ class GroupViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = WordSerializer(words, many=True)
         return Response(serializer.data)
 
-    def get_study_sessions(self, request, pk=None):
+    @action(detail=True, methods=['get'])
+    def study_sessions(self, request, pk=None):
         """Get study sessions for a specific group."""
         group = self.get_object()
         sessions = StudySession.objects.filter(group=group)
@@ -626,3 +635,130 @@ def search_transcripts(request):
             'status': 'error',
             'message': str(e)
         }, status=500)
+
+class WordMatchingGameViewSet(viewsets.ModelViewSet):
+    queryset = WordMatchingGame.objects.all()
+    serializer_class = WordMatchingGameSerializer
+
+    @action(detail=False, methods=['post'])
+    def start_game(self, request):
+        user = request.data.get('user', 'anonymous')
+        num_questions = request.data.get('num_questions', 10)
+        
+        # Create new game
+        game = WordMatchingGame.objects.create(
+            user=user,
+            total_questions=num_questions
+        )
+        
+        # Get random words for the game
+        words = list(Word.objects.all().order_by('?')[:num_questions])
+        
+        # Create questions
+        for word in words:
+            # Get 3 random incorrect options
+            incorrect_options = list(Word.objects.exclude(id=word.id)
+                                  .order_by('?')[:3])
+            
+            WordMatchingQuestion.objects.create(
+                game=game,
+                word=word
+            )
+        
+        serializer = self.get_serializer(game)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def submit_answer(self, request, pk=None):
+        game = self.get_object()
+        if game.completed:
+            return Response(
+                {"error": "Game is already completed"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        question_id = request.data.get('question_id')
+        answer = request.data.get('answer')
+        response_time = request.data.get('response_time', 0)
+        
+        try:
+            question = game.questions.get(id=question_id)
+        except WordMatchingQuestion.DoesNotExist:
+            return Response(
+                {"error": "Question not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if answer is correct
+        is_correct = question.word.english.lower() == answer.lower()
+        
+        # Update question
+        question.selected_answer = answer
+        question.is_correct = is_correct
+        question.response_time = response_time
+        question.save()
+        
+        # Update game score
+        with transaction.atomic():
+            game.correct_answers = F('correct_answers') + (1 if is_correct else 0)
+            game.score = F('score') + (10 if is_correct else 0)
+            
+            # Check if game is completed
+            if game.questions.filter(selected_answer__isnull=False).count() == game.total_questions:
+                game.completed = True
+                game.end_time = timezone.now()
+            
+            game.save()
+            
+            # Update user stats
+            stats, _ = WordMatchingStats.objects.get_or_create(user=game.user)
+            stats.games_played = F('games_played') + (1 if game.completed else 0)
+            stats.total_score = F('total_score') + (10 if is_correct else 0)
+            stats.total_correct = F('total_correct') + (1 if is_correct else 0)
+            stats.total_questions = F('total_questions') + 1
+            if game.completed:
+                stats.last_played = timezone.now()
+                # Update best score if current score is higher
+                game.refresh_from_db()  # Get updated score
+                if game.score > stats.best_score:
+                    stats.best_score = game.score
+            stats.save()
+        
+        game.refresh_from_db()
+        serializer = self.get_serializer(game)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def get_options(self, request, pk=None):
+        question_id = request.query_params.get('question_id')
+        try:
+            question = WordMatchingQuestion.objects.get(id=question_id, game_id=pk)
+        except WordMatchingQuestion.DoesNotExist:
+            return Response(
+                {"error": "Question not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Get correct answer and 3 random incorrect options
+        correct_word = question.word
+        incorrect_options = list(Word.objects.exclude(id=correct_word.id)
+                               .order_by('?')[:3])
+        
+        # Combine and shuffle options
+        options = [correct_word] + incorrect_options
+        random.shuffle(options)
+        
+        return Response({
+            'options': [word.english for word in options]
+        })
+
+class WordMatchingStatsViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = WordMatchingStats.objects.all()
+    serializer_class = WordMatchingStatsSerializer
+    
+    def get_queryset(self):
+        queryset = WordMatchingStats.objects.all()
+        user = self.request.query_params.get('user', None)
+        if user is not None:
+            queryset = queryset.filter(user=user)
+        return queryset

@@ -5,12 +5,42 @@ import os
 import logging
 from typing import List, Dict, Any, Optional
 import chromadb
-from chromadb.utils import embedding_functions
+from chromadb.api.types import Documents, EmbeddingFunction, Embeddings
+import boto3
+import json
 from config import vector_store_config, aws_config
 from datetime import datetime
 from .language_service import LanguageService
 
 logger = logging.getLogger(__name__)
+
+class BedrockEmbeddingFunction(EmbeddingFunction):
+    def __init__(self):
+        self.bedrock = boto3.client(
+            service_name='bedrock-runtime',
+            region_name=aws_config.AWS_REGION,
+            aws_access_key_id=aws_config.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=aws_config.AWS_SECRET_ACCESS_KEY
+        )
+        self.model_id = aws_config.BEDROCK_EMBEDDING_MODEL
+
+    def __call__(self, texts: Documents) -> Embeddings:
+        embeddings = []
+        for text in texts:
+            try:
+                response = self.bedrock.invoke_model(
+                    modelId=self.model_id,
+                    body=json.dumps({
+                        "inputText": text
+                    })
+                )
+                embedding = json.loads(response['body'].read())['embedding']
+                embeddings.append(embedding)
+            except Exception as e:
+                logger.error(f"Error getting embedding: {e}")
+                # Return zero vector as fallback
+                embeddings.append([0.0] * vector_store_config.EMBEDDING_DIMENSION)
+        return embeddings
 
 class VectorStoreService:
     _instance = None
@@ -38,22 +68,16 @@ class VectorStoreService:
             os.makedirs(vector_store_config.PERSIST_DIRECTORY, exist_ok=True)
             
             # Initialize ChromaDB with persistence
-            cls._client = chromadb.PersistentClient(
-                path=vector_store_config.PERSIST_DIRECTORY,
-                settings={
-                    "anonymized_telemetry": False,
-                    "allow_reset": False,
-                    "is_persistent": True
-                }
+            cls._client = chromadb.Client(
+                chromadb.Settings(
+                    chroma_db_impl="duckdb+parquet",
+                    persist_directory=vector_store_config.PERSIST_DIRECTORY,
+                    anonymized_telemetry=False
+                )
             )
             
-            # Initialize embedding function for Bedrock
-            embedding_function = embedding_functions.BedrockEmbeddingFunction(
-                aws_access_key_id=aws_config.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=aws_config.AWS_SECRET_ACCESS_KEY,
-                aws_region=aws_config.AWS_REGION,
-                model_id=aws_config.BEDROCK_EMBEDDING_MODEL
-            )
+            # Initialize custom embedding function for Bedrock
+            embedding_function = BedrockEmbeddingFunction()
             
             # Get or create collection with specific settings
             cls._collection = cls._client.get_or_create_collection(

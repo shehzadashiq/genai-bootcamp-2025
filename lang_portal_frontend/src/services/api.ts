@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { StudySessionResponse, PaginatedResponse } from '@/types';
+import type { WordMatchingGame, WordMatchingStats } from '@/features/word-matching/types';
 
 // Create a base axios instance with common configuration
 const api = axios.create({
@@ -90,6 +91,39 @@ export const vocabularyQuizApi = {
 export const settingsApi = {
   resetHistory: () => api.post('/reset_history'),
   fullReset: () => api.post('/full_reset'),
+};
+
+export const wordMatchingApi = {
+  startGame: async (user: string, numQuestions: number = 10): Promise<WordMatchingGame> => {
+    const response = await api.post('/word-matching/start_game/', {
+      user,
+      num_questions: numQuestions,
+    });
+    return response.data;
+  },
+
+  submitAnswer: async (gameId: number, questionId: number, answer: string, responseTime: number) => {
+    const response = await api.post(`/word-matching/${gameId}/submit_answer/`, {
+      question_id: questionId,
+      answer,
+      response_time: responseTime,
+    });
+    return response.data;
+  },
+
+  getOptions: async (gameId: number, questionId: number) => {
+    const response = await api.get(`/word-matching/${gameId}/get_options/`, {
+      params: { question_id: questionId },
+    });
+    return response.data.options;
+  },
+
+  getStats: async (user: string): Promise<WordMatchingStats> => {
+    const response = await api.get('/word-matching-stats/', {
+      params: { user },
+    });
+    return response.data;
+  },
 };
 
 export default api;

@@ -8,6 +8,8 @@ router.register(r'words', views.WordViewSet, basename='words')
 router.register(r'study_sessions', views.StudySessionViewSet, basename='study_sessions')
 router.register(r'groups', views.GroupViewSet, basename='groups')
 router.register(r'vocabulary-quiz', views.VocabularyQuizViewSet, basename='vocabulary-quiz')
+router.register(r'word-matching', views.WordMatchingGameViewSet, basename='word-matching')
+router.register(r'word-matching-stats', views.WordMatchingStatsViewSet, basename='word-matching-stats')
 
 # First include the router URLs
 urlpatterns = [

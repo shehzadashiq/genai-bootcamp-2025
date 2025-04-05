@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import StudySession, StudyActivity, Word, Group, WordReviewItem
+from .models import StudySession, StudyActivity, Word, Group, WordReviewItem, WordMatchingGame, WordMatchingQuestion, WordMatchingStats
 
 class WordSerializer(serializers.ModelSerializer):
     correct_count = serializers.SerializerMethodField()
@@ -47,7 +47,7 @@ class StudySessionListSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = StudySession
-        fields = ['id', 'created_at', 'review_items_count']
+        fields = ['id', 'start_time', 'end_time', 'review_items_count']
 
     def get_review_items_count(self, obj):
         return obj.wordreviewitem_set.count()
@@ -56,3 +56,28 @@ class WordReviewItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = WordReviewItem
         fields = ['id', 'word', 'study_session', 'correct', 'created_at']
+
+class WordMatchingQuestionSerializer(serializers.ModelSerializer):
+    word_urdu = serializers.CharField(source='word.urdu', read_only=True)
+    word_english = serializers.CharField(source='word.english', read_only=True)
+    
+    class Meta:
+        model = WordMatchingQuestion
+        fields = ['id', 'word_urdu', 'word_english', 'selected_answer', 'is_correct', 'response_time']
+
+class WordMatchingGameSerializer(serializers.ModelSerializer):
+    questions = WordMatchingQuestionSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = WordMatchingGame
+        fields = ['id', 'user', 'score', 'max_streak', 'total_questions', 'correct_answers',
+                 'start_time', 'end_time', 'completed', 'questions']
+
+class WordMatchingStatsSerializer(serializers.ModelSerializer):
+    accuracy = serializers.FloatField(read_only=True)
+    average_score = serializers.FloatField(read_only=True)
+    
+    class Meta:
+        model = WordMatchingStats
+        fields = ['user', 'games_played', 'total_score', 'best_score', 'total_correct',
+                 'total_questions', 'last_played', 'accuracy', 'average_score']
