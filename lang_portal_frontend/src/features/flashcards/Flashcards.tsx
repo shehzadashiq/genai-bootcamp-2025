@@ -1,19 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Card, CardContent, Typography, Button, IconButton, Grow, Switch, useTheme, Dialog, DialogTitle, DialogContent, DialogActions, Slider, FormControlLabel } from '@mui/material';
-import { ArrowBack, VolumeUp, HelpOutline, Star, ArrowForward, PlayArrow, Shuffle, Settings, Fullscreen, Pause } from '@mui/icons-material';
+import { Box, Card, CardContent, Typography, Button, IconButton, Grow, Dialog, DialogTitle, DialogContent, DialogActions, Slider, FormControlLabel, Switch, useTheme } from '@mui/material';
+import { ArrowBack, PlayArrow, Shuffle, Settings, Fullscreen, Pause, ArrowForward } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { flashcardsApi } from './api';
-import { audioApi } from '@/services/audio';
 import { FlashcardGame } from './types';
 
 export const Flashcards: React.FC = () => {
+    const navigate = useNavigate();
     const theme = useTheme();
     const [game, setGame] = useState<FlashcardGame | null>(null);
     const [flipped, setFlipped] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [audioUrl, setAudioUrl] = useState<string | null>(null);
-    const [isPlayingAudio, setIsPlayingAudio] = useState(false);
     const [isAutoPlaying, setIsAutoPlaying] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
@@ -47,41 +46,8 @@ export const Flashcards: React.FC = () => {
             console.log('Game updated:', game);
             const word = getCurrentWord();
             console.log('Current word:', word);
-            // Load audio for the current word
-            if (word) {
-                loadWordAudio(word.urdu);
-            }
         }
     }, [game, currentIndex]);
-
-    const loadWordAudio = async (text: string) => {
-        try {
-            const url = await audioApi.getWordAudio(text);
-            setAudioUrl(url);
-        } catch (error) {
-            console.error('Error loading audio:', error);
-        }
-    };
-
-    const playAudio = async () => {
-        if (!audioUrl || isPlayingAudio) return;
-        
-        setIsPlayingAudio(true);
-        const audio = new Audio(audioUrl);
-        
-        audio.onended = () => {
-            setIsPlayingAudio(false);
-            URL.revokeObjectURL(audioUrl); // Clean up the blob URL
-            setAudioUrl(null);
-        };
-        
-        try {
-            await audio.play();
-        } catch (error) {
-            console.error('Error playing audio:', error);
-            setIsPlayingAudio(false);
-        }
-    };
 
     const getCurrentWord = () => {
         if (!game || !game.words) return null;
@@ -90,41 +56,25 @@ export const Flashcards: React.FC = () => {
         return game.words[currentIndex];
     };
 
-    const handleNext = async () => {
-        if (!game || !game.words) return;
-
-        // Get current word before moving to next
-        const currentWord = getCurrentWord();
-        if (!currentWord) return;
-
-        // Submit review for current word
-        try {
-            const updatedGame = await flashcardsApi.submitReview(game.id, {
-                word_id: currentWord.id,
-                confidence_level: 3, // Default to medium confidence
-                time_spent: 0
-            });
-            setGame(updatedGame);
-        } catch (error) {
-            console.error('Error submitting review:', error);
-        }
-
-        // Move to next word
-        const nextIndex = (currentIndex + 1) % game.words.length;
-        setCurrentIndex(nextIndex);
-        setFlipped(false);
-    };
-
-    const handlePrevious = () => {
+    const handleNext = useCallback(() => {
         if (!game?.words?.length) return;
-        console.log('Handling previous, current index:', currentIndex);
-        setFlipped(false);
-        const prevIndex = (currentIndex - 1 + game.words.length) % game.words.length;
-        console.log('Moving to previous index:', prevIndex);
-        setCurrentIndex(prevIndex);
-    };
+        
+        if (currentIndex < game.words.length - 1) {
+            setCurrentIndex(currentIndex + 1);
+            setFlipped(false);
+        }
+    }, [currentIndex, game?.words?.length]);
 
-    const handleShuffle = () => {
+    const handlePrevious = useCallback(() => {
+        if (!game?.words?.length) return;
+        
+        if (currentIndex > 0) {
+            setCurrentIndex(currentIndex - 1);
+            setFlipped(false);
+        }
+    }, [currentIndex, game?.words?.length]);
+
+    const handleShuffle = useCallback(() => {
         if (!game?.words) return;
         
         const shuffledWords = [...game.words]
@@ -132,10 +82,24 @@ export const Flashcards: React.FC = () => {
             .sort((a, b) => a.sort - b.sort)
             .map(({ value }) => value);
 
-        setGame(prev => prev ? { ...prev, words: shuffledWords } : null);
+        setGame((prev: FlashcardGame | null) => prev ? { ...prev, words: shuffledWords } : null);
         setCurrentIndex(0);
         setFlipped(false);
-    };
+    }, [game?.words]);
+
+    const handleRestart = useCallback(async () => {
+        setLoading(true);
+        try {
+            const newGame = await flashcardsApi.createGame();
+            setGame(newGame);
+            setCurrentIndex(0);
+            setFlipped(false);
+        } catch (err) {
+            setError('Failed to start new game');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     // Auto-play functionality
     useEffect(() => {
@@ -161,7 +125,7 @@ export const Flashcards: React.FC = () => {
                 clearTimeout(timeoutId);
             }
         };
-    }, [isAutoPlaying, currentIndex, flipped, game?.words]);
+    }, [isAutoPlaying, currentIndex, flipped, game?.words, playbackSpeed, handleNext]);
 
     // Fullscreen handling
     const toggleFullscreen = useCallback(() => {
@@ -301,27 +265,22 @@ export const Flashcards: React.FC = () => {
             {/* Top bar */}
             <Box sx={{ 
                 display: 'flex', 
-                justifyContent: 'space-between',
-                alignItems: 'center',
+                justifyContent: 'space-between', 
                 mb: 4
             }}>
-                <Button
-                    startIcon={<HelpOutline />}
-                    sx={{ color: 'black.300' }}
+                <Button 
+                    startIcon={<ArrowBack />}
+                    onClick={() => navigate('/study_activities')}
                 >
-                    Get a hint
+                    Back
                 </Button>
-                <Box>
-                    <IconButton 
-                        sx={{ color: 'black.300' }} 
-                        onClick={playAudio}
-                        disabled={!audioUrl || isPlayingAudio}
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                        variant="outlined"
+                        onClick={handleRestart}
                     >
-                        <VolumeUp />
-                    </IconButton>
-                    <IconButton sx={{ color: 'black.300' }}>
-                        <Star />
-                    </IconButton>
+                        Restart
+                    </Button>
                 </Box>
             </Box>
 
@@ -466,43 +425,38 @@ export const Flashcards: React.FC = () => {
             {/* Bottom bar */}
             <Box sx={{ 
                 display: 'flex', 
-                justifyContent: 'space-between',
+                justifyContent: 'center',
                 alignItems: 'center',
-                mt: 4
+                mt: 4,
+                gap: 2
             }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography sx={{ color: 'text.secondary' }}>Track progress</Typography>
-                    <Switch size="small" />
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <IconButton sx={{ color: 'text.secondary' }} onClick={handlePrevious}>
-                        <ArrowBack />
-                    </IconButton>
-                    <Typography sx={{ color: 'text.secondary' }}>
-                        {currentIndex + 1} / {game.words.length}
-                    </Typography>
-                    <IconButton sx={{ color: 'text.secondary' }} onClick={handleNext}>
-                        <ArrowForward />
-                    </IconButton>
-                    <IconButton 
-                        sx={{ color: isAutoPlaying ? 'primary.main' : 'text.secondary' }} 
-                        onClick={toggleAutoPlay}
-                    >
-                        {isAutoPlaying ? <Pause /> : <PlayArrow />}
-                    </IconButton>
-                    <IconButton sx={{ color: 'text.secondary' }} onClick={handleShuffle}>
-                        <Shuffle />
-                    </IconButton>
-                    <IconButton sx={{ color: 'text.secondary' }} onClick={() => setShowSettings(true)}>
-                        <Settings />
-                    </IconButton>
-                    <IconButton 
-                        sx={{ color: isFullscreen ? 'primary.main' : 'text.secondary' }} 
-                        onClick={toggleFullscreen}
-                    >
-                        <Fullscreen />
-                    </IconButton>
-                </Box>
+                <IconButton sx={{ color: 'text.secondary' }} onClick={handlePrevious}>
+                    <ArrowBack />
+                </IconButton>
+                <Typography sx={{ color: 'text.secondary', minWidth: '80px', textAlign: 'center' }}>
+                    {currentIndex + 1} / {game?.words?.length}
+                </Typography>
+                <IconButton sx={{ color: 'text.secondary' }} onClick={handleNext}>
+                    <ArrowForward />
+                </IconButton>
+                <IconButton 
+                    sx={{ color: isAutoPlaying ? 'primary.main' : 'text.secondary' }} 
+                    onClick={toggleAutoPlay}
+                >
+                    {isAutoPlaying ? <Pause /> : <PlayArrow />}
+                </IconButton>
+                <IconButton sx={{ color: 'text.secondary' }} onClick={handleShuffle}>
+                    <Shuffle />
+                </IconButton>
+                <IconButton sx={{ color: 'text.secondary' }} onClick={() => setShowSettings(true)}>
+                    <Settings />
+                </IconButton>
+                <IconButton 
+                    sx={{ color: isFullscreen ? 'primary.main' : 'text.secondary' }} 
+                    onClick={toggleFullscreen}
+                >
+                    <Fullscreen />
+                </IconButton>
             </Box>
         </Box>
     );
