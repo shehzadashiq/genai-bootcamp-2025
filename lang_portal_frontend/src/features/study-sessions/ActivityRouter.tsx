@@ -1,5 +1,6 @@
 import React from 'react';
 import { VocabularyQuiz } from '../vocabulary-quiz/VocabularyQuiz';
+import { Flashcards } from '../flashcards';
 import { StudySessionResponse } from '@/types';
 
 interface ActivityRouterProps {
@@ -11,6 +12,7 @@ export const ActivityRouter: React.FC<ActivityRouterProps> = ({ session, quizSes
   // Map activity names to their corresponding components
   const activityMap: Record<string, React.FC<{ sessionId: string }>> = {
     'Vocabulary Quiz': VocabularyQuiz,
+    'Flashcards': Flashcards,
   };
 
   const ActivityComponent = session.activity_name ? activityMap[session.activity_name] : null;

@@ -1,5 +1,9 @@
 from rest_framework import serializers
-from .models import StudySession, StudyActivity, Word, Group, WordReviewItem, WordMatchingGame, WordMatchingQuestion, WordMatchingStats
+from .models import (
+    StudySession, StudyActivity, Word, Group, 
+    WordReviewItem, WordMatchingGame, WordMatchingQuestion, WordMatchingStats,
+    FlashcardGame, FlashcardReview, FlashcardStats
+)
 
 class WordSerializer(serializers.ModelSerializer):
     correct_count = serializers.SerializerMethodField()
@@ -73,6 +77,32 @@ class WordMatchingGameSerializer(serializers.ModelSerializer):
         model = WordMatchingGame
         fields = ['id', 'user', 'score', 'max_streak', 'total_questions', 'correct_answers',
                  'start_time', 'end_time', 'completed', 'questions']
+
+class FlashcardReviewSerializer(serializers.ModelSerializer):
+    word = WordSerializer()
+    
+    class Meta:
+        model = FlashcardReview
+        fields = ['id', 'game', 'word', 'confidence_level', 'time_spent', 'created_at']
+
+class FlashcardGameSerializer(serializers.ModelSerializer):
+    reviews = FlashcardReviewSerializer(many=True)
+    
+    class Meta:
+        model = FlashcardGame
+        fields = [
+            'id', 'user', 'score', 'streak', 'max_streak', 
+            'total_cards', 'cards_reviewed', 'start_time', 
+            'end_time', 'completed', 'reviews'
+        ]
+
+class FlashcardStatsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FlashcardStats
+        fields = [
+            'id', 'user', 'cards_reviewed', 'total_time_spent',
+            'best_streak', 'last_reviewed', 'average_time_per_card'
+        ]
 
 class WordMatchingStatsSerializer(serializers.ModelSerializer):
     accuracy = serializers.FloatField(read_only=True)

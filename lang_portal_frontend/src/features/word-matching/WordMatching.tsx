@@ -101,7 +101,7 @@ export default function WordMatching() {
   const startTimeRef = useRef<number>(0);
   const isMounted = useRef(true);
 
-  const currentQuestion = state.game?.questions[state.currentQuestionIndex];
+  const currentQuestion = state.game?.questions[state.currentQuestionIndex] ?? null;
 
   useEffect(() => {
     isMounted.current = true;
@@ -192,7 +192,7 @@ export default function WordMatching() {
           <p className="text-center">Correct Answers: {state.game.correct_answers}</p>
           <p className="text-center">
             Accuracy:{' '}
-            {((state.game.correct_answers / state.game.total_questions) * 100).toFixed(1)}%
+            {state.game.total_questions > 0 ? ((state.game.correct_answers / state.game.total_questions) * 100).toFixed(1) : '0.0'}%
           </p>
         </div>
         
