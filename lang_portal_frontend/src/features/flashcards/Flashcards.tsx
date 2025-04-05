@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Card, CardContent, Typography, Button, IconButton, Grow, Switch, useTheme } from '@mui/material';
-import { ArrowBack, VolumeUp, HelpOutline, Star, ArrowForward, PlayArrow, Shuffle, Settings, Fullscreen } from '@mui/icons-material';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Box, Card, CardContent, Typography, Button, IconButton, Grow, Switch, useTheme, Dialog, DialogTitle, DialogContent, DialogActions, Slider, FormControlLabel } from '@mui/material';
+import { ArrowBack, VolumeUp, HelpOutline, Star, ArrowForward, PlayArrow, Shuffle, Settings, Fullscreen, Pause } from '@mui/icons-material';
 import { flashcardsApi } from './api';
 import { audioApi } from '@/services/audio';
 import { FlashcardGame } from './types';
@@ -14,6 +14,14 @@ export const Flashcards: React.FC = () => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
     const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+    const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
+    const [playbackSpeed, setPlaybackSpeed] = useState(3); // seconds per card
+    const [showTranscription, setShowTranscription] = useState(true);
+
+    // Reference to the container for fullscreen
+    const containerRef = React.useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const initGame = async () => {
@@ -117,11 +125,72 @@ export const Flashcards: React.FC = () => {
     };
 
     const handleShuffle = () => {
-        if (!game?.words?.length) return;
-        const shuffledWords = [...game.words].sort(() => Math.random() - 0.5);
+        if (!game?.words) return;
+        
+        const shuffledWords = [...game.words]
+            .map(value => ({ value, sort: Math.random() }))
+            .sort((a, b) => a.sort - b.sort)
+            .map(({ value }) => value);
+
         setGame(prev => prev ? { ...prev, words: shuffledWords } : null);
         setCurrentIndex(0);
         setFlipped(false);
+    };
+
+    // Auto-play functionality
+    useEffect(() => {
+        let timeoutId: NodeJS.Timeout;
+        
+        if (isAutoPlaying && game?.words) {
+            if (!flipped) {
+                // Show front for half the time
+                timeoutId = setTimeout(() => {
+                    setFlipped(true);
+                }, playbackSpeed * 500);
+            } else {
+                // Show back for half the time, then move to next card
+                timeoutId = setTimeout(() => {
+                    handleNext();
+                    setFlipped(false);
+                }, playbackSpeed * 500);
+            }
+        }
+
+        return () => {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+        };
+    }, [isAutoPlaying, currentIndex, flipped, game?.words]);
+
+    // Fullscreen handling
+    const toggleFullscreen = useCallback(() => {
+        if (!document.fullscreenElement && containerRef.current) {
+            containerRef.current.requestFullscreen();
+            setIsFullscreen(true);
+        } else {
+            document.exitFullscreen();
+            setIsFullscreen(false);
+        }
+    }, []);
+
+    // Handle fullscreen change events
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+        };
+    }, []);
+
+    const toggleAutoPlay = () => {
+        setIsAutoPlaying(!isAutoPlaying);
+        if (!isAutoPlaying) {
+            setFlipped(false); // Start with front side when beginning auto-play
+        }
     };
 
     const currentWord = getCurrentWord();
@@ -184,15 +253,51 @@ export const Flashcards: React.FC = () => {
     }
 
     return (
-        <Box sx={{ 
-            height: '70vh',
-            display: 'flex',
-            flexDirection: 'column',
-            bgcolor: theme.palette.background.default,
-            borderRadius: 4,
-            p: 3,
-            position: 'relative'
-        }}>
+        <Box 
+            ref={containerRef}
+            sx={{ 
+                p: 4, 
+                height: isFullscreen ? '100vh' : 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                bgcolor: 'background.default'
+            }}
+        >
+            {/* Settings Dialog */}
+            <Dialog open={showSettings} onClose={() => setShowSettings(false)}>
+                <DialogTitle>Flashcard Settings</DialogTitle>
+                <DialogContent>
+                    <Box sx={{ width: 300, mt: 2 }}>
+                        <Typography gutterBottom>
+                            Playback Speed (seconds per card)
+                        </Typography>
+                        <Slider
+                            value={playbackSpeed}
+                            onChange={(_, value) => setPlaybackSpeed(value as number)}
+                            min={1}
+                            max={10}
+                            step={0.5}
+                            marks
+                            valueLabelDisplay="auto"
+                        />
+                        <Box sx={{ mt: 3 }}>
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={showTranscription}
+                                        onChange={(e) => setShowTranscription(e.target.checked)}
+                                    />
+                                }
+                                label="Show Urdu Transcription"
+                            />
+                        </Box>
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setShowSettings(false)}>Close</Button>
+                </DialogActions>
+            </Dialog>
+
             {/* Top bar */}
             <Box sx={{ 
                 display: 'flex', 
@@ -221,18 +326,17 @@ export const Flashcards: React.FC = () => {
             </Box>
 
             {/* Card content */}
-            <Card
-                sx={{
-                    cursor: 'pointer',
-                    flexGrow: 1,
+            <Card 
+                onClick={() => setFlipped(!flipped)}
+                sx={{ 
+                    position: 'relative',
+                    minHeight: '300px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    bgcolor: 'transparent',
-                    boxShadow: 'none',
-                    position: 'relative'
+                    cursor: 'pointer',
+                    flex: 1
                 }}
-                onClick={() => setFlipped(!flipped)}
             >
                 <Grow in={!flipped} timeout={300}>
                     <CardContent
@@ -257,14 +361,16 @@ export const Flashcards: React.FC = () => {
                                 >
                                     {currentWord.urdu}
                                 </Typography>
-                                <Typography 
-                                    variant="h4" 
-                                    sx={{ 
-                                        fontSize: '1.75rem'
-                                    }}
-                                >
-                                    {currentWord.urdlish}
-                                </Typography>
+                                {showTranscription && (
+                                    <Typography 
+                                        variant="h4" 
+                                        sx={{ 
+                                            fontSize: '1.75rem'
+                                        }}
+                                    >
+                                        {currentWord.urdlish}
+                                    </Typography>
+                                )}
                             </>
                         ) : (
                             <Typography variant="h4">No word available</Typography>
@@ -365,29 +471,35 @@ export const Flashcards: React.FC = () => {
                 mt: 4
             }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography sx={{ color: 'black.300' }}>Track progress</Typography>
+                    <Typography sx={{ color: 'text.secondary' }}>Track progress</Typography>
                     <Switch size="small" />
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <IconButton sx={{ color: 'black.300' }} onClick={handlePrevious}>
+                    <IconButton sx={{ color: 'text.secondary' }} onClick={handlePrevious}>
                         <ArrowBack />
                     </IconButton>
-                    <Typography sx={{ color: 'black.300' }}>
+                    <Typography sx={{ color: 'text.secondary' }}>
                         {currentIndex + 1} / {game.words.length}
                     </Typography>
-                    <IconButton sx={{ color: 'black.300' }} onClick={handleNext}>
+                    <IconButton sx={{ color: 'text.secondary' }} onClick={handleNext}>
                         <ArrowForward />
                     </IconButton>
-                    <IconButton sx={{ color: 'black.300' }}>
-                        <PlayArrow />
+                    <IconButton 
+                        sx={{ color: isAutoPlaying ? 'primary.main' : 'text.secondary' }} 
+                        onClick={toggleAutoPlay}
+                    >
+                        {isAutoPlaying ? <Pause /> : <PlayArrow />}
                     </IconButton>
-                    <IconButton sx={{ color: 'black.300' }} onClick={handleShuffle}>
+                    <IconButton sx={{ color: 'text.secondary' }} onClick={handleShuffle}>
                         <Shuffle />
                     </IconButton>
-                    <IconButton sx={{ color: 'black.300' }}>
+                    <IconButton sx={{ color: 'text.secondary' }} onClick={() => setShowSettings(true)}>
                         <Settings />
                     </IconButton>
-                    <IconButton sx={{ color: 'black.300' }}>
+                    <IconButton 
+                        sx={{ color: isFullscreen ? 'primary.main' : 'text.secondary' }} 
+                        onClick={toggleFullscreen}
+                    >
                         <Fullscreen />
                     </IconButton>
                 </Box>

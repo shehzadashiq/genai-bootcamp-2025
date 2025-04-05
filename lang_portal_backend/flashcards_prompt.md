@@ -25,6 +25,11 @@ Create a curated database of the top 1000 most common Urdu words and their Engli
 - Navigation:
     - Restart button to start a new game
     - Back button to return to study activities page
+    - Play button to automatically go through the flipcards, show the word and then show the reverse and then procced to the next flashcard
+    - Random button to randomise the existing cards
+    - Settings button to control the speed at which the cards are displayed when playing and be able to toggle off the transciption of the Urdu word
+    - Fullscreen button to make the panel go full-screen
+
 
 ### Technical Implementation
 
