@@ -59,11 +59,12 @@ class WordReviewItemSerializer(serializers.ModelSerializer):
 
 class WordMatchingQuestionSerializer(serializers.ModelSerializer):
     word_urdu = serializers.CharField(source='word.urdu', read_only=True)
+    word_urdlish = serializers.CharField(source='word.urdlish', read_only=True)
     word_english = serializers.CharField(source='word.english', read_only=True)
     
     class Meta:
         model = WordMatchingQuestion
-        fields = ['id', 'word_urdu', 'word_english', 'selected_answer', 'is_correct', 'response_time']
+        fields = ['id', 'word_urdu', 'word_urdlish', 'word_english', 'selected_answer', 'is_correct', 'response_time']
 
 class WordMatchingGameSerializer(serializers.ModelSerializer):
     questions = WordMatchingQuestionSerializer(many=True, read_only=True)
