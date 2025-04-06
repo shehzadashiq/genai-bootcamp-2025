@@ -17,6 +17,8 @@ Create an interactive word matching game for Urdu words and their English transl
 
 #### Start Game
 
+POST /api/word-matching/start_game/
+
 ```http
 POST /api/word-matching/start_game/
 Request:
@@ -52,6 +54,8 @@ Response:
 ```
 
 #### Submit Answer
+
+POST /api/word-matching/{game_id}/submit_answer/
 
 ```http
 POST /api/word-matching/{game_id}/submit_answer/
@@ -90,6 +94,8 @@ Response:
 
 #### Get Options
 
+GET /api/word-matching/{game_id}/get_options/?question_id={question_id}
+
 ```http
 GET /api/word-matching/{game_id}/get_options/?question_id={question_id}
 Response:
@@ -104,6 +110,8 @@ Response:
 ```
 
 #### Get User Stats
+
+GET /api/word-matching-stats/
 
 ```http
 GET /api/word-matching-stats/?user={username}

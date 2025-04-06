@@ -8,7 +8,9 @@ from youtube_transcript_api import YouTubeTranscriptApi, TranscriptsDisabled, No
 import boto3
 from .vector_store_service import VectorStoreService
 from .language_service import LanguageService
+from services.improved_question_generator import ImprovedQuestionGenerator
 from config import guardrails_config
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +19,7 @@ class ListeningService:
     _cache_dir = "transcript_cache"
     _vector_store = None
     _language_service = None
+    _question_generator = None
     _runtime = None
     
     def __new__(cls):
@@ -24,6 +27,7 @@ class ListeningService:
             cls._instance = super(ListeningService, cls).__new__(cls)
             cls._vector_store = VectorStoreService()
             cls._language_service = LanguageService()
+            cls._question_generator = ImprovedQuestionGenerator()
             
             # Initialize AWS Bedrock client
             try:
@@ -364,58 +368,44 @@ class ListeningService:
                 if not any(ord(char) >= 0x0600 and ord(char) <= 0x06FF for char in text):
                     text = self._language_service.convert_hindi_to_urdu(text)
                 if text:  # Only add if we have valid text
-                    urdu_segments.append({**segment, 'text': text})
+                    urdu_segments.append({
+                        'text': text,
+                        'start': segment.get('start', 0),
+                        'duration': segment.get('duration', 0)
+                    })
             
             if not urdu_segments:
-                logger.warning("No Urdu segments found")
+                logger.error("No valid Urdu segments found")
                 return []
-
-            # Select segments for questions
-            selected_segments = urdu_segments[:num_questions]
-            questions = []
-
-            # Common wrong answers in Urdu
-            wrong_answers = [
-                "مجھے سمجھ نہیں آیا",  # "I didn't understand"
-                "کچھ اور کہا گیا تھا",  # "Something else was said"
-                "یہ متن دستیاب نہیں ہے",  # "This text is not available"
-                "معلوم نہیں",  # "Don't know"
-                "کوئی جواب نہیں",  # "No answer"
-                "سن نہیں سکا",  # "Couldn't hear"
-                "دوبارہ سنیں",  # "Listen again"
-                "واضح نہیں ہے"  # "Not clear"
-            ]
-
-            for i, segment in enumerate(selected_segments):
-                text = segment['text'].strip()
-                start_time = segment.get('start', 0)
-                duration = segment.get('duration', 0)
                 
-                # Create question with better Urdu phrasing
-                question = {
-                    "id": i + 1,
-                    "question": "اس آڈیو حصے میں کیا کہا گیا ہے؟",  # "What was said in this audio segment?"
-                    "options": [
-                        text  # Correct answer is always first
-                    ],
-                    "correct_answer": text,
-                    "audio_start": start_time,
-                    "audio_end": start_time + duration
-                }
-                
-                # Add 3 random wrong answers
-                from random import sample
-                question['options'].extend(sample(wrong_answers, 3))
-                
-                # Shuffle all options
-                from random import shuffle
-                correct = question['options'][0]
-                shuffle(question['options'])
-                # Update correct_answer to match shuffled position
-                question['correct_answer'] = correct
-
-                questions.append(question)
-
+            # Combine segments into a single text for context
+            full_text = " ".join(segment['text'] for segment in urdu_segments)
+            
+            # Generate questions using the improved question generator
+            # Create new event loop for this thread if needed
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            questions = loop.run_until_complete(
+                self._question_generator.generate_questions(
+                    text=full_text,
+                    num_questions=num_questions,
+                    language='ur'
+                )
+            )
+            
+            # Add audio timestamps to questions
+            for question in questions:
+                # Find relevant segment for this question
+                for segment in urdu_segments:
+                    if any(word in segment['text'] for word in question['question'].split()):
+                        question['audio_start'] = segment['start']
+                        question['audio_end'] = segment['start'] + segment['duration']
+                        break
+            
             return questions
 
         except Exception as e:

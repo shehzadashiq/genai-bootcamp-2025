@@ -22,3 +22,6 @@ opea-comps/docsum_service/audio_cache/*
 opea-comps/docsum_service/credentials/google_credentials.json
 lang_portal_backend/credentials/google_credentials.json
 lang_portal_backend/audio_cache/*
+lang_portal_backend/vector_store/index/*
+lang_portal_backend/transcript_cache/*
+lang_portal_backend/vector_store/chroma-embeddings.parquet

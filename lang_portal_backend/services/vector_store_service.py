@@ -189,15 +189,27 @@ class VectorStoreService:
             )
             
             if results and results['ids']:
-                self._collection.delete(
-                    ids=results['ids']
-                )
-                logger.info(f"Deleted {len(results['ids'])} chunks for video {video_id}")
-                return True
+                try:
+                    self._collection.delete(
+                        ids=results['ids']
+                    )
+                    logger.info(f"Deleted {len(results['ids'])} chunks for video {video_id}")
+                    return True
+                except Exception as delete_error:
+                    logger.error(f"Error deleting chunks with IDs {results['ids']}: {str(delete_error)}")
+                    # Try deleting one by one
+                    success = False
+                    for chunk_id in results['ids']:
+                        try:
+                            self._collection.delete(ids=[chunk_id])
+                            success = True
+                        except Exception as e:
+                            logger.error(f"Error deleting chunk {chunk_id}: {str(e)}")
+                    return success
             
             logger.warning(f"No chunks found for video {video_id}")
-            return False
+            return True  # Return True if there's nothing to delete
             
         except Exception as e:
-            logger.error(f"Error deleting chunks: {e}")
+            logger.error(f"Error querying chunks for video {video_id}: {str(e)}")
             return False
