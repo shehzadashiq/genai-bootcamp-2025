@@ -86,7 +86,7 @@ const ListeningPractice: React.FC = () => {
   const questions = getQuestions.data?.questions || [];
   const currentQuestion = questions[currentQuestionIndex];
   const totalQuestions = questions.length;
-  const isLastQuestion = currentQuestionIndex === totalQuestions - 1;
+  const isLastQuestion = currentQuestionIndex >= totalQuestions - 1;
   const hasAnsweredCurrentQuestion = Boolean(selectedAnswers[currentQuestionIndex]);
   const hasAnsweredAllQuestions = totalQuestions > 0 && Object.keys(selectedAnswers).length === totalQuestions;
 
@@ -413,6 +413,31 @@ Show Results: ${showResults}`}
       </pre>
     </Paper>
   );
+
+  // Handle error state
+  if (getQuestions.data?.error) {
+    return (
+      <Box sx={{ maxWidth: 800, mx: 'auto', p: 3 }}>
+        <Typography variant="h4" gutterBottom>
+          Urdu Listening Practice
+        </Typography>
+        {renderUrlInput()}
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {getQuestions.data.error}
+          <Button
+            variant="contained"
+            onClick={() => {
+              setVideoUrl('');
+              getQuestions.reset();
+            }}
+            sx={{ mt: 2, display: 'block' }}
+          >
+            Try Again
+          </Button>
+        </Alert>
+      </Box>
+    );
+  }
 
   // Main render
   return (

@@ -99,56 +99,82 @@ class VectorStoreService:
     def add_transcript(self, video_id: str, transcript: List[Dict]) -> bool:
         """Add transcript chunks to vector store."""
         try:
-            # Process each segment
-            ids = []
-            texts = []
-            metadatas = []
+            # Create chunks from transcript first
+            chunks = []
+            chunk_ids = []
             
             for i, segment in enumerate(transcript):
                 text = segment.get('text', '').strip()
-                if not text:
+                if text:
+                    chunk_id = f"{video_id}_{i}"
+                    chunks.append({
+                        'text': text,
+                        'start': segment.get('start', 0),
+                        'duration': segment.get('duration', 0)
+                    })
+                    chunk_ids.append(chunk_id)
+            
+            if not chunks:
+                logger.error(f"No valid chunks created for video {video_id}")
+                return False
+
+            # Delete existing chunks first
+            if not self.delete_video_chunks(video_id):
+                logger.warning(f"Failed to delete existing chunks for video {video_id}, proceeding with add")
+
+            # Add chunks in batches
+            batch_size = 50
+            for i in range(0, len(chunks), batch_size):
+                batch_chunks = chunks[i:i + batch_size]
+                batch_ids = chunk_ids[i:i + batch_size]
+                try:
+                    self._collection.add(
+                        ids=batch_ids,
+                        documents=[chunk['text'] for chunk in batch_chunks],
+                        metadatas=[{
+                            'video_id': video_id,
+                            'start': chunk['start'],
+                            'duration': chunk['duration']
+                        } for chunk in batch_chunks]
+                    )
+                    logger.info(f"Added batch of {len(batch_chunks)} chunks for video {video_id}")
+                except Exception as e:
+                    logger.error(f"Error adding batch of chunks: {str(e)}")
+                    # Continue with next batch even if one fails
                     continue
-                
-                # Convert Hindi to Urdu if needed
-                if not any(ord(char) >= 0x0600 and ord(char) <= 0x06FF for char in text):
-                    text = self._language_service.convert_hindi_to_urdu(text)
-                
-                # Create document record
-                doc_id = f"{video_id}_{i}"
-                
-                # Prepare metadata
-                metadata = {
-                    'video_id': video_id,
-                    'start_time': str(segment.get('start', 0)),  # ChromaDB requires string values
-                    'end_time': str(segment.get('start', 0) + segment.get('duration', 0)),
-                    'language': segment.get('language', 'ur'),
-                    'timestamp': datetime.utcnow().isoformat()
-                }
-                
-                ids.append(doc_id)
-                texts.append(text)
-                metadatas.append(metadata)
-            
-            if ids:
-                # Delete existing chunks for this video
-                self.delete_video_chunks(video_id)
-                
-                # Add new chunks
-                self._collection.add(
-                    ids=ids,
-                    documents=texts,
-                    metadatas=metadatas
-                )
-                
-                logger.info(f"Added {len(ids)} transcript chunks for video {video_id}")
-                return True
-            
-            return False
-                
+
+            return True
+
         except Exception as e:
-            logger.error(f"Error adding transcript: {e}")
+            logger.error(f"Error processing transcript: {str(e)}")
             return False
-    
+
+    def get_video_chunks(self, video_id: str) -> List[Dict]:
+        """Get all chunks for a specific video."""
+        try:
+            results = self._collection.get(
+                where={"video_id": video_id}
+            )
+            
+            if not results or not results['ids']:
+                logger.warning(f"No chunks found for video {video_id}")
+                return []
+            
+            chunks = []
+            for i, doc_id in enumerate(results['ids']):
+                chunks.append({
+                    'id': doc_id,
+                    'text': results['documents'][i],
+                    'start': results['metadatas'][i]['start'],
+                    'duration': results['metadatas'][i]['duration']
+                })
+            
+            return sorted(chunks, key=lambda x: x['start'])
+            
+        except Exception as e:
+            logger.error(f"Error retrieving chunks for video {video_id}: {str(e)}")
+            return []
+
     def search_transcripts(self, query: str, k: int = 5) -> List[Dict]:
         """Search for relevant transcript chunks."""
         try:
@@ -183,33 +209,31 @@ class VectorStoreService:
     def delete_video_chunks(self, video_id: str) -> bool:
         """Delete all chunks for a specific video."""
         try:
-            # ChromaDB doesn't support direct filtering in delete, so we need to find IDs first
+            # Find all chunks for this video
             results = self._collection.get(
                 where={"video_id": video_id}
             )
             
-            if results and results['ids']:
+            if not results or not results['ids']:
+                logger.info(f"No existing chunks found for video {video_id}")
+                return True
+                
+            # Delete chunks in batches to avoid overwhelming the DB
+            batch_size = 50
+            for i in range(0, len(results['ids']), batch_size):
+                batch_ids = results['ids'][i:i + batch_size]
                 try:
                     self._collection.delete(
-                        ids=results['ids']
+                        ids=batch_ids
                     )
-                    logger.info(f"Deleted {len(results['ids'])} chunks for video {video_id}")
-                    return True
-                except Exception as delete_error:
-                    logger.error(f"Error deleting chunks with IDs {results['ids']}: {str(delete_error)}")
-                    # Try deleting one by one
-                    success = False
-                    for chunk_id in results['ids']:
-                        try:
-                            self._collection.delete(ids=[chunk_id])
-                            success = True
-                        except Exception as e:
-                            logger.error(f"Error deleting chunk {chunk_id}: {str(e)}")
-                    return success
-            
-            logger.warning(f"No chunks found for video {video_id}")
-            return True  # Return True if there's nothing to delete
+                    logger.info(f"Deleted batch of {len(batch_ids)} chunks for video {video_id}")
+                except Exception as e:
+                    logger.error(f"Error deleting batch of chunks: {str(e)}")
+                    # Continue with next batch even if one fails
+                    continue
+                    
+            return True
             
         except Exception as e:
-            logger.error(f"Error querying chunks for video {video_id}: {str(e)}")
+            logger.error(f"Error deleting chunks for video {video_id}: {str(e)}")
             return False

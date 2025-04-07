@@ -3,6 +3,7 @@ import asyncio
 import time
 import json
 import logging
+import re
 from typing import List, Dict, Union, Optional
 from botocore.exceptions import ClientError
 
@@ -17,7 +18,9 @@ class ImprovedQuestionGenerator:
         self.base_delay = 2
         self.request_queue = asyncio.Queue()
         self.last_request_time = 0
-        self.min_request_interval = 1.0
+        self.min_request_interval = 2.0  # Increase minimum interval between requests
+        self.max_concurrent_requests = 3
+        self._semaphore = asyncio.Semaphore(self.max_concurrent_requests)
 
     async def _wait_for_rate_limit(self):
         """Ensure we don't exceed rate limits."""
@@ -29,37 +32,52 @@ class ImprovedQuestionGenerator:
 
     async def _invoke_bedrock(self, prompt: str) -> Optional[str]:
         """Invoke Bedrock with retries and error handling."""
-        await self._wait_for_rate_limit()
-        
-        for attempt in range(self.max_retries):
-            try:
-                response = self.client.invoke_model(
-                    modelId=self.model_id,
-                    body=json.dumps({
-                        "prompt": f"\n\nHuman: {prompt}\n\nAssistant:",
-                        "max_tokens_to_sample": 2048,
-                        "temperature": 0.7,
-                        "top_p": 0.9,
-                        "stop_sequences": ["\n\nHuman:"]
-                    })
-                )
-                response_body = json.loads(response['body'].read())
-                return response_body.get('completion')
-                
-            except ClientError as e:
-                if e.response['Error']['Code'] == 'ThrottlingException':
-                    delay = self.base_delay * (2 ** attempt)
-                    await asyncio.sleep(delay)
-                    continue
-                logger.error(f"Bedrock API error: {str(e)}")
-                return None
-                
-            except Exception as e:
-                logger.error(f"Error invoking Bedrock: {str(e)}")
-                return None
-                
-        logger.error("Max retries exceeded for Bedrock API call")
-        return None
+        async with self._semaphore:  # Limit concurrent requests
+            await self._wait_for_rate_limit()
+            
+            for attempt in range(self.max_retries):
+                try:
+                    # Split long text into chunks if needed
+                    if len(prompt) > 10000:
+                        prompt = prompt[:10000] + "..."  # Truncate if too long
+                        
+                    response = self.client.invoke_model(
+                        modelId=self.model_id,
+                        body=json.dumps({
+                            "prompt": f"\n\nHuman: {prompt}\n\nAssistant:",
+                            "max_tokens_to_sample": 2048,
+                            "temperature": 0.7,
+                            "top_p": 0.9,
+                            "stop_sequences": ["\n\nHuman:"]
+                        })
+                    )
+                    response_body = json.loads(response['body'].read())
+                    completion = response_body.get('completion')
+                    if completion:
+                        return completion.strip()
+                    else:
+                        logger.error("Empty completion from Bedrock")
+                        
+                except ClientError as e:
+                    error_code = e.response['Error']['Code']
+                    if error_code in ['ThrottlingException', 'TooManyRequestsException', 'ServiceUnavailable']:
+                        delay = self.base_delay * (2 ** attempt)
+                        logger.warning(f"Rate limit hit, retrying in {delay} seconds...")
+                        await asyncio.sleep(delay)
+                        continue
+                    logger.error(f"Bedrock API error: {error_code} - {str(e)}")
+                    return None
+                    
+                except Exception as e:
+                    logger.error(f"Error invoking Bedrock: {str(e)}")
+                    if attempt < self.max_retries - 1:
+                        delay = self.base_delay * (2 ** attempt)
+                        await asyncio.sleep(delay)
+                        continue
+                    return None
+                    
+            logger.error("Max retries exceeded for Bedrock API call")
+            return None
 
     async def generate_questions(
         self,
@@ -80,36 +98,40 @@ class ImprovedQuestionGenerator:
         """
         try:
             # Construct a more detailed prompt
-            prompt = f"""
-            You are an expert language teacher creating listening comprehension questions.
-            Create {num_questions} multiple-choice questions in {language} based on this text:
+            prompt = f"""You are an expert language teacher creating listening comprehension questions. I need you to create {num_questions or 5} multiple-choice questions in {language} based on this text. Format your entire response as a valid JSON array.
 
-            {text}
+Input text:
+{text}
 
-            For each question:
-            1. Make sure it tests comprehension, not just memory
-            2. Include 4 options where only one is correct
-            3. Provide a brief explanation for why the answer is correct
-            4. Ensure questions progress from easier to more challenging
-            5. Focus on key concepts and main ideas
-            6. Include some questions about implied meanings or conclusions
+Instructions:
+1. Make sure each question tests comprehension, not just memory
+2. Include 4 options where only one is correct
+3. Provide a brief explanation for why the answer is correct
+4. Ensure questions progress from easier to more challenging
+5. Focus on key concepts and main ideas
+6. Include some questions about implied meanings or conclusions
 
-            Format your response as a JSON array with objects containing:
-            - question: The question text
-            - options: Array of 4 possible answers
-            - correct_answer: Index of correct answer (0-3)
-            - explanation: Why this answer is correct
+You must respond with ONLY a JSON array in this exact format, no other text:
+[
+    {{
+        "question": "Question text here",
+        "options": [
+            "Option 1 (correct answer)",
+            "Option 2",
+            "Option 3",
+            "Option 4"
+        ],
+        "correct_answer": 0,
+        "explanation": "Why this is the correct answer"
+    }}
+]
 
-            Response format example:
-            [
-                {{
-                    "question": "...",
-                    "options": ["...", "...", "...", "..."],
-                    "correct_answer": 0,
-                    "explanation": "..."
-                }}
-            ]
-            """
+Important:
+- ONLY output the JSON array, no other text
+- Ensure the JSON is valid and properly formatted
+- The correct_answer must be the index (0-3) of the correct option
+- All text must be in {language} script
+"""
 
             # Generate questions using Bedrock
             response = await self._invoke_bedrock(prompt)
@@ -118,38 +140,86 @@ class ImprovedQuestionGenerator:
 
             # Extract JSON from response
             try:
-                # Find the first [ and last ] to extract just the JSON array
-                start = response.find('[')
-                end = response.rfind(']') + 1
+                # Clean the response to find JSON array
+                cleaned_response = response.strip()
+                start = cleaned_response.find('[')
+                end = cleaned_response.rfind(']') + 1
+                
                 if start == -1 or end == 0:
+                    logger.error(f"No JSON array found in response: {cleaned_response}")
                     raise ValueError("No valid JSON array found in response")
                     
-                questions = json.loads(response[start:end])
+                json_str = cleaned_response[start:end]
+                logger.debug(f"Extracted JSON string: {json_str}")
+                
+                try:
+                    questions = json.loads(json_str)
+                except json.JSONDecodeError as e:
+                    # Try to clean up common JSON issues
+                    json_str = json_str.replace('\n', ' ').replace('\r', '')
+                    json_str = re.sub(r',(\s*})', r'\1', json_str)  # Remove trailing commas
+                    json_str = re.sub(r',(\s*])', r'\1', json_str)
+                    questions = json.loads(json_str)
+                
             except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse JSON: {str(e)}")
+                logger.error(f"Response content: {response}")
                 raise ValueError(f"Failed to parse question generation response as JSON: {str(e)}")
 
-            # Validate questions and convert correct_answer from index to text
+            # Validate and clean up questions
+            if not isinstance(questions, list):
+                raise ValueError("Response is not a list of questions")
+                
             if not questions:
                 raise ValueError("No questions generated")
                 
-            required_fields = {'question', 'options', 'correct_answer', 'explanation'}
-            for i, q in enumerate(questions):
-                # Check required fields
-                if not all(field in q for field in required_fields):
-                    raise ValueError(f"Question {i+1} missing required fields")
+            cleaned_questions = []
+            for i, q in enumerate(questions, 1):
+                try:
+                    # Validate required fields
+                    if not isinstance(q, dict):
+                        raise ValueError(f"Question {i} is not a dictionary")
                     
-                # Validate options
-                if not isinstance(q['options'], list) or len(q['options']) != 4:
-                    raise ValueError(f"Question {i+1} must have exactly 4 options")
+                    required_fields = {'question', 'options', 'correct_answer', 'explanation'}
+                    missing_fields = required_fields - set(q.keys())
+                    if missing_fields:
+                        raise ValueError(f"Question {i} missing fields: {', '.join(missing_fields)}")
                     
-                # Validate correct_answer and convert from index to text
-                if not isinstance(q['correct_answer'], int) or not 0 <= q['correct_answer'] <= 3:
-                    raise ValueError(f"Question {i+1} correct_answer must be between 0 and 3")
+                    # Validate question text
+                    if not isinstance(q['question'], str) or not q['question'].strip():
+                        raise ValueError(f"Question {i} has invalid question text")
+                    
+                    # Validate options
+                    if not isinstance(q['options'], list):
+                        raise ValueError(f"Question {i} options is not a list")
+                    if len(q['options']) != 4:
+                        raise ValueError(f"Question {i} must have exactly 4 options")
+                    if not all(isinstance(opt, str) and opt.strip() for opt in q['options']):
+                        raise ValueError(f"Question {i} has invalid option text")
+                    
+                    # Validate correct_answer
+                    if not isinstance(q['correct_answer'], int):
+                        raise ValueError(f"Question {i} correct_answer must be an integer")
+                    if not 0 <= q['correct_answer'] <= 3:
+                        raise ValueError(f"Question {i} correct_answer must be between 0 and 3")
+                    
+                    # Clean up the question
+                    cleaned_question = {
+                        'question': q['question'].strip(),
+                        'options': [opt.strip() for opt in q['options']],
+                        'correct_answer': q['options'][q['correct_answer']],  # Convert index to text
+                        'explanation': q['explanation'].strip() if q['explanation'] else None
+                    }
+                    cleaned_questions.append(cleaned_question)
+                    
+                except Exception as e:
+                    logger.error(f"Error validating question {i}: {str(e)}")
+                    continue
+            
+            if not cleaned_questions:
+                raise ValueError("No valid questions after validation")
                 
-                # Convert correct_answer from index to actual text
-                q['correct_answer'] = q['options'][q['correct_answer']]
-
-            return questions
+            return cleaned_questions
             
         except Exception as e:
             logger.error(f"Question generation failed: {str(e)}")
