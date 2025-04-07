@@ -182,12 +182,6 @@ const ListeningPractice: React.FC = () => {
     setShowResults(true);
   }, []);
 
-  const calculateScore = useCallback(() => {
-    return questions.reduce((score, question, index) => {
-      return selectedAnswers[index] === question.correct_answer ? score + 1 : score;
-    }, 0);
-  }, [questions, selectedAnswers]);
-
   // Render functions
   const renderUrlInput = () => (
     <Box sx={{ mb: 4 }}>
@@ -323,15 +317,38 @@ Show Results: ${showResults}`}
 
   const renderResults = () => {
     if (!showResults) return null;
-    const score = calculateScore();
+
+    const score = Object.entries(selectedAnswers).reduce((acc, [index, answer]) => {
+      const question = questions[parseInt(index)];
+      return acc + (answer === question.correct_answer ? 1 : 0);
+    }, 0);
+
     return (
-      <Paper sx={{ p: 3, mb: 4, bgcolor: 'success.light' }}>
+      <Paper sx={{ p: 3, mb: 4 }}>
         <Typography variant="h6" gutterBottom>
           Quiz Results
         </Typography>
-        <Typography>
-          Score: {score} out of {totalQuestions} ({Math.round(score / totalQuestions * 100)}%)
+        <Typography variant="h5" gutterBottom>
+          Your Score: {score} out of {totalQuestions} ({Math.round(score / totalQuestions * 100)}%)
         </Typography>
+        {questions.map((question, index) => {
+          const isCorrect = selectedAnswers[index] === question.correct_answer;
+          return (
+            <Box key={index} sx={{ mb: 2, p: 2, bgcolor: 'rgba(255, 192, 203, 0.2)', borderRadius: 1 }}>
+              <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                {question.question}
+              </Typography>
+              <Typography color={isCorrect ? "success.main" : "error.main"}>
+                Your answer: {selectedAnswers[index]}
+              </Typography>
+              {!isCorrect && (
+                <Typography color="success.main" sx={{ mt: 1 }}>
+                  Correct answer: {question.correct_answer}
+                </Typography>
+              )}
+            </Box>
+          );
+        })}
         <Button
           variant="contained"
           onClick={() => {

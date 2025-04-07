@@ -128,7 +128,7 @@ class ImprovedQuestionGenerator:
             except json.JSONDecodeError as e:
                 raise ValueError(f"Failed to parse question generation response as JSON: {str(e)}")
 
-            # Validate questions
+            # Validate questions and convert correct_answer from index to text
             if not questions:
                 raise ValueError("No questions generated")
                 
@@ -142,9 +142,12 @@ class ImprovedQuestionGenerator:
                 if not isinstance(q['options'], list) or len(q['options']) != 4:
                     raise ValueError(f"Question {i+1} must have exactly 4 options")
                     
-                # Validate correct_answer
+                # Validate correct_answer and convert from index to text
                 if not isinstance(q['correct_answer'], int) or not 0 <= q['correct_answer'] <= 3:
                     raise ValueError(f"Question {i+1} correct_answer must be between 0 and 3")
+                
+                # Convert correct_answer from index to actual text
+                q['correct_answer'] = q['options'][q['correct_answer']]
 
             return questions
             
