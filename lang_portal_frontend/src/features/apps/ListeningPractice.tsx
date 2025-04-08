@@ -131,6 +131,11 @@ export default function ListeningPractice() {
   }
 
   const handleAnswerSelect = (value: string) => {
+    console.log('Selecting answer:', {
+      questionIndex: currentQuestionIndex,
+      value: value
+    });
+    
     setSelectedAnswers(prev => ({
       ...prev,
       [currentQuestionIndex]: value
@@ -239,18 +244,18 @@ export default function ListeningPractice() {
                       </div>
                       <div className="space-y-4">
                         {questions.map((question, index) => (
-                          <div key={index} className={`p-4 rounded-lg ${selectedAnswers[index] === question.correct_answer ? 'bg-green-100' : 'bg-red-100'}`}>
+                          <div key={index} className={`p-4 rounded-lg ${selectedAnswers[index] === String(question.correct_answer) ? 'bg-green-100' : 'bg-red-100'}`}>
                             <h3 className="font-semibold mb-2">{question.question}</h3>
                             <p className="text-sm text-muted-foreground mb-2">Transcript: {question.text}</p>
                             <div className="flex justify-between">
                               <div>
-                                <p className="text-sm font-medium">Your answer: {selectedAnswers[index]}</p>
-                                {selectedAnswers[index] !== question.correct_answer && (
-                                  <p className="text-sm font-medium text-green-600">Correct answer: {question.correct_answer}</p>
+                                <p className="text-sm font-medium">Your answer: {question.options[Number(selectedAnswers[index])]}</p>
+                                {selectedAnswers[index] !== String(question.correct_answer) && (
+                                  <p className="text-sm font-medium text-green-600">Correct answer: {question.options[Number(question.correct_answer)]}</p>
                                 )}
                               </div>
-                              <div className="flex items-center">
-                                {selectedAnswers[index] === question.correct_answer ? (
+                              <div>
+                                {selectedAnswers[index] === String(question.correct_answer) ? (
                                   <span className="text-green-600">✓</span>
                                 ) : (
                                   <span className="text-red-600">✗</span>
@@ -291,9 +296,9 @@ export default function ListeningPractice() {
                             <input
                               type="radio"
                               name="answer"
-                              value={option}
-                              checked={selectedAnswers[currentQuestionIndex] === option}
-                              onChange={() => handleAnswerSelect(option)}
+                              value={String(index)}
+                              checked={selectedAnswers[currentQuestionIndex] === String(index)}
+                              onChange={(e) => handleAnswerSelect(e.target.value)}
                               className="h-4 w-4"
                             />
                             <span>{option}</span>
@@ -312,11 +317,25 @@ export default function ListeningPractice() {
                         {currentQuestionIndex === questions.length - 1 ? (
                           <Button
                             onClick={() => {
+                              console.log('Questions:', questions);
+                              console.log('Selected Answers:', selectedAnswers);
+                              
                               const newScore = questions.reduce((acc, question, index) => {
-                                return acc + (selectedAnswers[index] === question.correct_answer ? 1 : 0)
-                              }, 0)
-                              setScore(newScore)
-                              setShowResults(true)
+                                const isCorrect = selectedAnswers[index] === String(question.correct_answer);
+                                
+                                console.log(`Question ${index}:`, {
+                                  question: question.question,
+                                  selectedAnswer: selectedAnswers[index],
+                                  correctAnswer: question.correct_answer,
+                                  isCorrect
+                                });
+                                
+                                return acc + (isCorrect ? 1 : 0);
+                              }, 0);
+                              
+                              console.log('Final Score:', newScore);
+                              setScore(newScore);
+                              setShowResults(true);
                             }}
                             disabled={!selectedAnswers[currentQuestionIndex]}
                           >

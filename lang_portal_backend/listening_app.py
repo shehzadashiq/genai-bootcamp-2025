@@ -19,6 +19,25 @@ from question_generator import QuestionGenerator
 from gtts import gTTS
 import tempfile
 import os
+import logging
+import sys
+
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG,  # Set to DEBUG to see all logs
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('listening_app.log', mode='w')  # 'w' mode to clear old logs
+    ]
+)
+
+# Set module loggers to DEBUG
+logging.getLogger('routers').setLevel(logging.DEBUG)
+logging.getLogger('services').setLevel(logging.DEBUG)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 class LanguageListeningApp:
     def __init__(self):

@@ -97,130 +97,153 @@ class ImprovedQuestionGenerator:
             List of questions with options and correct answers
         """
         try:
-            # Construct a more detailed prompt
-            prompt = f"""You are an expert language teacher creating listening comprehension questions. I need you to create {num_questions or 5} multiple-choice questions in {language} based on this text. Format your entire response as a valid JSON array.
+            if not text.strip():
+                raise ValueError("Empty text provided")
 
-Input text:
-{text}
+            # Prepare prompt for question generation
+            prompt = f"""Human: Generate multiple choice questions based on the following text. Return ONLY a JSON array of questions.
 
-Instructions:
-1. Make sure each question tests comprehension, not just memory
-2. Include 4 options where only one is correct
-3. Provide a brief explanation for why the answer is correct
-4. Ensure questions progress from easier to more challenging
-5. Focus on key concepts and main ideas
-6. Include some questions about implied meanings or conclusions
+Each question object must have:
+- "question": The question text
+- "options": Array of 4 answer choices
+- "correct_answer": Index (0-3) of the correct option
+- "explanation": Brief explanation of why the answer is correct
 
-You must respond with ONLY a JSON array in this exact format, no other text:
+Example format:
 [
-    {{
-        "question": "Question text here",
-        "options": [
-            "Option 1 (correct answer)",
-            "Option 2",
-            "Option 3",
-            "Option 4"
-        ],
-        "correct_answer": 0,
-        "explanation": "Why this is the correct answer"
-    }}
+  {{
+    "question": "What is being discussed?",
+    "options": [
+      "Option 1",
+      "Option 2", 
+      "Option 3",
+      "Option 4"
+    ],
+    "correct_answer": 0,
+    "explanation": "Option 1 is correct because..."
+  }}
 ]
 
-Important:
-- ONLY output the JSON array, no other text
-- Ensure the JSON is valid and properly formatted
-- The correct_answer must be the index (0-3) of the correct option
-- All text must be in {language} script
+Text to generate questions from:
+{text}
+
+Requirements:
+1. Return ONLY the JSON array, no other text
+2. Each question MUST have exactly 4 options
+3. correct_answer MUST be 0-3 (index of correct option)
+4. Include brief explanations
+5. Use {language} script for all text
+6. Focus on key points from the text
+7. Make questions clear and unambiguous
 """
 
-            # Generate questions using Bedrock
+            # Get response from Bedrock
             response = await self._invoke_bedrock(prompt)
             if not response:
-                raise ValueError("Failed to generate questions")
+                raise ValueError("Failed to get response from Bedrock")
 
-            # Extract JSON from response
+            logger.debug(f"Raw response from Bedrock: {response}")
+            
+            # Clean up the response to find JSON
             try:
-                # Clean the response to find JSON array
-                cleaned_response = response.strip()
-                start = cleaned_response.find('[')
-                end = cleaned_response.rfind(']') + 1
+                # Remove any non-JSON text
+                response = response.strip()
+                # Find the first [ and last ]
+                start = response.find('[')
+                end = response.rfind(']') + 1
                 
                 if start == -1 or end == 0:
-                    logger.error(f"No JSON array found in response: {cleaned_response}")
+                    logger.error("No JSON array found in response")
+                    logger.error(f"Response content: {response}")
+                    
+                    # If response looks like formatted questions, try to convert to JSON
+                    if "1." in response and "a)" in response:
+                        logger.info("Attempting to convert formatted questions to JSON")
+                        questions = []
+                        current_question = None
+                        
+                        for line in response.split('\n'):
+                            line = line.strip()
+                            if not line:
+                                continue
+                                
+                            # New question starts with number
+                            if line[0].isdigit() and "." in line:
+                                if current_question:
+                                    questions.append(current_question)
+                                current_question = {
+                                    "question": line.split(".", 1)[1].strip(),
+                                    "options": [],
+                                    "correct_answer": 0,  # Default to first option
+                                    "explanation": "Based on the context from the audio"
+                                }
+                            # Option line starts with a letter and )
+                            elif line[0].isalpha() and ")" in line:
+                                if current_question:
+                                    current_question["options"].append(line.split(")", 1)[1].strip())
+                                    
+                        # Add last question
+                        if current_question and len(current_question["options"]) == 4:
+                            questions.append(current_question)
+                            
+                        if questions:
+                            return questions
+                            
                     raise ValueError("No valid JSON array found in response")
                     
-                json_str = cleaned_response[start:end]
+                json_str = response[start:end]
                 logger.debug(f"Extracted JSON string: {json_str}")
                 
                 try:
-                    questions = json.loads(json_str)
-                except json.JSONDecodeError as e:
-                    # Try to clean up common JSON issues
+                    # Clean up JSON string
                     json_str = json_str.replace('\n', ' ').replace('\r', '')
                     json_str = re.sub(r',(\s*})', r'\1', json_str)  # Remove trailing commas
                     json_str = re.sub(r',(\s*])', r'\1', json_str)
                     questions = json.loads(json_str)
+                    
+                    # Validate questions
+                    valid_questions = []
+                    for q in questions:
+                        try:
+                            # Check required fields
+                            if not all(k in q for k in ['question', 'options', 'correct_answer', 'explanation']):
+                                logger.error(f"Question missing required fields: {q}")
+                                continue
+                                
+                            # Validate options array
+                            if not isinstance(q['options'], list) or len(q['options']) != 4:
+                                logger.error(f"Question has invalid options array: {q}")
+                                continue
+                                
+                            # Validate correct_answer
+                            if not isinstance(q['correct_answer'], int) or q['correct_answer'] not in range(4):
+                                logger.error(f"Question has invalid correct_answer: {q}")
+                                continue
+                                
+                            # All validation passed
+                            valid_questions.append(q)
+                            logger.info(f"Valid question: {json.dumps(q, ensure_ascii=False)}")
+                            
+                        except Exception as e:
+                            logger.error(f"Error validating question: {str(e)}")
+                            continue
+                            
+                    if not valid_questions:
+                        logger.error("No valid questions after validation")
+                        return []
+                        
+                    return valid_questions
+                    
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse JSON: {str(e)}")
+                    logger.error(f"Response content: {response}")
+                    return []
                 
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse JSON: {str(e)}")
                 logger.error(f"Response content: {response}")
                 raise ValueError(f"Failed to parse question generation response as JSON: {str(e)}")
 
-            # Validate and clean up questions
-            if not isinstance(questions, list):
-                raise ValueError("Response is not a list of questions")
-                
-            if not questions:
-                raise ValueError("No questions generated")
-                
-            cleaned_questions = []
-            for i, q in enumerate(questions, 1):
-                try:
-                    # Validate required fields
-                    if not isinstance(q, dict):
-                        raise ValueError(f"Question {i} is not a dictionary")
-                    
-                    required_fields = {'question', 'options', 'correct_answer', 'explanation'}
-                    missing_fields = required_fields - set(q.keys())
-                    if missing_fields:
-                        raise ValueError(f"Question {i} missing fields: {', '.join(missing_fields)}")
-                    
-                    # Validate question text
-                    if not isinstance(q['question'], str) or not q['question'].strip():
-                        raise ValueError(f"Question {i} has invalid question text")
-                    
-                    # Validate options
-                    if not isinstance(q['options'], list):
-                        raise ValueError(f"Question {i} options is not a list")
-                    if len(q['options']) != 4:
-                        raise ValueError(f"Question {i} must have exactly 4 options")
-                    if not all(isinstance(opt, str) and opt.strip() for opt in q['options']):
-                        raise ValueError(f"Question {i} has invalid option text")
-                    
-                    # Validate correct_answer
-                    if not isinstance(q['correct_answer'], int):
-                        raise ValueError(f"Question {i} correct_answer must be an integer")
-                    if not 0 <= q['correct_answer'] <= 3:
-                        raise ValueError(f"Question {i} correct_answer must be between 0 and 3")
-                    
-                    # Clean up the question
-                    cleaned_question = {
-                        'question': q['question'].strip(),
-                        'options': [opt.strip() for opt in q['options']],
-                        'correct_answer': q['options'][q['correct_answer']],  # Convert index to text
-                        'explanation': q['explanation'].strip() if q['explanation'] else None
-                    }
-                    cleaned_questions.append(cleaned_question)
-                    
-                except Exception as e:
-                    logger.error(f"Error validating question {i}: {str(e)}")
-                    continue
-            
-            if not cleaned_questions:
-                raise ValueError("No valid questions after validation")
-                
-            return cleaned_questions
-            
         except Exception as e:
-            logger.error(f"Question generation failed: {str(e)}")
-            raise ValueError(f"Failed to generate questions: {str(e)}")
+            logger.error(f"Error generating questions: {e}")
+            return []
