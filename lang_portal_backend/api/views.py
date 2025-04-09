@@ -1,4 +1,4 @@
-from django.db.models import Count, F, Sum, Case, When, Q
+from django.db.models import Count, Sum, Case, When, Q
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, action
@@ -10,14 +10,23 @@ from django.utils.decorators import method_decorator
 import random
 import logging
 import json
+from django.db import transaction
+from django.db.models import F
+from django.shortcuts import get_object_or_404
 
-from .models import StudySession, StudyActivity, Word, Group, WordReviewItem, WordGroup
+from .models import StudySession, StudyActivity, Word, Group, WordReviewItem, WordGroup, WordMatchingGame, WordMatchingQuestion, WordMatchingStats, FlashcardGame, FlashcardReview, FlashcardStats
 from .serializers import (
     StudySessionSerializer, 
     StudyActivitySerializer, 
     StudySessionListSerializer,
     WordSerializer,
-    GroupSerializer
+    GroupSerializer,
+    WordMatchingGameSerializer, 
+    WordMatchingQuestionSerializer,
+    WordMatchingStatsSerializer,
+    FlashcardGameSerializer,
+    FlashcardReviewSerializer,
+    FlashcardStatsSerializer
 )
 
 logger = logging.getLogger(__name__)
@@ -80,7 +89,8 @@ class StudySessionViewSet(viewsets.ReadOnlyModelViewSet):
             'pagination': None
         })
 
-    def get_words(self, request, pk=None):
+    @action(detail=True, methods=['get'])
+    def words(self, request, pk=None):
         """Get words for a specific study session."""
         study_session = self.get_object()
         words = Word.objects.filter(
@@ -161,7 +171,8 @@ class GroupViewSet(viewsets.ReadOnlyModelViewSet):
             'pagination': None
         })
 
-    def get_words(self, request, pk=None):
+    @action(detail=True, methods=['get'])
+    def words(self, request, pk=None):
         """Get words for a specific group."""
         group = self.get_object()
         words = Word.objects.filter(wordgroup__group=group)
@@ -172,7 +183,8 @@ class GroupViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = WordSerializer(words, many=True)
         return Response(serializer.data)
 
-    def get_study_sessions(self, request, pk=None):
+    @action(detail=True, methods=['get'])
+    def study_sessions(self, request, pk=None):
         """Get study sessions for a specific group."""
         group = self.get_object()
         sessions = StudySession.objects.filter(group=group)
@@ -626,3 +638,264 @@ def search_transcripts(request):
             'status': 'error',
             'message': str(e)
         }, status=500)
+
+class WordMatchingGameViewSet(viewsets.ModelViewSet):
+    queryset = WordMatchingGame.objects.all()
+    serializer_class = WordMatchingGameSerializer
+
+    @action(detail=False, methods=['post'])
+    def start_game(self, request):
+        user = request.data.get('user', 'anonymous')
+        num_questions = request.data.get('num_questions', 10)
+        
+        # Create new game
+        game = WordMatchingGame.objects.create(
+            user=user,
+            total_questions=num_questions
+        )
+        
+        # Get random words for the game
+        words = list(Word.objects.all().order_by('?')[:num_questions])
+        
+        # Create questions
+        for word in words:
+            # Get 3 random incorrect options
+            incorrect_options = list(Word.objects.exclude(id=word.id)
+                                  .order_by('?')[:3])
+            
+            WordMatchingQuestion.objects.create(
+                game=game,
+                word=word
+            )
+        
+        serializer = self.get_serializer(game)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def submit_answer(self, request, pk=None):
+        game = self.get_object()
+        if game.completed:
+            return Response(
+                {"error": "Game is already completed"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        question_id = request.data.get('question_id')
+        answer = request.data.get('answer')
+        response_time = request.data.get('response_time', 0)
+        
+        try:
+            question = game.questions.get(id=question_id)
+        except WordMatchingQuestion.DoesNotExist:
+            return Response(
+                {"error": "Question not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if answer is correct
+        is_correct = question.word.english.lower() == answer.lower()
+        
+        # Update question
+        question.selected_answer = answer
+        question.is_correct = is_correct
+        question.response_time = response_time
+        question.save()
+        
+        # Update game score
+        with transaction.atomic():
+            game.correct_answers = F('correct_answers') + (1 if is_correct else 0)
+            game.score = F('score') + (10 if is_correct else 0)
+            
+            # Check if game is completed
+            if game.questions.filter(selected_answer__isnull=False).count() == game.total_questions:
+                game.completed = True
+                game.end_time = timezone.now()
+            
+            game.save()
+            
+            # Update user stats
+            stats, _ = WordMatchingStats.objects.get_or_create(user=game.user)
+            stats.games_played = F('games_played') + (1 if game.completed else 0)
+            stats.total_score = F('total_score') + (10 if is_correct else 0)
+            stats.total_correct = F('total_correct') + (1 if is_correct else 0)
+            stats.total_questions = F('total_questions') + 1
+            if game.completed:
+                stats.last_played = timezone.now()
+                # Update best score if current score is higher
+                game.refresh_from_db()  # Get updated score
+                if game.score > stats.best_score:
+                    stats.best_score = game.score
+            stats.save()
+        
+        game.refresh_from_db()
+        serializer = self.get_serializer(game)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def get_options(self, request, pk=None):
+        question_id = request.query_params.get('question_id')
+        try:
+            question = WordMatchingQuestion.objects.get(id=question_id, game_id=pk)
+        except WordMatchingQuestion.DoesNotExist:
+            return Response(
+                {"error": "Question not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Get correct answer and 3 random incorrect options
+        correct_word = question.word
+        incorrect_options = list(Word.objects.exclude(id=correct_word.id)
+                               .order_by('?')[:3])
+        
+        # Combine and shuffle options
+        options = [correct_word] + incorrect_options
+        random.shuffle(options)
+        
+        return Response({
+            'options': [word.english for word in options]
+        })
+
+class WordMatchingStatsViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = WordMatchingStats.objects.all()
+    serializer_class = WordMatchingStatsSerializer
+    
+    def get_queryset(self):
+        queryset = WordMatchingStats.objects.all()
+        user = self.request.query_params.get('user', None)
+        if user is not None:
+            queryset = queryset.filter(user=user)
+        return queryset
+
+class FlashcardGameViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for flashcard game functionality.
+    """
+    queryset = FlashcardGame.objects.all()
+    serializer_class = FlashcardGameSerializer
+
+    def create(self, request):
+        """Create a new flashcard game"""
+        user = request.data.get('user')
+        total_cards = request.data.get('total_cards', 10)
+        
+        # Get random words for the game
+        words = Word.objects.order_by('?')[:total_cards]
+        
+        # Create new game
+        game = FlashcardGame.objects.create(
+            user=user,
+            total_cards=total_cards,
+            score=0,
+            streak=0,
+            max_streak=0,
+            cards_reviewed=0,
+            start_time=timezone.now()
+        )
+        
+        # Create initial review for first word
+        FlashcardReview.objects.create(
+            game=game,
+            word=words[0],
+            confidence_level=0
+        )
+        
+        serializer = self.get_serializer(game)
+        return Response(serializer.data)
+
+    def retrieve(self, request, pk=None):
+        """Get a specific game by ID"""
+        try:
+            game = FlashcardGame.objects.get(pk=pk)
+            serializer = self.get_serializer(game)
+            return Response(serializer.data)
+        except FlashcardGame.DoesNotExist:
+            return Response({"error": "Game not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=True, methods=['post'])
+    def review_card(self, request, pk=None):
+        try:
+            game = FlashcardGame.objects.get(pk=pk)
+        except FlashcardGame.DoesNotExist:
+            return Response({"error": "Game not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        word_id = request.data.get('word_id')
+        confidence_level = request.data.get('confidence_level')
+        time_spent = request.data.get('time_spent', 0)
+        
+        # Update current review
+        current_review = game.reviews.get(word_id=word_id)
+        current_review.confidence_level = confidence_level
+        current_review.time_spent = time_spent
+        current_review.save()
+        
+        # Update game stats
+        with transaction.atomic():
+            game.cards_reviewed += 1
+            
+            # Update streak
+            if confidence_level >= 3:  # Easy or Medium
+                game.streak += 1
+                game.max_streak = max(game.streak, game.max_streak)
+            else:
+                game.streak = 0
+            
+            # Update score based on confidence
+            game.score += confidence_level * 10
+            
+            # Check if game is completed
+            if game.cards_reviewed >= game.total_cards:
+                game.completed = True
+                game.end_time = timezone.now()
+                game.save()
+                
+                # Update user stats
+                stats, _ = FlashcardStats.objects.get_or_create(user=game.user)
+                stats.cards_reviewed += game.total_cards
+                stats.total_time_spent += sum(r.time_spent or 0 for r in game.reviews.all())
+                stats.best_streak = max(stats.best_streak, game.max_streak)
+                stats.last_reviewed = timezone.now()
+                stats.average_time_per_card = (
+                    stats.total_time_spent / stats.cards_reviewed 
+                    if stats.cards_reviewed > 0 else 0
+                )
+                stats.save()
+                
+                return Response({
+                    "success": True,
+                    "game_completed": True,
+                    "current_streak": game.streak,
+                    "cards_remaining": 0
+                })
+            
+            # Create next review if game not completed
+            remaining_words = Word.objects.exclude(
+                id__in=game.reviews.values_list('word_id', flat=True)
+            ).order_by('?')
+            
+            if remaining_words.exists():
+                FlashcardReview.objects.create(
+                    game=game,
+                    word=remaining_words[0],
+                    confidence_level=0
+                )
+            
+            game.save()
+            
+            return Response({
+                "success": True,
+                "game_completed": False,
+                "current_streak": game.streak,
+                "cards_remaining": game.total_cards - game.cards_reviewed
+            })
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        user = request.query_params.get('user')
+        try:
+            stats = FlashcardStats.objects.get(user=user)
+            serializer = FlashcardStatsSerializer(stats)
+            return Response(serializer.data)
+        except FlashcardStats.DoesNotExist:
+            return Response({
+                "error": "Stats not found for user"
+            }, status=status.HTTP_404_NOT_FOUND)

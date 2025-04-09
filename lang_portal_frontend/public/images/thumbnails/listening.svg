@@ -1,6 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-  <line x1="12" y1="19" x2="12" y2="23"/>
-  <line x1="8" y1="23" x2="16" y2="23"/>
+
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <!-- Background -->
+  <rect width="200" height="200" rx="20" fill="#6A7FDB" />
+  
+  <!-- Headphones -->
+  <g transform="translate(38, 35)">
+    <!-- Headphone band -->
+    <path d="M12,60 C12,30 114,30 114,60" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" fill="none" />
+    
+    <!-- Left ear cup -->
+    <g>
+      <rect x="0" y="60" width="24" height="40" rx="12" fill="#FFFFFF" />
+      <rect x="4" y="65" width="16" height="30" rx="8" fill="#6A7FDB" />
+    </g>
+    
+    <!-- Right ear cup -->
+    <g>
+      <rect x="102" y="60" width="24" height="40" rx="12" fill="#FFFFFF" />
+      <rect x="106" y="65" width="16" height="30" rx="8" fill="#6A7FDB" />
+    </g>
+    
+    <!-- Sound waves -->
+    <g transform="translate(42, 65)">
+      <path d="M0,15 C10,5 20,0 30,15" stroke="#D6E3F8" stroke-width="3" stroke-linecap="round" fill="none" />
+      <path d="M5,20 C15,10 25,10 35,20" stroke="#D6E3F8" stroke-width="3" stroke-linecap="round" fill="none" />
+      <path d="M10,25 C20,15 30,15 40,25" stroke="#D6E3F8" stroke-width="3" stroke-linecap="round" fill="none" />
+    </g>
+  </g>
+  
+  <!-- Text at bottom -->
+  <text x="100" y="165" font-family="Arial" font-size="16" font-weight="bold" text-anchor="middle" fill="white">
+    Listening Practice
+  </text>
 </svg>

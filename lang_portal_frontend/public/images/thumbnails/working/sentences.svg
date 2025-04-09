@@ -1,0 +1,21 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <!-- Background -->
+  <rect width="200" height="200" rx="20" fill="#1CB0F6" />
+  
+  <!-- Word blocks -->
+  <rect x="40" y="60" width="40" height="25" rx="5" fill="#fff" />
+  <rect x="85" y="60" width="30" height="25" rx="5" fill="#fff" />
+  <rect x="120" y="60" width="40" height="25" rx="5" fill="#fff" />
+  
+  <rect x="50" y="95" width="35" height="25" rx="5" fill="#fff" />
+  <rect x="90" y="95" width="60" height="25" rx="5" fill="#fff" />
+  
+  <rect x="65" y="130" width="40" height="25" rx="5" fill="#fff" />
+  <rect x="110" y="130" width="25" height="25" rx="5" fill="#fff" />
+  
+  <!-- Text at bottom -->
+  <text x="100" y="175" font-family="Arial" font-size="16" font-weight="bold" text-anchor="middle" fill="white">
+    Sentence Builder
+  </text>
+</svg>

@@ -1,13 +1,18 @@
 from django.urls import path, include
 from rest_framework import routers
 from . import views
+from .flashcard_views import FlashcardGameViewSet
+from .audio_views import synthesize_speech, get_youtube_audio_segment
 
-router = routers.DefaultRouter()
+router = routers.DefaultRouter(trailing_slash=True)
 router.register(r'study_activities', views.StudyActivityViewSet, basename='study_activities')
 router.register(r'words', views.WordViewSet, basename='words')
 router.register(r'study_sessions', views.StudySessionViewSet, basename='study_sessions')
 router.register(r'groups', views.GroupViewSet, basename='groups')
 router.register(r'vocabulary-quiz', views.VocabularyQuizViewSet, basename='vocabulary-quiz')
+router.register(r'word-matching', views.WordMatchingGameViewSet, basename='word-matching')
+router.register(r'word-matching-stats', views.WordMatchingStatsViewSet, basename='word-matching-stats')
+router.register(r'flashcards', FlashcardGameViewSet, basename='flashcards')
 
 # First include the router URLs
 urlpatterns = [
@@ -31,6 +36,12 @@ urlpatterns = [
     path('listening/search', views.search_transcripts, name='search_transcripts'),
     path('listening/test-bedrock', views.test_bedrock, name='test_bedrock'),
     path('listening/test-hindi-to-urdu', views.test_hindi_to_urdu, name='test_hindi_to_urdu'),
+    
+    # Audio synthesis endpoint
+    path('audio/synthesize/', synthesize_speech, name='synthesize_speech'),
+    
+    # YouTube audio endpoint
+    path('youtube/audio/<str:video_id>', get_youtube_audio_segment, name='get_youtube_audio_segment'),
     
     # Include router URLs at the end
     path('', include(router.urls)),

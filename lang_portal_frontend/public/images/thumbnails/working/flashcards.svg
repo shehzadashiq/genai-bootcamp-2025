@@ -1,0 +1,20 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <!-- Background -->
+  <rect width="200" height="200" rx="20" fill="#FF4B4B" />
+  
+  <!-- Cards stack -->
+  <rect x="50" y="60" width="80" height="100" rx="5" transform="rotate(-5, 50, 60)" fill="#FFE082" />
+  <rect x="60" y="55" width="80" height="100" rx="5" fill="#fff" />
+  <rect x="70" y="50" width="80" height="100" rx="5" transform="rotate(5, 70, 50)" fill="#E3F2FD" />
+  
+  <!-- Text on middle card -->
+  <rect x="75" y="85" width="50" height="5" rx="2" fill="#FF4B4B" />
+  <rect x="75" y="95" width="40" height="5" rx="2" fill="#FF4B4B" />
+  <rect x="75" y="105" width="30" height="5" rx="2" fill="#FF4B4B" />
+  
+  <!-- Text at bottom -->
+  <text x="100" y="175" font-family="Arial" font-size="16" font-weight="bold" text-anchor="middle" fill="white">
+    Flashcards
+  </text>
+</svg>

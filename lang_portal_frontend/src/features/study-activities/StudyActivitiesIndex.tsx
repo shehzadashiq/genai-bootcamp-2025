@@ -72,24 +72,26 @@ export default function StudyActivitiesIndex() {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Study Activities</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {activities.map((activity) => (
-          <Card key={activity.id} className="hover:shadow-lg transition-shadow">
-            <Link to={activity.url}>
-              <CardHeader>
-                <CardTitle>{activity.name}</CardTitle>
+          <Card 
+          key={activity.id} 
+          className="hover:shadow-lg transition-shadow overflow-hidden border-2 rounded-xl hover:scale-105 transform transition-transform duration-200">
+          <Link to={activity.url} className="block h-full">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-xl leading-tight">{activity.name}</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="aspect-video bg-muted rounded-md mb-4">
+              <div className="aspect-square bg-muted rounded-md mb-4 overflow-hidden flex items-center justify-center">
                   {activity.thumbnail_url && (
                     <img
                       src={activity.thumbnail_url}
                       alt={activity.name}
-                      className="w-full h-full object-cover rounded-md"
+                      className="w-full h-full object-contain"
                     />
                   )}
                 </div>
-                <p className="text-muted-foreground">{activity.description}</p>
+                <p className="text-muted-foreground line-clamp-2">{activity.description}</p>
               </CardContent>
             </Link>
           </Card>

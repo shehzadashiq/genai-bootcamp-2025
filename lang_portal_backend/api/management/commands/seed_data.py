@@ -12,27 +12,33 @@ class Command(BaseCommand):
         study_activities = [
             {
                 'name': 'Vocabulary Quiz',
-                'description': 'Test your knowledge with a vocabulary quiz',
-                'thumbnail_url': '/images/vocab-quiz.png',
+                'description': 'Test your vocabulary knowledge with interactive flashcards and quizzes.',
+                'thumbnail_url': '/images/thumbnails/vocabulary.svg',
                 'url': '/apps/vocabulary-quiz'
             },
             {
-                'name': 'Flashcards',
-                'description': 'Practice with digital flashcards',
-                'thumbnail_url': '/images/flashcards.png',
-                'url': '/apps/flashcards'
-            },
-            {
                 'name': 'Word Matching',
-                'description': 'Match Urdu words with their English translations',
-                'thumbnail_url': '/images/word-matching.png',
+                'description': 'Match Urdu words with their English translations in this fun memory game.',
+                'thumbnail_url': '/images/thumbnails/matching.svg',
                 'url': '/apps/word-matching'
             },
             {
                 'name': 'Sentence Builder',
-                'description': 'Create sentences using learned vocabulary',
-                'thumbnail_url': '/images/sentence-builder.png',
+                'description': 'Practice building sentences using the words you\'ve learned.',
+                'thumbnail_url': '/images/thumbnails/sentences.svg',
                 'url': '/apps/sentence-builder'
+            },
+            {
+                'name': 'Flashcards',
+                'description': 'Learn and review vocabulary with interactive flashcards.',
+                'thumbnail_url': '/images/thumbnails/flashcards.svg',
+                'url': '/apps/flashcards'
+            },
+            {
+                'name': 'Listening Practice',
+                'description': 'Improve your listening comprehension with real-world Urdu audio content.',
+                'thumbnail_url': '/images/thumbnails/listening.svg',
+                'url': '/apps/listening-practice'
             }
         ]
 

@@ -14,6 +14,8 @@ import Settings from '@/features/settings/Settings'
 import Stats from '@/features/stats/Stats'
 import VocabularyQuiz from '@/features/apps/VocabularyQuiz'
 import ListeningPractice from '@/features/apps/ListeningPractice'
+import WordMatching from '@/features/word-matching/WordMatching'
+import { Flashcards } from '@/features/flashcards'
 import { ThemeProvider } from '@/providers/ThemeProvider'
 
 function App() {
@@ -36,6 +38,8 @@ function App() {
           <Route path="stats" element={<Stats />} />
           <Route path="apps/vocabulary-quiz" element={<VocabularyQuiz />} />
           <Route path="apps/listening-practice" element={<ListeningPractice />} />
+          <Route path="apps/word-matching" element={<WordMatching />} />
+          <Route path="apps/flashcards" element={<Flashcards />} />
         </Route>
       </Routes>
     </ThemeProvider>

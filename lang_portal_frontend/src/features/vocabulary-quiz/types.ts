@@ -32,3 +32,13 @@ export interface QuizScore {
   accuracy: number;
   difficulty: string;
 }
+
+export interface WordMatchingQuestion {
+  id: number;
+  word_urdu: string;
+  word_english: string;
+word_urdlish: string;
+  selected_answer: string | null;
+  is_correct: boolean | null;
+  response_time: number | null;
+}
