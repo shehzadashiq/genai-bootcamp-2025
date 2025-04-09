@@ -201,32 +201,12 @@ export default function ListeningPractice() {
       </Card>
 
       {(questions.length > 0 || transcript.length > 0) && (
-        <Tabs defaultValue="transcript" className="space-y-4">
+        <Tabs defaultValue="questions" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="transcript">Transcript</TabsTrigger>
             <TabsTrigger value="questions">Questions</TabsTrigger>
+            <TabsTrigger value="transcript">Transcript</TabsTrigger>
             <TabsTrigger value="statistics">Statistics</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="transcript">
-            <Card>
-              <CardHeader>
-                <CardTitle>Video Transcript</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4 max-h-[500px] overflow-y-auto">
-                  {transcript.map((segment, index) => (
-                    <div key={index} className="p-2 hover:bg-muted rounded">
-                      <div className="text-sm text-muted-foreground mb-1">
-                        {formatTime(segment.start)}
-                      </div>
-                      <div>{segment.text}</div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           <TabsContent value="questions">
             {questions.length > 0 && (
@@ -355,6 +335,26 @@ export default function ListeningPractice() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          <TabsContent value="transcript">
+            <Card>
+              <CardHeader>
+                <CardTitle>Video Transcript</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                  {transcript.map((segment, index) => (
+                    <div key={index} className="p-2 hover:bg-muted rounded">
+                      <div className="text-sm text-muted-foreground mb-1">
+                        {formatTime(segment.start)}
+                      </div>
+                      <div>{segment.text}</div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="statistics">
