@@ -3,71 +3,93 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
-interface Question {
+type Question = {
+  id: number
   question: string
-  timestamp: number
-  text: string
   options: string[]
-  correct_answer: string
-  audio_start: number
-  audio_end: number
-  explanation: string
-}
-
-interface TranscriptSegment {
-  start: number
-  duration: number
+  correct_answer: number
   text: string
-}
-
-interface Statistics {
-  total_duration: number
-  total_words: number
-  avg_words_per_minute: number
-  segments_count: number
-  top_words: Record<string, number>
+  start_time: number
+  end_time: number
 }
 
 export default function ListeningPractice() {
-  const [videoUrl, setVideoUrl] = useState('')
+  const [youtubeUrl, setYoutubeUrl] = useState('')
+  const [selectedLanguage] = useState('en')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
-  const [transcript, setTranscript] = useState<TranscriptSegment[]>([])
-  const [statistics, setStatistics] = useState<Statistics | null>(null)
+  const [transcript, setTranscript] = useState<string>('')
+  const [statistics, setStatistics] = useState<any>(null)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({})
   const [downloadStatus, setDownloadStatus] = useState<string>('')
   const [videoId, setVideoId] = useState<string>('')
   const [showResults, setShowResults] = useState(false)
   const [score, setScore] = useState(0)
+  const [noTranscriptError, setNoTranscriptError] = useState<boolean>(false)
   const playerContainerRef = useRef<HTMLDivElement>(null)
-  const playerTimerRef = useRef<number | null>(null)
 
-  const handleSubmitUrl = async () => {
+  // Format time in seconds to MM:SS format
+  const formatTime = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60)
+    const remainingSeconds = Math.floor(seconds % 60)
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
+  }
+
+  // Function to initialize the YouTube player
+  const initializePlayer = (videoId: string) => {
+    if (!playerContainerRef.current) return
+    
+    // Create an iframe element
+    const iframe = document.createElement('iframe')
+    iframe.width = '100%'
+    iframe.height = '100%'
+    iframe.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`
+    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'
+    iframe.allowFullscreen = true
+    
+    // Clear the container and append the iframe
+    playerContainerRef.current.innerHTML = ''
+    playerContainerRef.current.appendChild(iframe)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+    setError(null)
+    setNoTranscriptError(false)
+    setDownloadStatus('Downloading transcript...')
+    setQuestions([])
+    setTranscript('')
+    setStatistics(null)
+    setSelectedAnswers({})
+    setCurrentQuestionIndex(0)
+    setShowResults(false)
+    
+    // Extract video ID from URL
+    const videoIdMatch = youtubeUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)
+    
+    if (!videoIdMatch) {
+      setError('Invalid YouTube URL')
+      setIsLoading(false)
+      return
+    }
+    
+    const extractedVideoId = videoIdMatch[1]
+    setVideoId(extractedVideoId)
+    
+    // Initialize the player
+    initializePlayer(extractedVideoId)
+
+    const requestData = {
+      url: youtubeUrl,
+      language: selectedLanguage,
+    }
+    
+    console.log('Sending request with data:', requestData)
+
     try {
-      setIsLoading(true)
-      setError(null)
-      setDownloadStatus('Downloading transcript...')
-      setQuestions([])
-      setTranscript([])
-      setStatistics(null)
-      setCurrentQuestionIndex(0)
-      setSelectedAnswers({})
-      
-      // Extract video ID from URL
-      const videoIdMatch = videoUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/)
-      const extractedVideoId = videoIdMatch ? videoIdMatch[1] : ''
-      
-      if (!extractedVideoId) {
-        throw new Error('Invalid YouTube URL')
-      }
-      
-      setVideoId(extractedVideoId)
-
-      const requestData = { url: videoUrl }
-      console.log('Sending request with data:', requestData)
-
       // First, download the transcript
       const downloadResponse = await fetch(`${import.meta.env.VITE_API_URL}/api/listening/download-transcript`, {
         method: 'POST',
@@ -84,6 +106,19 @@ export default function ListeningPractice() {
 
       const downloadData = await downloadResponse.json()
       console.log('Download response:', downloadData)
+      
+      // Check if there's an error in the download response
+      if (downloadData.error) {
+        if (downloadData.error === 'No transcript available for this video') {
+          setNoTranscriptError(true)
+          setError('No transcript available for this video. Please try a different video.')
+          setIsLoading(false)
+          setDownloadStatus('')
+          return
+        } else {
+          throw new Error(downloadData.error || 'Failed to download transcript')
+        }
+      }
 
       // Then, generate questions
       setDownloadStatus('Generating questions...')
@@ -92,7 +127,10 @@ export default function ListeningPractice() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestData),
+        body: JSON.stringify({
+          url: youtubeUrl,
+          language: selectedLanguage,
+        }),
       })
 
       if (!questionsResponse.ok) {
@@ -102,6 +140,25 @@ export default function ListeningPractice() {
 
       const questionsData = await questionsResponse.json()
       console.log('Questions response:', questionsData)
+      
+      // Check if there's an error in the questions response
+      if (questionsData.error) {
+        if (questionsData.error === 'No transcript available for this video') {
+          setNoTranscriptError(true)
+          setError('No transcript available for this video. Please try a different video.')
+          setIsLoading(false)
+          setDownloadStatus('')
+          return
+        } else {
+          throw new Error(questionsData.error || 'Failed to generate questions')
+        }
+      }
+      
+      // Make sure we have questions before proceeding
+      if (!questionsData.questions || !Array.isArray(questionsData.questions) || questionsData.questions.length === 0) {
+        throw new Error('No questions were generated. Please try a different video.')
+      }
+      
       setQuestions(questionsData.questions)
 
       // Finally, get the transcript
@@ -111,7 +168,10 @@ export default function ListeningPractice() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestData),
+        body: JSON.stringify({
+          url: youtubeUrl,
+          language: selectedLanguage,
+        }),
       })
 
       if (!transcriptResponse.ok) {
@@ -121,15 +181,30 @@ export default function ListeningPractice() {
 
       const transcriptData = await transcriptResponse.json()
       console.log('Transcript response:', transcriptData)
+      
+      // Check if there's an error in the transcript response
+      if (transcriptData.error) {
+        if (transcriptData.error === 'No transcript available for this video') {
+          setNoTranscriptError(true)
+          setError('No transcript available for this video. Please try a different video.')
+          setIsLoading(false)
+          setDownloadStatus('')
+          return
+        } else {
+          throw new Error(transcriptData.error || 'Failed to retrieve transcript')
+        }
+      }
+      
       setTranscript(transcriptData.transcript)
       setStatistics(transcriptData.statistics)
       setDownloadStatus('')
+      setIsLoading(false)
 
     } catch (err) {
+      console.error('Error:', err)
       setError(err instanceof Error ? err.message : 'An error occurred')
-      setDownloadStatus('')
-    } finally {
       setIsLoading(false)
+      setDownloadStatus('')
     }
   }
 
@@ -157,37 +232,19 @@ export default function ListeningPractice() {
     }
   }
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  }
-
-  // Update the iframe when the current question changes
-  useEffect(() => {
-    if (videoId && playerContainerRef.current && questions.length > 0) {
-      updateYouTubeEmbed();
-    }
-  }, [videoId, currentQuestionIndex, questions]);
-
   const updateYouTubeEmbed = () => {
-    if (!playerContainerRef.current || !videoId || questions.length === 0) return;
+    if (!playerContainerRef.current || !videoId || !questions || questions.length === 0) return;
     
-    // Clear any existing timer
-    if (playerTimerRef.current) {
-      clearTimeout(playerTimerRef.current);
-    }
+    const currentQuestion = questions[currentQuestionIndex];
+    if (!currentQuestion) return;
     
-    // Create the embed URL with controls
-    const embedUrl = `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&controls=1`;
+    const startTime = currentQuestion.start_time || 0;
     
-    // Create the iframe
+    // Create an iframe element
     const iframe = document.createElement('iframe');
     iframe.width = '100%';
     iframe.height = '100%';
-    iframe.src = embedUrl;
-    iframe.title = 'YouTube video player';
-    iframe.frameBorder = '0';
+    iframe.src = `https://www.youtube.com/embed/${videoId}?start=${startTime}&enablejsapi=1`;
     iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
     iframe.allowFullscreen = true;
     
@@ -195,6 +252,24 @@ export default function ListeningPractice() {
     playerContainerRef.current.innerHTML = '';
     playerContainerRef.current.appendChild(iframe);
   }
+
+  useEffect(() => {
+    if (videoId && playerContainerRef.current && questions && questions.length > 0) {
+      updateYouTubeEmbed();
+    } else if (videoId && playerContainerRef.current && noTranscriptError) {
+      // If there's no transcript but we have a video ID, still show the YouTube player
+      const iframe = document.createElement('iframe');
+      iframe.width = '100%';
+      iframe.height = '100%';
+      iframe.src = `https://www.youtube.com/embed/${videoId}?enablejsapi=1`;
+      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+      iframe.allowFullscreen = true;
+      
+      // Clear the container and append the iframe
+      playerContainerRef.current.innerHTML = '';
+      playerContainerRef.current.appendChild(iframe);
+    }
+  }, [videoId, currentQuestionIndex, questions, noTranscriptError]);
 
   const checkAnswers = () => {
     const totalCorrect = questions.reduce((acc, question, index) => {
@@ -214,24 +289,63 @@ export default function ListeningPractice() {
           <CardTitle>Listening Practice</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="flex gap-2">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700" htmlFor="youtube-url">YouTube URL</label>
               <input
-                type="text"
-                placeholder="Enter YouTube URL"
-                className="flex-1 px-3 py-2 border rounded-md"
-                value={videoUrl}
-                onChange={(e) => setVideoUrl(e.target.value)}
+                id="youtube-url"
+                placeholder="https://www.youtube.com/watch?v=..."
+                value={youtubeUrl}
+                onChange={(e) => setYoutubeUrl(e.target.value)}
+                required
+                className="block w-full p-2 pl-10 text-sm text-gray-700 rounded-lg border border-gray-200 focus:ring-blue-500 focus:border-blue-500"
               />
-              <Button onClick={handleSubmitUrl} disabled={isLoading}>
-                {isLoading ? 'Loading...' : 'Start Practice'}
-              </Button>
             </div>
-            {error && <div className="text-red-500">{error}</div>}
-            {downloadStatus && <div className="text-blue-500">{downloadStatus}</div>}
-          </div>
+
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? 'Loading...' : 'Start Practice'}
+            </Button>
+
+            {error && <div className="text-red-500 mt-2">{error}</div>}
+            {downloadStatus && <div className="text-blue-500 mt-2">{downloadStatus}</div>}
+          </form>
         </CardContent>
       </Card>
+
+      {noTranscriptError && videoId && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>No Transcript Available</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <p>Unfortunately, this video does not have a transcript available. This could be because:</p>
+              <ul className="list-disc pl-6 space-y-2">
+                <li>The video owner has not provided captions</li>
+                <li>The captions are not available in the selected language</li>
+                <li>The video uses automatic captions which may not be accessible via the API</li>
+              </ul>
+              <p>You can still watch the video below, but the listening practice exercise cannot be created.</p>
+              
+              <div 
+                ref={playerContainerRef} 
+                className="w-full aspect-video mt-4"
+              >
+                {/* YouTube iframe will be inserted here */}
+              </div>
+              
+              <Button onClick={() => {
+                setYoutubeUrl('')
+                setVideoId('')
+                setNoTranscriptError(false)
+                setError(null)
+              }}>
+                Try Another Video
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {questions.length > 0 && (
         <Tabs defaultValue="practice" className="mt-6">
@@ -268,11 +382,11 @@ export default function ListeningPractice() {
                                   <p className="font-medium">{question.question}</p>
                                   <p className="text-sm text-gray-500 mt-1">Transcript: {question.text}</p>
                                   <p className="mt-2">
-                                    Your answer: {question.options[parseInt(userAnswer)]}
+                                    Your answer: {question.options[parseInt(userAnswer || '0')]}
                                   </p>
                                   {!isCorrect && (
                                     <p className="text-sm text-red-500 mt-1">
-                                      Correct answer: {question.options[parseInt(question.correct_answer)]}
+                                      Correct answer: {question.options[question.correct_answer]}
                                     </p>
                                   )}
                                   <div className="flex justify-end">
@@ -382,14 +496,25 @@ export default function ListeningPractice() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4 max-h-[500px] overflow-y-auto">
-                  {transcript.map((segment, index) => (
+                  {transcript && typeof transcript === 'string' && transcript.split('\n').map((line, index) => (
                     <div key={index} className="p-2 hover:bg-muted rounded">
                       <div className="text-sm text-muted-foreground mb-1">
-                        {formatTime(segment.start)}
+                        {formatTime(index * 5)}
                       </div>
-                      <div>{segment.text}</div>
+                      <div>{line}</div>
                     </div>
                   ))}
+                  {statistics && (
+                    <div className="mt-4 p-4 bg-muted rounded">
+                      <h3 className="text-lg font-medium mb-2">Statistics</h3>
+                      {Object.entries(statistics).map(([key, value]) => (
+                        <div key={key} className="flex justify-between py-1">
+                          <span className="font-medium">{key.replace(/_/g, ' ')}</span>
+                          <span>{String(value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -405,29 +530,32 @@ export default function ListeningPractice() {
                   <div className="space-y-4">
                     <div>
                       <h3 className="font-semibold">Duration</h3>
-                      <p>{formatTime(statistics.total_duration)}</p>
+                      <p>{statistics && typeof statistics.total_duration === 'number' ? formatTime(statistics.total_duration) : '0:00'}</p>
                     </div>
                     <div>
                       <h3 className="font-semibold">Word Count</h3>
-                      <p>{statistics.total_words} words</p>
+                      <p>{statistics && typeof statistics.total_words === 'number' ? `${statistics.total_words} words` : '0 words'}</p>
                     </div>
                     <div>
                       <h3 className="font-semibold">Speaking Speed</h3>
-                      <p>{statistics.avg_words_per_minute} words per minute</p>
+                      <p>{statistics && typeof statistics.avg_words_per_minute === 'number' ? `${statistics.avg_words_per_minute} words per minute` : '0 words per minute'}</p>
                     </div>
                     <div>
                       <h3 className="font-semibold">Segments</h3>
-                      <p>{statistics.segments_count} segments</p>
+                      <p>{statistics && typeof statistics.segments_count === 'number' ? `${statistics.segments_count} segments` : '0 segments'}</p>
                     </div>
                     <div>
                       <h3 className="font-semibold">Most Common Words</h3>
                       <div className="grid grid-cols-2 gap-2">
-                        {Object.entries(statistics.top_words).map(([word, count]) => (
-                          <div key={word} className="flex justify-between">
-                            <span>{word}</span>
-                            <span className="text-muted-foreground">{count}</span>
-                          </div>
-                        ))}
+                        {statistics && statistics.top_words && typeof statistics.top_words === 'object' ? 
+                          Object.entries(statistics.top_words).map(([word, count]) => (
+                            <div key={word} className="flex justify-between">
+                              <span>{word}</span>
+                              <span className="text-muted-foreground">{String(count)}</span>
+                            </div>
+                          )) : 
+                          <div className="text-muted-foreground">No data available</div>
+                        }
                       </div>
                     </div>
                   </div>
