@@ -123,32 +123,57 @@ class SentenceBuilderViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Get sentence embedding
-        sentence_embedding = embeddings.embed_query(sentence)
+        # Normalize the sentence - make full stop optional
+        normalized_sentence = sentence
+        if not normalized_sentence.endswith('۔'):
+            # Try both with and without the full stop for better matching
+            normalized_sentence_with_stop = f"{normalized_sentence} ۔"
+        else:
+            normalized_sentence_with_stop = normalized_sentence
         
-        # Query ChromaDB for similar patterns
+        # Get sentence embeddings for both versions
+        sentence_embedding = embeddings.embed_query(normalized_sentence)
+        sentence_embedding_with_stop = embeddings.embed_query(normalized_sentence_with_stop)
+        
+        # Query ChromaDB for similar patterns with both versions
         results = sentence_collection.query(
-            query_embeddings=[sentence_embedding],
+            query_embeddings=[sentence_embedding, sentence_embedding_with_stop],
             n_results=3,
             include=["metadatas", "documents", "distances"]
         )
         
-        # Process the results
+        # Process the results - use the best match from either query
         is_valid = False
         feedback = "The sentence structure doesn't match any known pattern."
         pattern_id = None
         
-        if results and results['distances'] and results['distances'][0]:
-            # Check if the closest pattern is similar enough (distance < 0.3)
-            if results['distances'][0][0] < 0.3:
-                is_valid = True
-                pattern_id = results['metadatas'][0][0].get('pattern_id')
-                feedback = f"Good job! Your sentence follows a valid pattern: {results['metadatas'][0][0].get('pattern')}"
-            else:
-                # Suggest the closest pattern
-                feedback = f"Your sentence doesn't quite match a valid pattern. Try using this structure: {results['metadatas'][0][0].get('pattern')}"
-                if results['metadatas'][0][0].get('example'):
-                    feedback += f" Example: {results['metadatas'][0][0].get('example')}"
+        best_distance = 1.0  # Initialize with worst possible distance
+        best_metadata = None
+        
+        # Check results for both queries
+        if results and results['distances']:
+            # Check first query results (without stop)
+            if results['distances'][0] and len(results['distances'][0]) > 0:
+                if results['distances'][0][0] < best_distance:
+                    best_distance = results['distances'][0][0]
+                    best_metadata = results['metadatas'][0][0]
+            
+            # Check second query results (with stop)
+            if len(results['distances']) > 1 and results['distances'][1] and len(results['distances'][1]) > 0:
+                if results['distances'][1][0] < best_distance:
+                    best_distance = results['distances'][1][0]
+                    best_metadata = results['metadatas'][1][0]
+        
+        # Use a more lenient threshold (0.5 instead of 0.3)
+        if best_metadata and best_distance < 0.5:
+            is_valid = True
+            pattern_id = best_metadata.get('pattern_id')
+            feedback = f"Good job! Your sentence follows a valid pattern: {best_metadata.get('pattern')}"
+        elif best_metadata:
+            # Suggest the closest pattern
+            feedback = f"Your sentence doesn't quite match a valid pattern. Try using this structure: {best_metadata.get('pattern')}"
+            if best_metadata.get('example'):
+                feedback += f" Example: {best_metadata.get('example')}"
         
         # Save the user sentence
         user_sentence = UserSentence.objects.create(
@@ -163,6 +188,7 @@ class SentenceBuilderViewSet(viewsets.ViewSet):
             "is_valid": is_valid,
             "feedback": feedback,
             "sentence_id": user_sentence.id,
+            "similarity_score": 1 - best_distance if best_metadata else 0,
             "similar_patterns": [
                 {
                     "pattern": meta.get('pattern'),

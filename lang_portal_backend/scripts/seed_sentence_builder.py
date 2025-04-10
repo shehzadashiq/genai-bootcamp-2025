@@ -128,49 +128,49 @@ def seed_words():
         ],
         # Batch 3: Verbs (20 words)
         [
-            {"urdu_word": "کھاتا ہے", "roman_urdu": "khata hai", "english_translation": "eats", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "پیتا ہے", "roman_urdu": "peeta hai", "english_translation": "drinks", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "جاتا ہے", "roman_urdu": "jata hai", "english_translation": "goes", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "آتا ہے", "roman_urdu": "aata hai", "english_translation": "comes", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "سوتا ہے", "roman_urdu": "sota hai", "english_translation": "sleeps", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "بولتا ہے", "roman_urdu": "bolta hai", "english_translation": "speaks", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "سنتا ہے", "roman_urdu": "sunta hai", "english_translation": "listens", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "دیکھتا ہے", "roman_urdu": "dekhta hai", "english_translation": "sees", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "پڑھتا ہے", "roman_urdu": "parhta hai", "english_translation": "reads", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "لکھتا ہے", "roman_urdu": "likhta hai", "english_translation": "writes", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "کرتا ہے", "roman_urdu": "karta hai", "english_translation": "does", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "دیتا ہے", "roman_urdu": "deta hai", "english_translation": "gives", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "لیتا ہے", "roman_urdu": "leta hai", "english_translation": "takes", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "بناتا ہے", "roman_urdu": "banata hai", "english_translation": "makes", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "رکھتا ہے", "roman_urdu": "rakhta hai", "english_translation": "keeps", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "چلتا ہے", "roman_urdu": "chalta hai", "english_translation": "walks", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "دوڑتا ہے", "roman_urdu": "dorta hai", "english_translation": "runs", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "اڑتا ہے", "roman_urdu": "urta hai", "english_translation": "flies", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "تیرتا ہے", "roman_urdu": "tairta hai", "english_translation": "swims", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "کھیلتا ہے", "roman_urdu": "khelta hai", "english_translation": "plays", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "کھاتا/کھاتی ہے", "roman_urdu": "khata/khati hai", "english_translation": "eats", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "پیتا/پیتی ہے", "roman_urdu": "peeta/peeti hai", "english_translation": "drinks", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "جاتا/جاتی ہے", "roman_urdu": "jata/jati hai", "english_translation": "goes", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "آتا/آتی ہے", "roman_urdu": "aata/aati hai", "english_translation": "comes", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "سوتا/سوتی ہے", "roman_urdu": "sota/soti hai", "english_translation": "sleeps", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "بولتا/بولتی ہے", "roman_urdu": "bolta/bolti hai", "english_translation": "speaks", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "سنتا/سنتی ہے", "roman_urdu": "sunta/sunti hai", "english_translation": "listens", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "دیکھتا/دیکھتی ہے", "roman_urdu": "dekhta/dekhti hai", "english_translation": "sees", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "پڑھتا/پڑھتی ہے", "roman_urdu": "parhta/parhti hai", "english_translation": "reads", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "لکھتا/لکھتی ہے", "roman_urdu": "likhta/likhti hai", "english_translation": "writes", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "کرتا/کرتی ہے", "roman_urdu": "karta/karti hai", "english_translation": "does", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "دیتا/دیتی ہے", "roman_urdu": "deta/deti hai", "english_translation": "gives", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "لیتا/لیتی ہے", "roman_urdu": "leta/leti hai", "english_translation": "takes", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "بناتا/بناتی ہے", "roman_urdu": "banata/banati hai", "english_translation": "makes", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "رکھتا/رکھتی ہے", "roman_urdu": "rakhta/rakhti hai", "english_translation": "keeps", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "چلتا/چلتی ہے", "roman_urdu": "chalta/chalti hai", "english_translation": "walks", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "دوڑتا/دوڑتی ہے", "roman_urdu": "dorta/dorti hai", "english_translation": "runs", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "اڑتا/اڑتی ہے", "roman_urdu": "urta/urti hai", "english_translation": "flies", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "تیرتا/تیرتی ہے", "roman_urdu": "tairta/tairti hai", "english_translation": "swims", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "کھیلتا/کھیلتی ہے", "roman_urdu": "khelta/khelti hai", "english_translation": "plays", "category": verb_category, "difficulty_level": 1},
         ],
         # Batch 4: More Verbs (20 words)
         [
-            {"urdu_word": "ہنستا ہے", "roman_urdu": "hansta hai", "english_translation": "laughs", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "روتا ہے", "roman_urdu": "rota hai", "english_translation": "cries", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "گاتا ہے", "roman_urdu": "gata hai", "english_translation": "sings", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "بجاتا ہے", "roman_urdu": "bajata hai", "english_translation": "plays (instrument)", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "ناچتا ہے", "roman_urdu": "nachta hai", "english_translation": "dances", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "سمجھتا ہے", "roman_urdu": "samajhta hai", "english_translation": "understands", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "سیکھتا ہے", "roman_urdu": "seekhta hai", "english_translation": "learns", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "سکھاتا ہے", "roman_urdu": "sikhata hai", "english_translation": "teaches", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "خریدتا ہے", "roman_urdu": "kharidta hai", "english_translation": "buys", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "بیچتا ہے", "roman_urdu": "bechta hai", "english_translation": "sells", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "کھولتا ہے", "roman_urdu": "kholta hai", "english_translation": "opens", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "بند کرتا ہے", "roman_urdu": "band karta hai", "english_translation": "closes", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "شروع کرتا ہے", "roman_urdu": "shuru karta hai", "english_translation": "starts", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "ختم کرتا ہے", "roman_urdu": "khatam karta hai", "english_translation": "finishes", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "انتظار کرتا ہے", "roman_urdu": "intezar karta hai", "english_translation": "waits", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "ملتا ہے", "roman_urdu": "milta hai", "english_translation": "meets", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "بھیجتا ہے", "roman_urdu": "bhejta hai", "english_translation": "sends", "category": verb_category, "difficulty_level": 1},
-            {"urdu_word": "حاصل کرتا ہے", "roman_urdu": "hasil karta hai", "english_translation": "obtains", "category": verb_category, "difficulty_level": 2},
-            {"urdu_word": "استعمال کرتا ہے", "roman_urdu": "istemal karta hai", "english_translation": "uses", "category": verb_category, "difficulty_level": 2},
-            {"urdu_word": "پسند کرتا ہے", "roman_urdu": "pasand karta hai", "english_translation": "likes", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "ہنستا/ہنستی ہے", "roman_urdu": "hansta/hansti hai", "english_translation": "laughs", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "روتا/روتی ہے", "roman_urdu": "rota/roti hai", "english_translation": "cries", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "گاتا/گاتی ہے", "roman_urdu": "gata/gati hai", "english_translation": "sings", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "بجاتا/بجاتی ہے", "roman_urdu": "bajata/bajati hai", "english_translation": "plays (instrument)", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "ناچتا/ناچتی ہے", "roman_urdu": "nachta/nachti hai", "english_translation": "dances", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "سمجھتا/سمجھتی ہے", "roman_urdu": "samajhta/samajhti hai", "english_translation": "understands", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "سیکھتا/سیکھتی ہے", "roman_urdu": "seekhta/seekhti hai", "english_translation": "learns", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "سکھاتا/سکھاتی ہے", "roman_urdu": "sikhata/sikhati hai", "english_translation": "teaches", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "خریدتا/خریدتی ہے", "roman_urdu": "kharidta/kharidti hai", "english_translation": "buys", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "بیچتا/بیچتی ہے", "roman_urdu": "bechta/bechti hai", "english_translation": "sells", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "کھولتا/کھولتی ہے", "roman_urdu": "kholta/kholti hai", "english_translation": "opens", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "بند کرتا/کرتی ہے", "roman_urdu": "band karta/karti hai", "english_translation": "closes", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "شروع کرتا/کرتی ہے", "roman_urdu": "shuru karta/karti hai", "english_translation": "starts", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "ختم کرتا/کرتی ہے", "roman_urdu": "khatam karta/karti hai", "english_translation": "finishes", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "انتظار کرتا/کرتی ہے", "roman_urdu": "intezar karta/karti hai", "english_translation": "waits", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "ملتا/ملتی ہے", "roman_urdu": "milta/milti hai", "english_translation": "meets", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "بھیجتا/بھیجتی ہے", "roman_urdu": "bhejta/bhejti hai", "english_translation": "sends", "category": verb_category, "difficulty_level": 1},
+            {"urdu_word": "حاصل کرتا/کرتی ہے", "roman_urdu": "hasil karta/karti hai", "english_translation": "obtains", "category": verb_category, "difficulty_level": 2},
+            {"urdu_word": "استعمال کرتا/کرتی ہے", "roman_urdu": "istemal karta/karti hai", "english_translation": "uses", "category": verb_category, "difficulty_level": 2},
+            {"urdu_word": "پسند کرتا/کرتی ہے", "roman_urdu": "pasand karta/karti hai", "english_translation": "likes", "category": verb_category, "difficulty_level": 1},
         ],
         # Batch 5: Objects (20 words)
         [
@@ -389,26 +389,56 @@ def seed_sentence_patterns():
         {
             "pattern": "subject verb",
             "description": "Simple sentence with subject and verb",
-            "example": "میں جاتا ہوں۔ (I go.)",
+            "example": "میں جاتا/جاتی ہوں۔ (I go.)",
+            "difficulty_level": 1
+        },
+        {
+            "pattern": "subject verb",
+            "description": "Simple sentence with subject and verb (without full stop)",
+            "example": "میں جاتا/جاتی ہوں (I go)",
             "difficulty_level": 1
         },
         {
             "pattern": "subject object verb",
             "description": "Subject-Object-Verb order (common in Urdu)",
-            "example": "میں کھانا کھاتا ہوں۔ (I food eat.)",
+            "example": "میں کھانا کھاتا/کھاتی ہوں۔ (I food eat.)",
+            "difficulty_level": 1
+        },
+        {
+            "pattern": "subject object verb",
+            "description": "Subject-Object-Verb order (without full stop)",
+            "example": "میں کھانا کھاتا/کھاتی ہوں (I food eat)",
             "difficulty_level": 1
         },
         {
             "pattern": "subject adjective object verb",
             "description": "Subject with adjective describing the object",
-            "example": "میں اچھا کھانا کھاتا ہوں۔ (I good food eat.)",
+            "example": "میں اچھا کھانا کھاتا/کھاتی ہوں۔ (I good food eat.)",
+            "difficulty_level": 2
+        },
+        {
+            "pattern": "subject adjective object verb",
+            "description": "Subject with adjective describing the object (without full stop)",
+            "example": "میں اچھا کھانا کھاتا/کھاتی ہوں (I good food eat)",
+            "difficulty_level": 2
+        },
+        {
+            "pattern": "subject adverb verb",
+            "description": "Subject with adverb modifying the verb",
+            "example": "میں تیزی سے جاتا/جاتی ہوں۔ (I quickly go.)",
+            "difficulty_level": 2
+        },
+        {
+            "pattern": "subject adverb verb",
+            "description": "Subject with adverb modifying the verb (without full stop)",
+            "example": "میں تیزی سے جاتا/جاتی ہوں (I quickly go)",
             "difficulty_level": 2
         }
     ]
     
     # Clear existing embeddings in ChromaDB
     try:
-        sentence_collection.delete(ids=[f"pattern_{i+1}" for i in range(len(patterns))])
+        sentence_collection.delete(ids=[f"pattern_{i+1}" for i in range(len(patterns) * 2)])  # Account for more patterns
     except:
         pass
     
@@ -416,17 +446,23 @@ def seed_sentence_patterns():
     for pattern_data in patterns:
         pattern, created = SentencePattern.objects.get_or_create(
             pattern=pattern_data["pattern"],
+            example=pattern_data["example"],  # Include example in uniqueness check
             defaults={
                 "description": pattern_data["description"],
-                "example": pattern_data["example"],
                 "difficulty_level": pattern_data["difficulty_level"]
             }
         )
         
-        # Add to ChromaDB
+        # Add to ChromaDB - both with and without full stop versions
         pattern_text = f"{pattern.pattern} - {pattern.example if pattern.example else ''}"
         pattern_embedding = embeddings.embed_query(pattern_text)
         
+        # Create a normalized version without full stop if it has one
+        normalized_example = pattern.example
+        if '۔' in normalized_example:
+            normalized_example = normalized_example.replace('۔', '').strip()
+        
+        # Add the pattern to ChromaDB
         sentence_collection.add(
             ids=[f"pattern_{pattern.id}"],
             embeddings=[pattern_embedding],
