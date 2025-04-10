@@ -22,7 +22,7 @@ interface QuickStats {
   success_rate: number
   total_study_sessions: number
   total_active_groups: number
-  study_streak_days: number
+  study_streak: number
 }
 
 export default function Dashboard() {
@@ -184,7 +184,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <h3 className="font-medium">Study Streak</h3>
-                <p className="text-2xl font-bold">{stats.study_streak_days} days</p>
+                <p className="text-2xl font-bold">{stats.study_streak} days</p>
               </div>
             </div>
           ) : (
