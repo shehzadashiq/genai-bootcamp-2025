@@ -26,6 +26,8 @@ Categorize words by parts of speech: nouns, verbs, adjectives, pronouns, etc.
 
 Let users pick words from dropdowns or cards based on the category.
 
+Display both masculine and feminine forms for verbs (e.g., کھاتا/کھاتی).
+
 ### Backend Logic (Django)
 
 Expose APIs to:
@@ -38,6 +40,8 @@ Return grammar corrections or suggestions.
 
 Store a list of valid sentence structures or use rule-based grammar validation.
 
+Support sentences with or without the Urdu full stop (۔).
+
 ### Frontend (React)
 
 - Display Urdu words in a user-friendly interface (supporting Right-to-Left text).
@@ -47,14 +51,17 @@ Store a list of valid sentence structures or use rule-based grammar validation.
 - Word bank categorized by part of speech (noun, verb, adjective, etc.).
 - Submit button that sends sentence to backend API and displays feedback.
 - Highlight grammar issues or suggest improvements.
+- Option for users to manually mark sentences as correct when automatic validation fails.
+- Display common sentence patterns as a reference for users.
 
 ## Vector Store (ChromaDB)
 
 - Run embedded inside the Django backend.
 - Store Urdu sentence embeddings with metadata (category, usage, level, etc.).
-- Perform similarity search using cosine distance.
+- Perform similarity search using cosine distance with a configurable threshold (currently 0.5).
 - Use persistent storage for embeddings (persist_directory).
 - Support for Roman Urdu to Urdu conversion (using transliteration models).
+- Handle variations in sentence structure and punctuation.
 
 ### Optional Features
 
@@ -69,6 +76,7 @@ Store a list of valid sentence structures or use rule-based grammar validation.
 - Backend: Python, Django, Django REST Framework
 - Database: SQLite
 - RAG Vector Store DB: ChromaDB (With Persistence)
+- Embeddings: Amazon Bedrock (Titan model)
 
 ## Notes
 
@@ -78,6 +86,8 @@ Store a list of valid sentence structures or use rule-based grammar validation.
 - Backend should expose clear, well-documented API endpoints.
 - Keep ChromaDB persistent across app restarts using persist_directory.
 - APIs should return responses in JSON.
+- Validation should be flexible to accommodate different writing styles.
+- Full stop character (۔) should be optional for valid sentences.
 
 ## Deliverables
 
@@ -86,3 +96,4 @@ Store a list of valid sentence structures or use rule-based grammar validation.
 - Seed data for common Urdu words and example sentence structures. The Database needs to contain at least 1000 words.
 - Seed dataset of Urdu words, sentences, and their embeddings stored in ChromaDB.
 - Sample RAG pipeline with embedded query → retrieve → suggest workflow.
+- Manual validation option for user satisfaction.
