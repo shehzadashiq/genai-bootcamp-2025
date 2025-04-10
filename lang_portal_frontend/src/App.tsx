@@ -17,6 +17,7 @@ import ListeningPractice from '@/features/apps/ListeningPractice'
 import WordMatching from '@/features/word-matching/WordMatching'
 import { Flashcards } from '@/features/flashcards'
 import { ThemeProvider } from '@/providers/ThemeProvider'
+import SentenceBuilder from '@/features/sentence-builder/SentenceBuilder'
 
 function App() {
   return (
@@ -40,6 +41,7 @@ function App() {
           <Route path="apps/listening-practice" element={<ListeningPractice />} />
           <Route path="apps/word-matching" element={<WordMatching />} />
           <Route path="apps/flashcards" element={<Flashcards />} />
+          <Route path="apps/sentence-builder" element={<SentenceBuilder sessionId={`session_${Date.now()}`} />} />
         </Route>
       </Routes>
     </ThemeProvider>

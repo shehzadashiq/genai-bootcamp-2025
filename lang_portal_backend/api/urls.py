@@ -3,6 +3,7 @@ from rest_framework import routers
 from . import views
 from .flashcard_views import FlashcardGameViewSet
 from .audio_views import synthesize_speech, get_youtube_audio_segment
+from .sentence_builder_views import WordCategoryViewSet, SentenceWordViewSet, SentencePatternViewSet, SentenceBuilderViewSet
 
 router = routers.DefaultRouter(trailing_slash=True)
 router.register(r'study_activities', views.StudyActivityViewSet, basename='study_activities')
@@ -13,6 +14,10 @@ router.register(r'vocabulary-quiz', views.VocabularyQuizViewSet, basename='vocab
 router.register(r'word-matching', views.WordMatchingGameViewSet, basename='word-matching')
 router.register(r'word-matching-stats', views.WordMatchingStatsViewSet, basename='word-matching-stats')
 router.register(r'flashcards', FlashcardGameViewSet, basename='flashcards')
+router.register(r'sentence-builder/categories', WordCategoryViewSet, basename='sentence-builder-categories')
+router.register(r'sentence-builder/words', SentenceWordViewSet, basename='sentence-builder-words')
+router.register(r'sentence-builder/patterns', SentencePatternViewSet, basename='sentence-builder-patterns')
+router.register(r'sentence-builder', SentenceBuilderViewSet, basename='sentence-builder')
 
 # First include the router URLs
 urlpatterns = [
