@@ -46,6 +46,7 @@ class StudySession(models.Model):
     study_activity = models.ForeignKey(StudyActivity, on_delete=models.CASCADE)
     start_time = models.DateTimeField(default=timezone.now)
     end_time = models.DateTimeField(null=True)
+    metadata = models.JSONField(default=dict, blank=True)
 
 class WordReviewItem(models.Model):
     word = models.ForeignKey(Word, on_delete=models.CASCADE)

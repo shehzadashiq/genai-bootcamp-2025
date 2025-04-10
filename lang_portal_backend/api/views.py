@@ -152,14 +152,70 @@ class GroupViewSet(viewsets.ReadOnlyModelViewSet):
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
+        
+        # Check if we should merge groups by difficulty level
+        merge_by_difficulty = request.query_params.get('merge_by_difficulty', 'false').lower() == 'true'
+        
+        if merge_by_difficulty:
+            # Get all groups
+            all_groups = list(queryset)
+            
+            # Create a dictionary to store merged groups by difficulty level
+            merged_groups = {}
+            
+            # Map of difficulty levels in group names
+            difficulty_keywords = {
+                'beginner': 'Beginner',
+                'intermediate': 'Intermediate',
+                'advanced': 'Advanced'
+            }
+            
+            # Group the groups by difficulty level
+            for group in all_groups:
+                for keyword, label in difficulty_keywords.items():
+                    if keyword.lower() in group.name.lower():
+                        if label not in merged_groups:
+                            # Create a new merged group with this difficulty level
+                            merged_groups[label] = {
+                                'id': group.id,  # Use the ID of the first group with this difficulty
+                                'name': f"{label} Words",
+                                'word_count': group.word_count,
+                                'original_groups': [group]
+                            }
+                        else:
+                            # Add this group's word count to the merged group
+                            merged_groups[label]['word_count'] += group.word_count
+                            merged_groups[label]['original_groups'].append(group)
+                        break
+            
+            # Convert merged groups to a list
+            merged_groups_list = [
+                {
+                    'id': info['id'],
+                    'name': info['name'],
+                    'word_count': info['word_count']
+                } for info in merged_groups.values()
+            ]
+            
+            # Return the merged groups
+            return Response({
+                'items': merged_groups_list,
+                'pagination': {
+                    'current_page': 1,
+                    'total_pages': 1,
+                    'total_items': len(merged_groups_list),
+                    'items_per_page': len(merged_groups_list)
+                }
+            })
+        
+        # If not merging, use the default implementation
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
-            pagination = self.paginator.get_paginated_response(serializer.data)
             return Response({
                 'items': serializer.data,
                 'pagination': {
-                    'current_page': request.query_params.get('page', 1),
+                    'current_page': int(request.query_params.get('page', 1)),
                     'total_pages': self.paginator.page.paginator.num_pages,
                     'total_items': self.paginator.page.paginator.count,
                     'items_per_page': self.paginator.page_size
@@ -200,74 +256,120 @@ class VocabularyQuizViewSet(viewsets.ViewSet):
     """
     API endpoint for vocabulary quiz functionality.
     """
+    
     @action(detail=False, methods=['post'])
     def start(self, request):
         """Start a new vocabulary quiz."""
-        group_id = request.data.get('group_id')
-        word_count = request.data.get('word_count', 10)
-        
         try:
-            group = Group.objects.get(id=group_id)
-            # Get random words from the group using WordGroup relationship
-            words = Word.objects.filter(wordgroup__group=group).order_by('?')[:word_count]
+            group_id = request.data.get('group_id')
+            word_count = request.data.get('word_count', 10)
+            difficulty = request.data.get('difficulty', 'easy')
             
-            if not words:
-                return Response({
-                    'error': 'No words available in this group'
-                }, status=status.HTTP_400_BAD_REQUEST)
-
-            # Create study session for vocabulary quiz
-            study_activity = StudyActivity.objects.get(name='Vocabulary Quiz')
-            session = StudySession.objects.create(
+            # Get the group
+            group = Group.objects.get(id=group_id)
+            
+            # Check if this is a merged group (by checking if the name contains just the difficulty level)
+            is_merged_group = any(keyword in group.name.lower() for keyword in ['beginner', 'intermediate', 'advanced']) and not any(lang in group.name.lower() for lang in ['urdu', 'english'])
+            
+            if is_merged_group:
+                # Get all groups with the same difficulty level
+                difficulty_level = None
+                for level in ['beginner', 'intermediate', 'advanced']:
+                    if level in group.name.lower():
+                        difficulty_level = level
+                        break
+                
+                if difficulty_level:
+                    # Get all groups with this difficulty level
+                    related_groups = Group.objects.filter(name__icontains=difficulty_level)
+                    group_ids = related_groups.values_list('id', flat=True)
+                    
+                    # Get words from all related groups using WordGroup relationship
+                    words = Word.objects.filter(wordgroup__group__id__in=group_ids).distinct()
+                else:
+                    # Fallback to just using the selected group
+                    words = Word.objects.filter(wordgroup__group=group)
+            else:
+                # Regular group, just get its words
+                words = Word.objects.filter(wordgroup__group=group)
+            
+            # Limit to the requested number of words
+            if words.count() < word_count:
+                word_count = words.count()
+            
+            # Randomly select words
+            selected_words = random.sample(list(words), word_count)
+            
+            # Create a new study session
+            study_session = StudySession.objects.create(
                 group=group,
-                study_activity=study_activity,
+                study_activity=StudyActivity.objects.get(name='Vocabulary Quiz'),
                 start_time=timezone.now()
             )
-
-            # Prepare quiz data
+            
+            # Generate quiz words with options
             quiz_words = []
-            for word in words:
-                # For each word, get 3 random incorrect options
-                incorrect_options = Word.objects.exclude(id=word.id).order_by('?')[:3]
-                options = [{'id': opt.id, 'text': opt.english} for opt in incorrect_options]
-                options.append({'id': word.id, 'text': word.english})
+            for word in selected_words:
+                # Get options (including the correct answer)
+                options = [word.english]
+                
+                # Get other random words for options
+                other_words = Word.objects.exclude(id=word.id).order_by('?')[:3]
+                for other_word in other_words:
+                    options.append(other_word.english)
+                
+                # Shuffle options
                 random.shuffle(options)
                 
+                # Find the index of the correct answer
+                correct_option_index = options.index(word.english)
+                
                 quiz_words.append({
-                    'id': word.id,
-                    'urdu': word.urdu,
-                    'options': options
+                    'word_id': word.id,
+                    'word': WordSerializer(word).data,
+                    'options': options,
+                    'correct_option': correct_option_index
                 })
-
-            return Response({
-                'session_id': session.id,
-                'words': quiz_words
-            })
+                
+                # We'll create WordReviewItem objects when answers are submitted
+            
+            # Store quiz data in session metadata
+            study_session.metadata = {
+                'quiz_data': {
+                    'words': quiz_words
+                }
+            }
+            study_session.save()
+            
+            # Return quiz data with word_id directly in the response
+            response_data = {
+                'session_id': study_session.id,
+                'words': []
+            }
+            
+            for quiz_word in quiz_words:
+                response_data['words'].append({
+                    'word_id': quiz_word['word_id'],
+                    'word': quiz_word['word'],
+                    'options': quiz_word['options']
+                })
+            
+            return Response(response_data)
             
         except Group.DoesNotExist:
-            return Response({
-                'error': 'Group not found'
-            }, status=status.HTTP_404_NOT_FOUND)
-        except StudyActivity.DoesNotExist:
-            # Create Vocabulary Quiz activity if it doesn't exist
-            study_activity = StudyActivity.objects.create(
-                name='Vocabulary Quiz',
-                description='Test your vocabulary knowledge with multiple choice questions',
-                thumbnail_url='https://example.com/quiz-thumbnail.jpg'  # Replace with actual thumbnail
-            )
-            # Retry the request
-            return self.start(request)
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            return Response({
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.error(f"Error starting vocabulary quiz: {str(e)}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['post'])
     def submit(self, request):
-        """Submit quiz answers."""
+        """
+        Submit quiz answers.
+        """
         session_id = request.data.get('session_id')
         answers = request.data.get('answers', [])
-
+        
         try:
             session = StudySession.objects.get(id=session_id)
             
@@ -277,29 +379,55 @@ class VocabularyQuizViewSet(viewsets.ViewSet):
 
             # Process answers
             correct_count = 0
+            total_questions = len(answers)
+            quiz_data = session.metadata.get('quiz_data', {})
+            quiz_words = quiz_data.get('words', [])
+            
+            # Create a dictionary for faster lookups
+            word_correct_options = {}
+            for quiz_word in quiz_words:
+                word_id = quiz_word.get('word_id')
+                if word_id:
+                    word_correct_options[str(word_id)] = quiz_word.get('correct_option')
+            
             for answer in answers:
                 word_id = answer.get('word_id')
                 selected_id = answer.get('selected_id')
                 
-                if word_id and selected_id:
+                if word_id is not None and selected_id is not None:
                     word = Word.objects.get(id=word_id)
-                    is_correct = word_id == selected_id
                     
-                    WordReviewItem.objects.create(
+                    # Get the correct option from our dictionary
+                    correct_option = word_correct_options.get(str(word_id))
+                    is_correct = False
+                    
+                    if correct_option is not None:
+                        is_correct = int(selected_id) == int(correct_option)
+                    
+                    # Check if a review item already exists for this word and session
+                    review_item, created = WordReviewItem.objects.get_or_create(
                         word=word,
                         study_session=session,
-                        correct=is_correct
+                        defaults={'correct': is_correct}
                     )
+                    
+                    # If the review item already exists, update it
+                    if not created:
+                        review_item.correct = is_correct
+                        review_item.save()
                     
                     if is_correct:
                         correct_count += 1
-
+            
+            # Calculate score percentage
+            score_percentage = (correct_count / total_questions) * 100 if total_questions > 0 else 0
+            
             return Response({
-                'total_questions': len(answers),
+                'total_questions': total_questions,
                 'correct_answers': correct_count,
-                'score_percentage': (correct_count / len(answers)) * 100 if answers else 0
+                'score_percentage': score_percentage
             })
-
+        
         except StudySession.DoesNotExist:
             return Response({
                 'error': 'Study session not found'

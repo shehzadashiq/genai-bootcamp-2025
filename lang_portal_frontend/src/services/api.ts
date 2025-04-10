@@ -51,7 +51,8 @@ export const wordsApi = {
 };
 
 export const groupsApi = {
-  getAll: (page: number = 1) => api.get<PaginatedResponse<any>>(`/groups?page=${page}`),
+  getAll: (page: number = 1, merge_by_difficulty: boolean = false) => 
+    api.get<PaginatedResponse<any>>(`/groups?page=${page}&merge_by_difficulty=${merge_by_difficulty}`),
   getById: (id: string) => api.get(`/groups/${id}/`),
   getWords: (id: string, page: number = 1) => api.get<PaginatedResponse<any>>(`/groups/${id}/words?page=${page}`),
   getStudySessions: (id: string, page: number = 1) => api.get<PaginatedResponse<StudySessionResponse>>(`/groups/${id}/study_sessions?page=${page}`),
@@ -64,10 +65,11 @@ export const studySessionsApi = {
 };
 
 export const vocabularyQuizApi = {
-  startQuiz: async (groupId: number, wordCount: number = 10) => {
-    const response = await api.post('/vocabulary_quiz/start', {
+  startQuiz: async (groupId: number, wordCount: number = 10, difficulty: string = 'easy') => {
+    const response = await api.post('/vocabulary-quiz/start/', {
       group_id: groupId,
       word_count: wordCount,
+      difficulty: difficulty
     });
     return response.data;
   },
