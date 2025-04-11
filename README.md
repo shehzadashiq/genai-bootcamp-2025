@@ -16,3 +16,20 @@ The `/journal` directory contains
 - [Week 3](journal/week3.md)
 - [Week 4](journal/week4.md)
 - [Week 5](journal/week5.md)
+
+## Overview
+
+This project creates an application to aid Urdu learners by using different activities.
+
+## Components
+
+| Activity       |  Purpose                         |
+|----------------|----------------------------------|
+| Document Summary | Summarises a variety of media into Urdu, generating both Urdu/English text and Audio |
+| Vocabulary Quiz | Test your vocabulary knowledge with interactive flashcards and quizzes. |
+| Word Matching | Match Urdu words with their English translations in this fun memory game |
+| Sentence Builder | Practice building sentences using the words you've learned |
+| Flashcards | Learn and review vocabulary with interactive flashcards |
+| Listening Practice | Improve your listening comprehension with real-world Urdu audio content |
+| Urdu Conversations | Practice your Urdu conversation skills with an adaptive AI tutor that responds to your level |
+
