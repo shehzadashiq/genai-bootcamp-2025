@@ -38,7 +38,7 @@ Pull the youtube content, and use that to generate out similar style listening c
 - Sqlite3 - Knowledge Base 
 - Text to Speech (TTS) eg. Amazon Polly
 - AI Coding Assistant eg. Amazon Developer Q, Windsurf, Cursor, Github Copilot
-- Frontend eg. Streamlit.
+- Frontend: React/TypeScript
 - Guardrails
 - (Optional) Speech to Text, (ASR) Transcribe. eg Amazon Transcribe. OpenWhisper
 - Use Amazon Bedrock for transcription and question generation.
@@ -57,7 +57,6 @@ Pull the youtube content, and use that to generate out similar style listening c
 - boto3
 - youtube-transcript-api
 - chromadb
-- streamlit
 - langchain
 - faiss-cpu
 - sentence-transformers

@@ -6,7 +6,7 @@ import StudyActivityShow from '@/features/study-activities/StudyActivityShow'
 import StudyActivityLaunch from '@/features/study-activities/StudyActivityLaunch'
 import WordsIndex from '@/features/words/WordsIndex'
 import WordShow from '@/features/words/WordShow'
-import GroupsIndex from '@/features/groups/GroupsIndex'
+import { GroupsIndex } from '@/features/groups/GroupsIndex'
 import GroupShow from '@/features/groups/GroupShow'
 import StudySessionsIndex from '@/features/study-sessions/StudySessionsIndex'
 import StudySessionShow from '@/features/study-sessions/StudySessionShow'
@@ -17,6 +17,8 @@ import ListeningPractice from '@/features/apps/ListeningPractice'
 import WordMatching from '@/features/word-matching/WordMatching'
 import { Flashcards } from '@/features/flashcards'
 import { ThemeProvider } from '@/providers/ThemeProvider'
+import SentenceBuilder from '@/features/sentence-builder/SentenceBuilder'
+import AdaptiveConversations from '@/features/apps/AdaptiveConversations'
 
 function App() {
   return (
@@ -40,6 +42,8 @@ function App() {
           <Route path="apps/listening-practice" element={<ListeningPractice />} />
           <Route path="apps/word-matching" element={<WordMatching />} />
           <Route path="apps/flashcards" element={<Flashcards />} />
+          <Route path="apps/sentence-builder" element={<SentenceBuilder sessionId={`session_${Date.now()}`} />} />
+          <Route path="apps/adaptive-conversations" element={<AdaptiveConversations />} />
         </Route>
       </Routes>
     </ThemeProvider>

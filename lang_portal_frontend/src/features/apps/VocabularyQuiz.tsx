@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { vocabularyQuizApi } from '../vocabulary-quiz/api'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { groupsApi } from '@/services/api'
 
 interface Group {
@@ -25,6 +26,7 @@ interface QuizState {
   answers: {
     word_id: number
     selected_id: number
+    id: number
   }[]
 }
 
@@ -34,11 +36,20 @@ interface QuizResult {
   score_percentage: number
 }
 
+interface ApiQuizWord {
+  word_id?: number;
+  word: {
+    id: number;
+    urdu: string;
+    english: string;
+  };
+  options: string[];
+}
+
 export default function VocabularyQuiz() {
   const [groups, setGroups] = useState<Group[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [selectedGroup, setSelectedGroup] = useState<number | null>(null)
   const [quizState, setQuizState] = useState<QuizState | null>(null)
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null)
 
@@ -47,7 +58,8 @@ export default function VocabularyQuiz() {
       try {
         setLoading(true)
         setError(null)
-        const response = await groupsApi.getAll()
+        // Use merge_by_difficulty=true to get merged groups
+        const response = await groupsApi.getAll(1, true)
         const data = response.data
         setGroups(data.items || [])
       } catch (error) {
@@ -65,29 +77,26 @@ export default function VocabularyQuiz() {
     try {
       setLoading(true)
       setError(null)
-      const response = await fetch('http://localhost:8080/api/vocabulary-quiz/start/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          group_id: groupId,
-          word_count: 10
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to start quiz')
-      }
-
-      const data = await response.json()
+      
+      const response = await vocabularyQuizApi.startQuiz(groupId, 10, 'medium')
+      const data = response.data
+      
+      // Transform API response to match our component's expected format
+      const transformedWords: QuizWord[] = data.words.map((apiWord: ApiQuizWord) => ({
+        id: apiWord.word_id || apiWord.word.id, // Use word_id if available, fallback to word.id
+        urdu: apiWord.word.urdu,
+        options: apiWord.options.map((option, index) => ({
+          id: index,
+          text: option
+        }))
+      }))
+      
       setQuizState({
         sessionId: data.session_id,
-        words: data.words,
+        words: transformedWords,
         currentIndex: 0,
         answers: []
       })
-      setSelectedGroup(groupId)
     } catch (error) {
       console.error('Error starting quiz:', error)
       setError('Failed to start quiz')
@@ -99,31 +108,32 @@ export default function VocabularyQuiz() {
   const submitAnswer = async (wordId: number, selectedId: number) => {
     if (!quizState) return
 
+    console.log(`Submitting answer - wordId: ${wordId}, selectedId: ${selectedId}`);
+    
+    // Create a unique answer object with its own identifier
+    const newAnswer = { word_id: wordId, selected_id: selectedId, id: Date.now() };
+    
     const newAnswers = [
       ...quizState.answers,
-      { word_id: wordId, selected_id: selectedId }
+      newAnswer
     ]
 
     if (quizState.currentIndex === quizState.words.length - 1) {
       // Last question, submit the quiz
       try {
         setLoading(true)
-        const response = await fetch('http://localhost:8080/api/vocabulary-quiz/submit/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            session_id: quizState.sessionId,
-            answers: newAnswers
-          }),
-        })
-
-        if (!response.ok) {
-          throw new Error('Failed to submit quiz')
-        }
-
-        const result = await response.json()
+        
+        // Remove the id property from each answer before sending to the backend
+        const answersToSubmit = newAnswers.map(({ word_id, selected_id }) => ({
+          word_id,
+          selected_id
+        }));
+        
+        console.log('Submitting quiz with answers:', answersToSubmit);
+        
+        const response = await vocabularyQuizApi.submitQuiz(quizState.sessionId, answersToSubmit)
+        const result = response.data
+        console.log('Quiz result:', result);
         setQuizResult(result)
         setQuizState(null)
       } catch (error) {
@@ -145,7 +155,6 @@ export default function VocabularyQuiz() {
   const resetQuiz = () => {
     setQuizState(null)
     setQuizResult(null)
-    setSelectedGroup(null)
   }
 
   if (loading) {
@@ -201,7 +210,6 @@ export default function VocabularyQuiz() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="text-center mb-8">
-              {/* <p className="text-4xl font-bold mb-2">{currentWord.urdu}</p> */}
               <p className="text-4xl font-bold mb-2 font-nastaleeq text-center urdu-text">{currentWord.urdu}</p>
               <br></br>
               <p className="text-muted-foreground">Select the correct English translation</p>

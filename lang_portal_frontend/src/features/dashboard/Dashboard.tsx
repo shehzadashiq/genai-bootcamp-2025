@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { dashboardApi } from '@/services/api'
 
 interface LastStudySession {
   id: number | null
-  group_id: number | null
   activity_name: string | null
   group_name: string | null
   start_time: string | null
@@ -22,7 +20,7 @@ interface QuickStats {
   success_rate: number
   total_study_sessions: number
   total_active_groups: number
-  study_streak_days: number
+  study_streak: number
 }
 
 export default function Dashboard() {
@@ -40,8 +38,33 @@ export default function Dashboard() {
           dashboardApi.getQuickStats(),
         ])
 
-        setLastSession(lastSessionRes.data)
-        setProgress(progressRes.data)
+        // Convert undefined values to null for LastStudySession
+        const lastSessionData = lastSessionRes.data ? {
+          id: lastSessionRes.data.id || null,
+          activity_name: lastSessionRes.data.activity_name || null,
+          group_name: lastSessionRes.data.group_name || null,
+          start_time: lastSessionRes.data.start_time || null,
+          end_time: lastSessionRes.data.end_time || null,
+          review_items_count: lastSessionRes.data.review_items_count || 0
+        } : null;
+        
+        setLastSession(lastSessionData);
+        
+        // Process the study progress data
+        if (Array.isArray(progressRes.data) && progressRes.data.length > 0) {
+          // Calculate total words studied from all days
+          const totalWordsStudied = progressRes.data.reduce((sum, day) => sum + day.correct_words, 0);
+          // Calculate total available words from all days
+          const totalAvailableWords = progressRes.data.reduce((sum, day) => sum + day.total_words, 0);
+          
+          setProgress({
+            total_words_studied: totalWordsStudied,
+            total_available_words: totalAvailableWords || 1 // Prevent division by zero
+          });
+        } else {
+          setProgress(null);
+        }
+        
         setStats(statsRes.data)
       } catch (error) {
         console.error('Error fetching dashboard data:', error)
@@ -87,13 +110,8 @@ export default function Dashboard() {
             <div className="space-y-4">
               <div>
                 <h3 className="font-medium">Group</h3>
-                {lastSession.group_id ? (
-                  <Link
-                    to={`/groups/${lastSession.group_id}`}
-                    className="text-primary hover:underline"
-                  >
-                    {lastSession.group_name}
-                  </Link>
+                {lastSession.group_name ? (
+                  <p className="text-primary">{lastSession.group_name}</p>
                 ) : (
                   <p className="text-muted-foreground">Not available</p>
                 )}
@@ -184,7 +202,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <h3 className="font-medium">Study Streak</h3>
-                <p className="text-2xl font-bold">{stats.study_streak_days} days</p>
+                <p className="text-2xl font-bold">{stats.study_streak} days</p>
               </div>
             </div>
           ) : (

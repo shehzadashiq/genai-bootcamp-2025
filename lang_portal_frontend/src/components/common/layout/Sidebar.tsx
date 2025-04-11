@@ -8,7 +8,8 @@ import {
   Calendar, 
   BarChart2, 
   NotebookPen,
-  Settings 
+  Settings,
+  MessageCircle,
 } from 'lucide-react'
 
 const navigation = [
@@ -17,6 +18,7 @@ const navigation = [
   { name: 'Words', href: '/words', icon: Type },
   { name: 'Groups', href: '/groups', icon: Users },
   { name: 'Document Summary', href: 'http://localhost:8501/', icon: NotebookPen, external: true },
+  { name: 'Urdu Conversations', href: '/apps/adaptive-conversations', icon: MessageCircle },
   { name: 'Study Sessions', href: '/study_sessions', icon: Calendar },
   { name: 'Stats', href: '/stats', icon: BarChart2 },
   { name: 'Settings', href: '/settings', icon: Settings },
