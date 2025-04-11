@@ -15,15 +15,16 @@ It will be on the endpoint `http://localhost:5173/apps/adaptive-conversations`
 ## Key Features:
 
 - The system should converse exclusively in Urdu, adapting its tone and content based on user input.
-- Use Amazon Titan Embeddings (amazon.titan-embed-text-v1) to generate vector representations of each user and assistant utterance.
+- Use Amazon Bedrock Embeddings (amazon.titan-embed-text-v1) to generate vector representations of each user and assistant utterance.
 - Store and retrieve these embeddings using ChromaDB for semantic search and memory.
+- Supports different knowledge levels (ابتدائی/beginner, درمیانہ/intermediate, ماہر/advanced) to adjust response complexity.
 - Integrate a conversational loop:
 
   - Accept user input in Urdu.
-  - Embed the input with Amazon Titan Embeddings.
+  - Embed the input with Amazon Bedrock Embeddings.
   - Search ChromaDB for similar past embeddings to retain context and improve response relevance.
   - Pass relevant retrieved context along with the current user input into the LLM prompt.
-  - Generate an Urdu response from the LLM.
+  - Generate an Urdu response from the LLM (using Claude model).
   - Store both input and output embeddings in ChromaDB.
   
 
@@ -31,8 +32,11 @@ It will be on the endpoint `http://localhost:5173/apps/adaptive-conversations`
 
 ### Frontend (React)
 
-- Simple chat interface in Urdu
-- Sends/receives messages via Django API (likely using fetch or axios)
+- Simple chat interface in Urdu with RTL support
+- Knowledge level selection (beginner, intermediate, advanced)
+- Option to start new conversations
+- Sends/receives messages via Django API using axios
+- Persistent conversation history using localStorage
 
 ### Backend (Django)
 
@@ -40,9 +44,11 @@ It will be on the endpoint `http://localhost:5173/apps/adaptive-conversations`
   - Message submission
   - Conversation context retrieval
   - LLM response generation
-- Calls Amazon Titan to get embeddings
+- Uses Amazon Bedrock for:
+  - Titan Embeddings (amazon.titan-embed-text-v1) for vector representations
+  - Claude model for generating high-quality Urdu responses
 - Stores/retrieves messages and embeddings in ChromaDB
-- Tracks user knowledge and adjusts response difficulty
+- Tracks user knowledge level and adjusts response difficulty
 
 ### ChromaDB
 
@@ -50,38 +56,99 @@ It will be on the endpoint `http://localhost:5173/apps/adaptive-conversations`
   - User utterances
   - Assistant responses
   - Embeddings
-  - Metadata like user ID, timestamp, conversation ID
+  - Metadata like user ID, timestamp, conversation ID, knowledge level
+
+## API Endpoints
+
+### 1. Send Message
+
+**Endpoint:** `/api/adaptive-conversations/message/`
+
+**Method:** POST
+
+**Request Body:**
+```json
+{
+  "message": "آپ کیسے ہیں؟",
+  "user_id": "user-1",
+  "conversation_id": "2208b084-c297-46ff-83cf-156c319181d9",
+  "knowledge_level": "beginner",
+  "topic": "general"
+}
+```
+
+**Response:**
+```json
+{
+  "response": "میں ٹھیک ہوں، شکریہ! آپ کیسے ہیں؟",
+  "conversation_id": "2208b084-c297-46ff-83cf-156c319181d9",
+  "knowledge_level": "beginner"
+}
+```
+
+**Notes:**
+- `conversation_id` is optional in the request. If not provided, a new conversation will be created.
+- `knowledge_level` can be "beginner", "intermediate", or "advanced".
+- `topic` is optional and helps guide the conversation context.
+
+### 2. Get Conversation History
+
+**Endpoint:** `/api/adaptive-conversations/history/{conversation_id}`
+
+**Method:** GET
+
+**Query Parameters:**
+- `user_id`: The ID of the user (required)
+
+**Response:**
+```json
+{
+  "conversation_id": "2208b084-c297-46ff-83cf-156c319181d9",
+  "user_id": "user-1",
+  "messages": [
+    {
+      "text": "آپ کیسے ہیں؟",
+      "role": "user",
+      "timestamp": "2025-04-11T08:00:00.000Z",
+      "knowledge_level": "beginner",
+      "topic": "general"
+    },
+    {
+      "text": "میں ٹھیک ہوں، شکریہ! آپ کیسے ہیں؟",
+      "role": "assistant",
+      "timestamp": "2025-04-11T08:00:01.000Z",
+      "knowledge_level": "beginner",
+      "topic": "general"
+    }
+  ]
+}
+```
+
+**Notes:**
+- For new conversations, an empty `messages` array will be returned.
+- Messages are sorted by timestamp in ascending order.
 
 ## Requirements
 
 ### Frontend (React)
 
 - Urdu chat interface (RTL layout)
+- Knowledge level selection dropdown
 - Submit user messages to Django backend
 - Display assistant responses
+- Support for starting new conversations
 
 ### Backend (Django):
 
 - API endpoint to receive a message from the frontend
-- Generate Amazon Titan Embeddings (amazon.titan-embed-text-v1) for user input and store it in ChromaDB
+- Generate Amazon Bedrock Embeddings (amazon.titan-embed-text-v1) for user input and store it in ChromaDB
 - Retrieve relevant past context from ChromaDB for that user/conversation
-- Feed context + current user message to an LLM to generate a response (in Urdu)
-- If user's response is incorrect or indicates confusion, gently explain the issue and offer help
-- Return LLM response to frontend and store it (with embeddings) in ChromaDB
+- Format prompts appropriately for the Claude model
+- Return responses in proper JSON format
 
-### ChromaDB
-
-- Store messages as documents
-- Metadata should include:
-  - user_id
-  - role (user/assistant)
-  - conversation_id
-  - topic (optional)
-  - knowledge_level (e.g., beginner/intermediate/advanced)
- 
 ## Behavioral Logic
 
-- Adjust assistant’s tone and depth based on user’s previous answers
+- Adjust assistant's tone and depth based on user's previous answers
 - Track repeated errors and provide follow-up explanations or examples
 - Optionally categorize user progress by topic
 
@@ -96,9 +163,22 @@ It will be on the endpoint `http://localhost:5173/apps/adaptive-conversations`
 
 - Django views/DRF endpoints
 - ChromaDB integration
-- `Sample embedding function with Titan
+- Sample embedding function with Titan
 - React chat UI (basic is fine)
 - Urdu-only dialogue flow
+
+### ChromaDB Implementation Details
+
+- Store messages as documents
+- Metadata should include:
+  - user_id
+  - role (user/assistant)
+  - conversation_id
+  - topic (optional)
+  - knowledge_level (e.g., beginner/intermediate/advanced)
+- Use similarity search to retrieve relevant context
+- Configure with appropriate similarity threshold (0.7)
+- Use Titan embeddings with dimension 1536
 
 ### Bonus (Optional)
 

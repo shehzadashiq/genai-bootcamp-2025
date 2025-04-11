@@ -18,6 +18,7 @@ import WordMatching from '@/features/word-matching/WordMatching'
 import { Flashcards } from '@/features/flashcards'
 import { ThemeProvider } from '@/providers/ThemeProvider'
 import SentenceBuilder from '@/features/sentence-builder/SentenceBuilder'
+import AdaptiveConversations from '@/features/apps/AdaptiveConversations'
 
 function App() {
   return (
@@ -42,6 +43,7 @@ function App() {
           <Route path="apps/word-matching" element={<WordMatching />} />
           <Route path="apps/flashcards" element={<Flashcards />} />
           <Route path="apps/sentence-builder" element={<SentenceBuilder sessionId={`session_${Date.now()}`} />} />
+          <Route path="apps/adaptive-conversations" element={<AdaptiveConversations />} />
         </Route>
       </Routes>
     </ThemeProvider>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" rx="64" fill="#F0F4F8"/>
+  
+  <!-- Left chat bubble -->
+  <path d="M120 180C120 162.327 134.327 148 152 148H240C257.673 148 272 162.327 272 180V240C272 257.673 257.673 272 240 272H180L152 300V272C134.327 272 120 257.673 120 240V180Z" fill="#6366F1"/>
+  
+  <!-- Right chat bubble -->
+  <path d="M240 240C240 222.327 254.327 208 272 208H360C377.673 208 392 222.327 392 240V300C392 317.673 377.673 332 360 332H300L272 360V332C254.327 332 240 317.673 240 300V240Z" fill="#10B981"/>
+  
+  <!-- Urdu text in left bubble -->
+  <text x="196" y="220" font-family="Arial, sans-serif" font-size="24" fill="white" text-anchor="middle">آپ کیسے ہیں؟</text>
+  
+  <!-- English text in right bubble -->
+  <text x="316" y="280" font-family="Arial, sans-serif" font-size="20" fill="white" text-anchor="middle">میں ٹھیک ہوں</text>
+</svg>

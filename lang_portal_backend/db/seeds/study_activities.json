@@ -33,5 +33,12 @@
     "url": "/apps/listening-practice",
     "thumbnail_url": "/images/thumbnails/listening.svg",
     "description": "Improve your listening comprehension with real-world Urdu audio content."
+  },
+  {
+    "id": 6,
+    "name": "Urdu Conversations",
+    "url": "/apps/adaptive-conversations",
+    "thumbnail_url": "/images/thumbnails/conversation.svg",
+    "description": "Practice your Urdu conversation skills with an adaptive AI tutor that responds to your level."
   }
 ]

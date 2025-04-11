@@ -4,6 +4,7 @@ from . import views
 from .flashcard_views import FlashcardGameViewSet
 from .audio_views import synthesize_speech, get_youtube_audio_segment
 from .sentence_builder_views import WordCategoryViewSet, SentenceWordViewSet, SentencePatternViewSet, SentenceBuilderViewSet
+from .adaptive_conversations_views import AdaptiveConversationsViewSet, send_adaptive_message, get_conversation_history
 
 router = routers.DefaultRouter(trailing_slash=True)
 router.register(r'study_activities', views.StudyActivityViewSet, basename='study_activities')
@@ -18,6 +19,7 @@ router.register(r'sentence-builder/categories', WordCategoryViewSet, basename='s
 router.register(r'sentence-builder/words', SentenceWordViewSet, basename='sentence-builder-words')
 router.register(r'sentence-builder/patterns', SentencePatternViewSet, basename='sentence-builder-patterns')
 router.register(r'sentence-builder', SentenceBuilderViewSet, basename='sentence-builder')
+router.register(r'adaptive-conversations', AdaptiveConversationsViewSet, basename='adaptive-conversations')
 
 # First include the router URLs
 urlpatterns = [
@@ -47,6 +49,10 @@ urlpatterns = [
     
     # YouTube audio endpoint
     path('youtube/audio/<str:video_id>', get_youtube_audio_segment, name='get_youtube_audio_segment'),
+    
+    # Adaptive conversations endpoints
+    path('adaptive-conversations/message', send_adaptive_message, name='send_adaptive_message'),
+    path('adaptive-conversations/history/<str:conversation_id>', get_conversation_history, name='get_conversation_history'),
     
     # Include router URLs at the end
     path('', include(router.urls)),
