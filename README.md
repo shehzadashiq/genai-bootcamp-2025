@@ -155,6 +155,13 @@ This version displays the YouTube Video so it can be reviewed
 
 ![image](https://github.com/user-attachments/assets/1e45896c-2fa5-4a8a-bfff-282540282d9a)
 
+#### Graceful Recovery
+
+The listening service relies on transcripts from the video. If there is no transcript then the application notifies the user.
+
+![image](https://github.com/user-attachments/assets/33854bbe-5a9b-4b6c-85b2-b2ce0aa27f34)
+
+
 #### Urdu Conversations
 
 ![image](https://github.com/user-attachments/assets/8acc5c59-e0f1-43aa-a07a-7d0e1a35aaf8)
