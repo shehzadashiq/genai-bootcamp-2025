@@ -53,6 +53,106 @@ This project creates an application to aid Urdu learners by using different acti
 | Listening Practice | Improve your listening comprehension with real-world Urdu audio content |
 | Urdu Conversations | Practice your Urdu conversation skills with an adaptive AI tutor that responds to your level |
 
+### Document Summary
+
+![image](https://github.com/user-attachments/assets/99d51d0e-aa3c-4d75-a566-260b2dff0778)
+
+Sample Data is available in [Sample Data](./opea-comps/docsum_service/sample_data/)
+
+#### URL
+
+#### Text
+
+![image](https://github.com/user-attachments/assets/b2cfd372-4939-4492-86b9-22c044eba5ef)
+
+#### Document
+
+![image](https://github.com/user-attachments/assets/7b3a7c16-c8d0-4d1c-b305-9ce85ee4ae1b)
+
+#### Image
+
+![image](https://github.com/user-attachments/assets/67f926b2-ec2c-48b7-91c5-ca2ba7b7ddb4)
+
+#### Video
+
+![image](https://github.com/user-attachments/assets/fdb8674c-9b05-48ef-9fcd-846a5707c533)
+
+#### YouTube
+
+##### V1
+
+![image](https://github.com/user-attachments/assets/5acdf13b-05e3-4f4c-ae77-a84f7dba5281)
+
+##### V2
+
+![image](https://github.com/user-attachments/assets/824e16dc-e52c-473e-a07f-1aeaf5afeff6)
+
+#### Dataset
+
+![image](https://github.com/user-attachments/assets/4ba724a7-4f4a-4743-b8f8-5f4d612f0260)
+
+### Study Activities
+
+![image](https://github.com/user-attachments/assets/4a526bcd-861c-4feb-88eb-a241d53e9a62)
+
+#### Vocabulary Quiz
+
+![image](https://github.com/user-attachments/assets/a7af0152-1251-4ea9-8b52-e7ccf78960f8)
+
+##### Quiz Question
+
+![image](https://github.com/user-attachments/assets/124ddbe0-8dd1-4659-832d-a6cc097ab547)
+
+##### Quiz Summary
+
+![image](https://github.com/user-attachments/assets/97983508-10d5-4618-98a7-b7a428af4607)
+
+#### Word Matching
+
+#### Sentence Builder
+
+![image](https://github.com/user-attachments/assets/c8f8b691-0c7d-4ecd-9631-24dfb6e6a919)
+
+##### Incorrect Sentence
+
+![image](https://github.com/user-attachments/assets/3cf87e74-239f-4a18-a203-80bfe4110376)
+
+##### Correct Sentence
+
+#### Flashcards
+
+Front of flashcard with Urdu Word
+
+![image](https://github.com/user-attachments/assets/a824bc03-09e6-46d3-b3ea-2a407d8898e9)
+
+Reverse of flashcard with English Word and explanation
+
+![image](https://github.com/user-attachments/assets/9bab8355-feb6-431b-92d0-56866bdece20)
+
+#### Listening Practice
+
+##### V1
+
+![image](https://github.com/user-attachments/assets/2ac90ed2-5d30-477c-a8ce-629cd29865bf)
+
+##### V2
+
+This version displays the YouTube Video so it can be reviewed
+
+![image](https://github.com/user-attachments/assets/b7b83935-ca57-4177-b3fa-3ffc705381cb)
+
+######  Statistics
+
+![image](https://github.com/user-attachments/assets/68799597-e5b5-4779-808e-359bda9b48ef)
+
+##### Quiz Scored
+
+![image](https://github.com/user-attachments/assets/1e45896c-2fa5-4a8a-bfff-282540282d9a)
+
+#### Urdu Conversations
+
+![image](https://github.com/user-attachments/assets/8acc5c59-e0f1-43aa-a07a-7d0e1a35aaf8)
+
 ## Running the Application
 
 ### Development
