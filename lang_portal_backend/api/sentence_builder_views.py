@@ -276,16 +276,32 @@ class SentenceBuilderViewSet(viewsets.ViewSet):
                     best_distance = results['distances'][1][0]
                     best_metadata = results['metadatas'][1][0]
         
-        # Use a more lenient threshold (0.5 instead of 0.3)
-        if best_metadata and best_distance < 0.5:
+        # Use a stricter threshold (0.3 instead of 0.5)
+        # Log the sentence and similarity score for debugging
+        print(f"Validating sentence: '{normalized_sentence}' with similarity score: {1 - best_distance if best_metadata else 0}")
+        
+        # Basic grammar check - ensure sentence has at least a subject and a verb
+        words = normalized_sentence.split()
+        has_valid_structure = False
+        
+        # Only validate if we have at least 2 words (minimum for subject+verb)
+        if len(words) >= 2:
+            # Check if we have a valid similarity match
+            if best_metadata and best_distance < 0.3:
+                has_valid_structure = True
+        
+        if has_valid_structure:
             is_valid = True
             pattern_id = best_metadata.get('pattern_id')
             feedback = f"Good job! Your sentence follows a valid pattern: {best_metadata.get('pattern')}"
-        elif best_metadata:
-            # Suggest the closest pattern
-            feedback = f"Your sentence doesn't quite match a valid pattern. Try using this structure: {best_metadata.get('pattern')}"
-            if best_metadata.get('example'):
-                feedback += f" Example: {best_metadata.get('example')}"
+        else:
+            is_valid = False
+            pattern_id = None
+            if best_metadata:
+                # Suggest the closest pattern
+                feedback = f"Your sentence doesn't quite match a valid pattern. Try using this structure: {best_metadata.get('pattern')}"
+                if best_metadata.get('example'):
+                    feedback += f" Example: {best_metadata.get('example')}"
         
         # Save the user sentence
         user_sentence = UserSentence.objects.create(
