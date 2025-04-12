@@ -17,7 +17,7 @@ const navigation = [
   { name: 'Study Activities', href: '/study_activities', icon: BookOpen },
   { name: 'Words', href: '/words', icon: Type },
   { name: 'Groups', href: '/groups', icon: Users },
-  { name: 'Document Summary', href: 'http://localhost:8501/', icon: NotebookPen, external: true },
+  { name: 'Document Summary', href: import.meta.env.VITE_DOCUMENT_SUMMARY_URL, icon: NotebookPen, external: true },
   { name: 'Urdu Conversations', href: '/apps/adaptive-conversations', icon: MessageCircle },
   { name: 'Study Sessions', href: '/study_sessions', icon: Calendar },
   { name: 'Stats', href: '/stats', icon: BarChart2 },

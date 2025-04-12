@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./lang_portal_backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./lang_portal_backend:/app
+      - ./lang_portal_backend/words.db:/app/words.db
+    environment:
+      - DEBUG=1
+      - DOCKER_CONTAINER=1
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./lang_portal_frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://backend:8080}
+        - VITE_DOCUMENT_SUMMARY_URL=${VITE_DOCUMENT_SUMMARY_URL:-http://streamlit:8501}
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-http://backend:8080}
+      - VITE_DOCUMENT_SUMMARY_URL=${VITE_DOCUMENT_SUMMARY_URL:-http://streamlit:8501}
+    depends_on:
+      - backend
+    restart: unless-stopped

@@ -5,6 +5,7 @@ from .flashcard_views import FlashcardGameViewSet
 from .audio_views import synthesize_speech, get_youtube_audio_segment
 from .sentence_builder_views import WordCategoryViewSet, SentenceWordViewSet, SentencePatternViewSet, SentenceBuilderViewSet
 from .adaptive_conversations_views import AdaptiveConversationsViewSet, send_adaptive_message, get_conversation_history
+from .debug_views import debug_log_test
 
 router = routers.DefaultRouter(trailing_slash=True)
 router.register(r'study_activities', views.StudyActivityViewSet, basename='study_activities')
@@ -53,6 +54,9 @@ urlpatterns = [
     # Adaptive conversations endpoints
     path('adaptive-conversations/message', send_adaptive_message, name='send_adaptive_message'),
     path('adaptive-conversations/history/<str:conversation_id>', get_conversation_history, name='get_conversation_history'),
+    
+    # Debug endpoint
+    path('debug/log_test', debug_log_test, name='debug_log_test'),
     
     # Include router URLs at the end
     path('', include(router.urls)),

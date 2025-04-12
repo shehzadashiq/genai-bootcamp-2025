@@ -9,6 +9,10 @@ import json
 import boto3
 from langchain_community.embeddings import BedrockEmbeddings
 import numpy as np
+import sys
+import traceback
+import shutil
+import datetime
 
 from .sentence_builder_models import WordCategory, SentenceWord, SentencePattern, UserSentence
 from .sentence_builder_serializers import (
@@ -23,11 +27,51 @@ from .sentence_builder_serializers import (
 CHROMA_PERSIST_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'chroma_db', 'sentence_builder')
 os.makedirs(CHROMA_PERSIST_DIR, exist_ok=True)
 
+print("=" * 80)
+print("SENTENCE BUILDER: Initializing views")
+print(f"CHROMA_PERSIST_DIR: {CHROMA_PERSIST_DIR}")
+print("=" * 80)
+sys.stdout.flush()
+
+# Reset ChromaDB directory to fix corruption
+if os.path.exists(CHROMA_PERSIST_DIR):
+    # Create backup directory
+    backup_dir = os.path.join(os.path.dirname(CHROMA_PERSIST_DIR), 
+                            f"sentence_builder_backup_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}")
+    
+    try:
+        # Copy the entire directory to backup
+        if not os.path.exists(backup_dir):
+            shutil.copytree(CHROMA_PERSIST_DIR, backup_dir)
+        print(f"SENTENCE BUILDER: Created backup at: {backup_dir}")
+        sys.stdout.flush()
+        
+        # Remove the entire directory
+        shutil.rmtree(CHROMA_PERSIST_DIR)
+        print("SENTENCE BUILDER: Removed corrupted directory")
+        sys.stdout.flush()
+        
+        # Create a fresh directory
+        os.makedirs(CHROMA_PERSIST_DIR, exist_ok=True)
+        print("SENTENCE BUILDER: Created fresh directory")
+        sys.stdout.flush()
+    except Exception as e:
+        print(f"SENTENCE BUILDER ERROR: Failed to reset directory: {str(e)}")
+        traceback.print_exc()
+        sys.stdout.flush()
+
 # Initialize Bedrock client for embeddings
-bedrock_runtime = boto3.client(
-    service_name="bedrock-runtime",
-    region_name="us-east-1"
-)
+try:
+    bedrock_runtime = boto3.client(
+        service_name="bedrock-runtime",
+        region_name="us-east-1"
+    )
+    print("SENTENCE BUILDER: Successfully initialized Bedrock client")
+    sys.stdout.flush()
+except Exception as e:
+    print(f"SENTENCE BUILDER ERROR: Failed to initialize Bedrock client: {str(e)}")
+    traceback.print_exc()
+    sys.stdout.flush()
 
 # Initialize Bedrock embeddings
 embeddings = BedrockEmbeddings(
@@ -36,19 +80,87 @@ embeddings = BedrockEmbeddings(
 )
 
 # Initialize ChromaDB client
-chroma_client = chromadb.Client(chromadb.Settings(
-    persist_directory=CHROMA_PERSIST_DIR,
-    chroma_db_impl="duckdb+parquet",
-))
-
-# Create or get the collection
 try:
-    sentence_collection = chroma_client.get_collection("sentence_patterns")
-except:
-    sentence_collection = chroma_client.create_collection(
-        name="sentence_patterns",
-        metadata={"hnsw:space": "cosine"}
-    )
+    print("SENTENCE BUILDER: Initializing ChromaDB client")
+    sys.stdout.flush()
+    
+    # Create a fresh ChromaDB client using the Client class (compatible with older versions)
+    chroma_client = chromadb.Client(chromadb.Settings(
+        persist_directory=CHROMA_PERSIST_DIR,
+        chroma_db_impl="duckdb+parquet",
+    ))
+    
+    # Check if collection exists, if not create it
+    try:
+        sentence_collection = chroma_client.get_collection(name="sentence_patterns")
+        print(f"SENTENCE BUILDER: Found existing collection 'sentence_patterns'")
+    except Exception as e:
+        print(f"SENTENCE BUILDER: Creating new collection 'sentence_patterns'")
+        sentence_collection = chroma_client.create_collection(
+            name="sentence_patterns",
+            metadata={"hnsw:space": "cosine"}
+        )
+    
+    # Initialize the collection with existing patterns from the database
+    try:
+        # Get all patterns from the database
+        patterns = SentencePattern.objects.all()
+        print(f"SENTENCE BUILDER: Found {len(patterns)} patterns in database")
+        
+        if patterns:
+            # Check if collection is empty
+            collection_count = sentence_collection.count()
+            if collection_count == 0:
+                print(f"SENTENCE BUILDER: Adding {len(patterns)} patterns to ChromaDB")
+                
+                # Prepare data for batch addition
+                ids = []
+                embeddings_list = []
+                metadatas = []
+                documents = []
+                
+                for pattern in patterns:
+                    pattern_text = f"{pattern.pattern} - {pattern.example if pattern.example else ''}"
+                    try:
+                        # Generate embedding for the pattern
+                        pattern_embedding = embeddings.embed_query(pattern_text)
+                        
+                        # Add to lists for batch addition
+                        ids.append(f"pattern_{pattern.id}")
+                        embeddings_list.append(pattern_embedding)
+                        metadatas.append({
+                            "pattern_id": pattern.id,
+                            "pattern": pattern.pattern,
+                            "example": pattern.example,
+                            "difficulty_level": pattern.difficulty_level
+                        })
+                        documents.append(pattern_text)
+                        
+                        print(f"SENTENCE BUILDER: Generated embedding for pattern {pattern.id}: {pattern.pattern}")
+                    except Exception as e:
+                        print(f"SENTENCE BUILDER ERROR: Failed to generate embedding for pattern {pattern.id}: {str(e)}")
+                
+                # Add all patterns to ChromaDB in one batch
+                if ids:
+                    sentence_collection.add(
+                        ids=ids,
+                        embeddings=embeddings_list,
+                        metadatas=metadatas,
+                        documents=documents
+                    )
+                    print(f"SENTENCE BUILDER: Successfully added {len(ids)} patterns to ChromaDB")
+            else:
+                print(f"SENTENCE BUILDER: Collection already contains {collection_count} items, skipping initialization")
+    except Exception as e:
+        print(f"SENTENCE BUILDER ERROR: Failed to initialize collection with patterns: {str(e)}")
+        traceback.print_exc()
+    
+    print("SENTENCE BUILDER: ChromaDB initialized successfully")
+    sys.stdout.flush()
+except Exception as e:
+    print(f"SENTENCE BUILDER ERROR: Failed to initialize ChromaDB: {str(e)}")
+    traceback.print_exc()
+    sys.stdout.flush()
 
 class WordCategoryViewSet(viewsets.ModelViewSet):
     """API endpoint for word categories"""

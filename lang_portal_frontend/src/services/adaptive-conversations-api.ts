@@ -28,7 +28,7 @@ export interface ConversationHistoryResponse {
 }
 
 // API service
-const API_URL = 'http://localhost:8080/api/adaptive-conversations'
+const API_URL = `${import.meta.env.VITE_API_URL}/api/adaptive-conversations`
 
 export const adaptiveConversationsApi = {
   /**
