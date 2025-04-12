@@ -19,8 +19,14 @@ class TextToSpeechService:
             region_name=os.getenv('AWS_REGION', 'us-east-1')
         )
         
-        # Initialize Google Cloud Text-to-Speech client
-        self.google_client = texttospeech.TextToSpeechClient()
+        # Initialize Google Cloud Text-to-Speech client if credentials are available
+        self.google_client = None
+        try:
+            self.google_client = texttospeech.TextToSpeechClient()
+            logger.info("Google Cloud Text-to-Speech client initialized successfully")
+        except Exception as e:
+            logger.warning(f"Google Cloud Text-to-Speech client initialization failed: {str(e)}")
+            logger.warning("Will use AWS Polly for all languages including Urdu")
         
         # Create audio cache directory if it doesn't exist
         self.cache_dir = "/app/audio_cache"
@@ -62,36 +68,59 @@ class TextToSpeechService:
             filepath = os.path.join(self.cache_dir, filename)
             logger.info(f"Will save audio to: {filepath}")
 
-            if lang == 'ur-PK':
+            if self.google_client and lang == 'ur-PK':
                 # Use Google Cloud Text-to-Speech for Urdu
-                synthesis_input = texttospeech.SynthesisInput(text=text)
-                
-                # Build the voice request
-                voice = texttospeech.VoiceSelectionParams(
-                    language_code='ur-PK',  # Urdu (Pakistan)
-                    ssml_gender=texttospeech.SsmlVoiceGender.NEUTRAL
-                )
-                
-                # Select the type of audio file
-                audio_config = texttospeech.AudioConfig(
-                    audio_encoding=texttospeech.AudioEncoding.MP3,
-                    speaking_rate=0.85  # Slightly slower for better clarity
-                )
-                
-                # Perform the text-to-speech request
-                response = self.google_client.synthesize_speech(
-                    input=synthesis_input,
-                    voice=voice,
-                    audio_config=audio_config
-                )
-                
-                # Save the audio stream to a file
-                os.makedirs(os.path.dirname(filepath), exist_ok=True)
-                with open(filepath, 'wb') as file:
-                    file.write(response.audio_content)
-                
-                logger.info("Generated Urdu audio using Google Cloud TTS")
-                
+                try:
+                    synthesis_input = texttospeech.SynthesisInput(text=text)
+                    
+                    # Build the voice request
+                    voice = texttospeech.VoiceSelectionParams(
+                        language_code='ur-PK',  # Urdu (Pakistan)
+                        ssml_gender=texttospeech.SsmlVoiceGender.NEUTRAL
+                    )
+                    
+                    # Select the type of audio file
+                    audio_config = texttospeech.AudioConfig(
+                        audio_encoding=texttospeech.AudioEncoding.MP3,
+                        speaking_rate=0.85  # Slightly slower for better clarity
+                    )
+                    
+                    # Perform the text-to-speech request
+                    response = self.google_client.synthesize_speech(
+                        input=synthesis_input,
+                        voice=voice,
+                        audio_config=audio_config
+                    )
+                    
+                    # Save the audio stream to a file
+                    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+                    with open(filepath, 'wb') as file:
+                        file.write(response.audio_content)
+                    
+                    logger.info("Generated Urdu audio using Google Cloud TTS")
+                    
+                except Exception as e:
+                    logger.warning(f"Google TTS failed for Urdu, falling back to AWS Polly: {str(e)}")
+                    # Fall back to AWS Polly for Urdu
+                    voice_id = 'Aditi'  # Use Hindi voice as fallback for Urdu
+                    ssml_text = self._create_ssml(text, 'hi-IN')
+                    
+                    # Request speech synthesis from Polly
+                    response = self.polly_client.synthesize_speech(
+                        Text=ssml_text,
+                        OutputFormat='mp3',
+                        VoiceId=voice_id,
+                        LanguageCode='hi-IN',
+                        Engine='standard',
+                        TextType='ssml'
+                    )
+                    
+                    # Save the audio stream to a file
+                    if "AudioStream" in response:
+                        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+                        with open(filepath, 'wb') as file:
+                            file.write(response['AudioStream'].read())
+                        logger.info("Generated Urdu audio using AWS Polly with Hindi voice as fallback")
             else:
                 # Use Amazon Polly for other languages
                 voice_id = 'Joanna' if lang == 'en-US' else 'Aditi'  # Aditi for Hindi
