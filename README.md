@@ -119,6 +119,8 @@ Sample Data is available in [Sample Data](./opea-comps/docsum_service/sample_dat
 
 ##### Correct Sentence
 
+![image](https://github.com/user-attachments/assets/493ae327-dfbb-4c34-8aad-c9be5e8d9f48)
+
 #### Flashcards
 
 Front of flashcard with Urdu Word
