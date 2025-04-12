@@ -28,6 +28,7 @@ GenAI Bootcamp 2025 is 6 Weeks Of Free Online GenAI Training And Hands-on Progra
       - [Sentence Builder](#sentence-builder)
         - [Incorrect Sentence](#incorrect-sentence)
         - [Correct Sentence](#correct-sentence)
+        - [Fixed Logic](#fixed-logic)
       - [Flashcards](#flashcards)
       - [Listening Practice](#listening-practice)
         - [Listening Practice V1](#listening-practice-v1)
@@ -149,6 +150,12 @@ Sample Data is available in [Sample Data](./opea-comps/docsum_service/sample_dat
 ##### Correct Sentence
 
 ![image](https://github.com/user-attachments/assets/493ae327-dfbb-4c34-8aad-c9be5e8d9f48)
+
+##### Fixed Logic 
+
+There was bug because the marking was too lenient. This is now fixed
+
+![image](https://github.com/user-attachments/assets/6dd3bc59-33ee-4f17-a1a5-798ff0873364)
 
 #### Flashcards
 

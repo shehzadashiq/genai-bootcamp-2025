@@ -16,6 +16,12 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+      - AWS_BUCKET_NAME=${AWS_BUCKET_NAME}
+    command: >
+      bash -c "python manage.py migrate &&
+               python manage.py load_seed_data &&
+               python manage.py seed_data &&
+               python manage.py runserver 0.0.0.0:8080"
     restart: unless-stopped
 
   frontend:
@@ -24,12 +30,61 @@ services:
       dockerfile: Dockerfile
       args:
         - VITE_API_URL=${VITE_API_URL:-http://backend:8080}
-        - VITE_DOCUMENT_SUMMARY_URL=${VITE_DOCUMENT_SUMMARY_URL:-http://streamlit:8501}
+        - VITE_DOCUMENT_SUMMARY_URL=http://localhost:8501
     ports:
       - "80:80"
     environment:
       - VITE_API_URL=${VITE_API_URL:-http://backend:8080}
-      - VITE_DOCUMENT_SUMMARY_URL=${VITE_DOCUMENT_SUMMARY_URL:-http://streamlit:8501}
+      - VITE_DOCUMENT_SUMMARY_URL=http://localhost:8501
     depends_on:
-      - backend
+      backend:
+        condition: service_started
+      docsum-frontend:
+        condition: service_started
     restart: unless-stopped
+
+  docsum-api:
+    build:
+      context: ./opea-comps/docsum_service
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_DEFAULT_REGION}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+      - AWS_BUCKET_NAME=genai-docsum-shehzad
+      - BEDROCK_MODEL_ID=${BEDROCK_MODEL_ID}
+      - BEDROCK_REGION=${AWS_DEFAULT_REGION}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/google_credentials.json
+    volumes:
+      - ./opea-comps/docsum_service/data:/app/data
+      - ./opea-comps/docsum_service/audio_cache:/app/audio_cache
+      - ./opea-comps/docsum_service/credentials:/app/credentials
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  docsum-frontend:
+    build:
+      context: ./opea-comps/docsum_service
+      dockerfile: Dockerfile
+    command: streamlit run frontend/streamlit_app.py --server.port 8501
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://docsum-api:8002
+      - INTERNAL_API_URL=http://docsum-api:8002
+    depends_on:
+      docsum-api:
+        condition: service_healthy
+    volumes:
+      - ./opea-comps/docsum_service/frontend:/app/frontend
+    restart: unless-stopped
+
+volumes:
+  frontend_node_modules:
