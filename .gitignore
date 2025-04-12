@@ -25,5 +25,6 @@ lang_portal_backend/audio_cache/*
 lang_portal_backend/vector_store/index/*
 lang_portal_backend/transcript_cache/*
 lang_portal_backend/vector_store/chroma-embeddings.parquet
+lang_portal_backend/vector_store/chroma-collections.parquet
 lang_portal_backend/vector_store_backup*
 lang_portal_backend/words.db
