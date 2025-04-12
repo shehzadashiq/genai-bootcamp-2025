@@ -41,24 +41,37 @@ class StudyActivityViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = PageNumberPagination
 
     def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return Response({
-                'items': serializer.data,
-                'pagination': {
-                    'current_page': int(request.query_params.get('page', 1)),
-                    'total_pages': self.paginator.page.paginator.num_pages,
-                    'total_items': self.paginator.page.paginator.count,
-                    'items_per_page': self.paginator.page_size
+        logger.debug(f"StudyActivityViewSet.list called with request: {request.path}")
+        try:
+            queryset = self.get_queryset()
+            logger.debug(f"Retrieved queryset with {queryset.count()} items")
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                response_data = {
+                    'items': serializer.data,
+                    'pagination': {
+                        'current_page': int(request.query_params.get('page', 1)),
+                        'total_pages': self.paginator.page.paginator.num_pages,
+                        'total_items': self.paginator.page.paginator.count,
+                        'items_per_page': self.paginator.page_size
+                    }
                 }
-            })
-        serializer = self.get_serializer(queryset, many=True)
-        return Response({
-            'items': serializer.data,
-            'pagination': None
-        })
+                logger.debug(f"Returning paginated response with {len(serializer.data)} items")
+                return Response(response_data)
+            serializer = self.get_serializer(queryset, many=True)
+            response_data = {
+                'items': serializer.data,
+                'pagination': None
+            }
+            logger.debug(f"Returning non-paginated response with {len(serializer.data)} items")
+            return Response(response_data)
+        except Exception as e:
+            logger.error(f"Error in StudyActivityViewSet.list: {str(e)}", exc_info=True)
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 @method_decorator(csrf_exempt, name='dispatch')
 class StudySessionViewSet(viewsets.ReadOnlyModelViewSet):

@@ -29,3 +29,9 @@ tqdm==4.66.2
 python-dotenv==1.0.1
 PyYAML==6.0.1
 tenacity==8.2.3
+
+# Google TTS
+google-cloud-texttospeech
+
+# Langchain AWS
+langchain-aws

@@ -16,7 +16,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-default-key-change-this')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 't')
 
 ALLOWED_HOSTS = ['*']  # Allow all hosts in development
 
@@ -48,6 +48,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'lang_portal_backend.middleware.RequestLoggingMiddleware',  # Add custom request logging middleware
 ]
 
 ROOT_URLCONF = 'lang_portal_backend.urls'
@@ -172,37 +173,63 @@ LOGGING = {
             'format': '{asctime} - {name} - {levelname} - {message}',
             'style': '{',
         },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
+            'level': 'DEBUG',  # Ensure console handler shows all messages
         },
         'file': {
             'class': 'logging.FileHandler',
             'filename': 'debug.log',
             'formatter': 'verbose',
             'mode': 'w',
+            'level': 'DEBUG',  # Ensure file handler shows all messages
         },
     },
     'loggers': {
         '': {  # Root logger
             'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+        },
+        'django': {  # Django logger
+            'handlers': ['console', 'file'],
             'level': 'INFO',
+            'propagate': False,
         },
         'routers': {
             'handlers': ['console', 'file'],
-            'level': 'INFO',
+            'level': 'DEBUG',
             'propagate': False,
         },
         'services': {
             'handlers': ['console', 'file'],
-            'level': 'INFO',
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'api': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'lang_portal_backend': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
             'propagate': False,
         },
         'django.server': {
             'handlers': ['console', 'file'],
-            'level': 'INFO',
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'django.request': {  # Add this to log all requests
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
             'propagate': False,
         },
     },
