@@ -41,6 +41,10 @@ The `/journal` directory contains
 
 This project creates an application to aid Urdu learners by using different activities.
 
+[Walkthrough On YouTube](https://youtu.be/w7EdVDwti7A)
+
+The video walks thorugh how the application uses different activities to aid learning.
+
 ## Components
 
 | Activity       |  Purpose                         |
