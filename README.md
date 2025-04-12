@@ -10,13 +10,38 @@ GenAI Bootcamp 2025 is 6 Weeks Of Free Online GenAI Training And Hands-on Progra
   - [Journal](#journal)
   - [Overview](#overview)
   - [Components](#components)
+    - [Document Summary](#document-summary)
+      - [URL](#url)
+      - [Text](#text)
+      - [Document](#document)
+      - [Image](#image)
+      - [Video](#video)
+      - [YouTube](#youtube)
+        - [V1](#v1)
+        - [V2](#v2)
+      - [Dataset](#dataset)
+    - [Study Activities](#study-activities)
+      - [Vocabulary Quiz](#vocabulary-quiz)
+        - [Quiz Question](#quiz-question)
+        - [Quiz Summary](#quiz-summary)
+      - [Word Matching](#word-matching)
+      - [Sentence Builder](#sentence-builder)
+        - [Incorrect Sentence](#incorrect-sentence)
+        - [Correct Sentence](#correct-sentence)
+      - [Flashcards](#flashcards)
+      - [Listening Practice](#listening-practice)
+        - [Listening Practice V1](#listening-practice-v1)
+        - [Listening Practice V2](#listening-practice-v2)
+          - [Statistics](#statistics)
+        - [Quiz Scored](#quiz-scored)
+      - [Graceful Recovery](#graceful-recovery)
+      - [Urdu Conversations](#urdu-conversations)
   - [Running the Application](#running-the-application)
     - [Development](#development)
       - [Configure Environment Variables](#configure-environment-variables)
       - [Non Docker](#non-docker)
         - [Backend](#backend)
         - [Frontend](#frontend)
-        - [Document Summary](#document-summary)
       - [Docker](#docker)
     - [Production](#production)
       - [Document Summary Service](#document-summary-service)
@@ -137,17 +162,17 @@ Reverse of flashcard with English Word and explanation
 
 #### Listening Practice
 
-##### V1
+##### Listening Practice V1
 
 ![image](https://github.com/user-attachments/assets/2ac90ed2-5d30-477c-a8ce-629cd29865bf)
 
-##### V2
+##### Listening Practice V2
 
 This version displays the YouTube Video so it can be reviewed
 
 ![image](https://github.com/user-attachments/assets/b7b83935-ca57-4177-b3fa-3ffc705381cb)
 
-######  Statistics
+###### Statistics
 
 ![image](https://github.com/user-attachments/assets/68799597-e5b5-4779-808e-359bda9b48ef)
 
@@ -160,7 +185,6 @@ This version displays the YouTube Video so it can be reviewed
 The listening service relies on transcripts from the video. If there is no transcript then the application notifies the user.
 
 ![image](https://github.com/user-attachments/assets/33854bbe-5a9b-4b6c-85b2-b2ce0aa27f34)
-
 
 #### Urdu Conversations
 
@@ -212,13 +236,6 @@ python manage.py runserver 8080
 cd lang_portal_frontend
 npm install
 npm run dev
-```
-
-##### Document Summary
-
-```bash
-cd opea-comps/docsum_service
-python3 -m docsum_service
 ```
 
 #### Docker
