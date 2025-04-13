@@ -386,6 +386,7 @@ def seed_words():
 def seed_sentence_patterns():
     """Seed sentence patterns and add to ChromaDB"""
     patterns = [
+        # Basic patterns (already included)
         {
             "pattern": "subject verb",
             "description": "Simple sentence with subject and verb",
@@ -432,6 +433,135 @@ def seed_sentence_patterns():
             "pattern": "subject adverb verb",
             "description": "Subject with adverb modifying the verb (without full stop)",
             "example": "میں تیزی سے جاتا/جاتی ہوں (I quickly go)",
+            "difficulty_level": 2
+        },
+        
+        # Additional patterns from the comprehensive list
+        # Present tense
+        {
+            "pattern": "subject object verb present",
+            "description": "Subject-Object-Verb in present tense",
+            "example": "وہ کتاب پڑھتا ہے۔ (He reads a book.)",
+            "difficulty_level": 1
+        },
+        # Past tense
+        {
+            "pattern": "subject object verb past",
+            "description": "Subject-Object-Verb in past tense",
+            "example": "اُس نے کھانا کھایا۔ (He ate the food.)",
+            "difficulty_level": 1
+        },
+        # Future tense
+        {
+            "pattern": "subject object verb future",
+            "description": "Subject-Object-Verb in future tense",
+            "example": "وہ اسکول جائے گا۔ (He will go to school.)",
+            "difficulty_level": 2
+        },
+        # Present continuous
+        {
+            "pattern": "subject object continuous present",
+            "description": "Subject-Object-Verb in present continuous",
+            "example": "وہ کہانی سنا رہا ہے۔ (He is telling a story.)",
+            "difficulty_level": 2
+        },
+        # Past continuous
+        {
+            "pattern": "subject object continuous past",
+            "description": "Subject-Object-Verb in past continuous",
+            "example": "وہ گانا گا رہا تھا۔ (He was singing a song.)",
+            "difficulty_level": 2
+        },
+        # Future continuous
+        {
+            "pattern": "subject object continuous future",
+            "description": "Subject-Object-Verb in future continuous",
+            "example": "وہ کام کر رہا ہوگا۔ (He will be working.)",
+            "difficulty_level": 3
+        },
+        # Present perfect
+        {
+            "pattern": "subject object perfect present",
+            "description": "Subject-Object-Verb in present perfect",
+            "example": "وہ کھانا کھا چکا ہے۔ (He has eaten the food.)",
+            "difficulty_level": 3
+        },
+        # Past perfect
+        {
+            "pattern": "subject object perfect past",
+            "description": "Subject-Object-Verb in past perfect",
+            "example": "وہ خط لکھ چکا تھا۔ (He had written the letter.)",
+            "difficulty_level": 3
+        },
+        # Future perfect
+        {
+            "pattern": "subject object perfect future",
+            "description": "Subject-Object-Verb in future perfect",
+            "example": "وہ کام مکمل کر چکا ہوگا۔ (He will have completed the task.)",
+            "difficulty_level": 3
+        },
+        
+        # Question forms
+        # Yes/No questions
+        {
+            "pattern": "question subject object verb",
+            "description": "Yes/No question with کیا",
+            "example": "کیا وہ اسکول جاتا ہے؟ (Does he go to school?)",
+            "difficulty_level": 2
+        },
+        # WH-questions
+        {
+            "pattern": "wh-word subject object verb",
+            "description": "WH-question",
+            "example": "تم کیا کھا رہے ہو؟ (What are you eating?)",
+            "difficulty_level": 2
+        },
+        
+        # Imperative forms
+        {
+            "pattern": "verb object",
+            "description": "Imperative (command)",
+            "example": "دروازہ بند کرو۔ (Close the door.)",
+            "difficulty_level": 1
+        },
+        {
+            "pattern": "negative verb object",
+            "description": "Negative imperative",
+            "example": "شور نہ مچاؤ۔ (Don't make noise.)",
+            "difficulty_level": 2
+        },
+        
+        # Compound sentences
+        {
+            "pattern": "subject verb conjunction subject verb",
+            "description": "Compound sentence with conjunction",
+            "example": "وہ کھیلتا ہے اور ہنستا ہے۔ (He plays and laughs.)",
+            "difficulty_level": 3
+        },
+        {
+            "pattern": "conditional clause result clause",
+            "description": "Conditional sentence",
+            "example": "اگر وہ آئے گا، تو ہم چلیں گے۔ (If he comes, then we will go.)",
+            "difficulty_level": 3
+        },
+        
+        # Advanced structures
+        {
+            "pattern": "object passive verb",
+            "description": "Passive voice",
+            "example": "خط لکھا گیا۔ (The letter was written.)",
+            "difficulty_level": 3
+        },
+        {
+            "pattern": "subject emphasis object verb",
+            "description": "Sentence with emphasis",
+            "example": "وہی آیا تھا۔ (He (and no one else) had come.)",
+            "difficulty_level": 3
+        },
+        {
+            "pattern": "subject object negative verb",
+            "description": "Negative sentence",
+            "example": "وہ سکول نہیں گیا۔ (He did not go to school.)",
             "difficulty_level": 2
         }
     ]
