@@ -97,3 +97,73 @@ Support sentences with or without the Urdu full stop (۔).
 - Seed dataset of Urdu words, sentences, and their embeddings stored in ChromaDB.
 - Sample RAG pipeline with embedded query → retrieve → suggest workflow.
 - Manual validation option for user satisfaction.
+
+## Valid Urdu Sentence Structures
+
+The Sentence Builder validates various Urdu sentence structures. Below are examples of valid sentence patterns:
+
+### Basic Sentence Structures
+
+| Urdu Structure | English Structure | Example (Urdu) | Example (English) |
+|----------------|-------------------|----------------|-------------------|
+| فاعل + مفعول + فعل (حال) | Subject + Object + Verb (Present) | وہ کتاب پڑھتا ہے۔ | He reads a book. |
+| فاعل + مفعول + فعل (ماضی) | Subject + Object + Verb (Past) | اُس نے کھانا کھایا۔ | He ate the food. |
+| فاعل + مفعول + فعل (مستقبل) | Subject + Object + Verb (Future) | وہ اسکول جائے گا۔ | He will go to school. |
+| فاعل + صفت + مفعول + فعل | Subject + Adjective + Object + Verb | میں گرم چائے پیتا ہوں۔ | I drink hot tea. |
+
+### Continuous Tense Structures
+
+| Urdu Structure | English Structure | Example (Urdu) | Example (English) |
+|----------------|-------------------|----------------|-------------------|
+| فاعل + مفعول + رہا/رہی/رہے + ہے/ہیں | Subject + Object + is/are + Verb-ing | وہ کہانی سنا رہا ہے۔ | He is telling a story. |
+| فاعل + مفعول + رہا/رہی/رہے + تھا/تھی/تھے | Subject + Object + was/were + Verb-ing | وہ گانا گا رہا تھا۔ | He was singing a song. |
+| فاعل + مفعول + رہا/رہی/رہے + ہوگا/ہوں گے | Subject + Object + will be + Verb-ing | وہ کام کر رہا ہوگا۔ | He will be working. |
+
+### Perfect Tense Structures
+
+| Urdu Structure | English Structure | Example (Urdu) | Example (English) |
+|----------------|-------------------|----------------|-------------------|
+| فاعل + مفعول + چکا/چکی/چکے + ہے/ہیں | Subject + Object + has/have + Verb (done) | وہ کھانا کھا چکا ہے۔ | He has eaten the food. |
+| فاعل + مفعول + چکا/چکی/چکے + تھا/تھی/تھے | Subject + Object + had + Verb (done) | وہ خط لکھ چکا تھا۔ | He had written the letter. |
+| فاعل + مفعول + چکا/چکی/چکے + ہوگا/ہوں گے | Subject + Object + will have + Verb (done) | وہ کام مکمل کر چکا ہوگا۔ | He will have completed the task. |
+
+### Question Structures
+
+| Urdu Structure | English Structure | Example (Urdu) | Example (English) |
+|----------------|-------------------|----------------|-------------------|
+| کیا + فاعل + مفعول + فعل؟ | Do/Does/Did + Subject + Verb + Object? | کیا وہ اسکول جاتا ہے؟ | Does he go to school? |
+| سوالیہ لفظ + فاعل + مفعول + فعل؟ | WH-word + Subject + Verb + Object? | تم کیا کھا رہے ہو؟ | What are you eating? |
+
+### Imperative Structures
+
+| Urdu Structure | English Structure | Example (Urdu) | Example (English) |
+|----------------|-------------------|----------------|-------------------|
+| فعل + (مفعول) | Verb + (Object) | دروازہ بند کرو۔ | Close the door. |
+| نہ + فعل + (مفعول) | Don't + Verb + (Object) | شور نہ مچاؤ۔ | Don't make noise. |
+
+### Compound Structures
+
+| Urdu Structure | English Structure | Example (Urdu) | Example (English) |
+|----------------|-------------------|----------------|-------------------|
+| فاعل + مفعول + فعل + conjunction + فاعل + مفعول + فعل | Subject + Verb + and/but + Subject + Verb | وہ کھیلتا ہے اور ہنستا ہے۔ | He plays and laughs. |
+| اگر + شرط + تو + نتیجہ | If + condition + then + result | اگر وہ آئے گا، تو ہم چلیں گے۔ | If he comes, then we will go. |
+
+### Advanced Structures
+
+| Urdu Structure | English Structure | Example (Urdu) | Example (English) |
+|----------------|-------------------|----------------|-------------------|
+| مفعول + فعل (passive) + گیا/گئی/گئے + ہے/تھا/تھی | Object + was + Verb (passive) | خط لکھا گیا۔ | The letter was written. |
+| فاعل + ہی + مفعول + فعل | Subject + only/emphasis + Verb | وہی آیا تھا۔ | He (and no one else) had come. |
+| فاعل + مفعول + نہیں + فعل | Subject + not + Verb + Object | وہ سکول نہیں گیا۔ | He did not go to school. |
+
+### Word-by-Word Analysis Example
+
+For the sentence: "میں گرم چائے پیتا ہوں" (I drink hot tea)
+
+| Word | Role | Type |
+|------|------|------|
+| میں | Subject (فاعل) | Pronoun |
+| گرم | Modifier (صفت) | Adjective |
+| چائے | Object (مفعول) | Noun |
+| پیتا | Verb Root (فعل) | Present tense |
+| ہوں | Auxiliary Verb | Present Auxiliary |
